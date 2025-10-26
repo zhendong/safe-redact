@@ -176,7 +176,7 @@ export class LLMDetector {
             confidence: aggEntity.score,
             position,
             detectionMethod: 'ml_ner',
-            status: 'pending',
+            status: 'rejected',
             contextText,
           });
         }

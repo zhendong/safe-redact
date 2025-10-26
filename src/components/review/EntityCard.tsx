@@ -125,7 +125,7 @@ export function EntityCard({
             )}
 
             {/* Confirm All Button */}
-            {onConfirmAll && similarCount !== undefined && similarCount > 1 && entity.status === 'pending' && (
+            {onConfirmAll && similarCount !== undefined && similarCount > 1 && entity.status === 'rejected' && (
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -195,7 +195,7 @@ export function EntityCard({
       )}
 
       {/* Confirm All Button for similar entities */}
-      {onConfirmAll && similarCount !== undefined && similarCount > 1 && entity.status === 'pending' && (
+      {onConfirmAll && similarCount !== undefined && similarCount > 1 && entity.status === 'rejected' && (
         <div className="ml-8">
           <button
             onClick={(e) => {

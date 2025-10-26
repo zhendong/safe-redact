@@ -139,10 +139,6 @@ function App() {
     return filteredEntities.filter((e) => e.status === 'confirmed').length;
   }, [filteredEntities]);
 
-  const pendingCount = useMemo(() => {
-    return filteredEntities.filter((e) => e.status === 'pending').length;
-  }, [filteredEntities]);
-
   // Save detection config to localStorage whenever it changes
   const handleConfigChange = (config: DetectionConfig) => {
     setDetectionConfig(config);
@@ -515,7 +511,7 @@ function App() {
               confidence: 1.0,
               position,
               detectionMethod: 'manual',
-              status: 'pending',
+              status: 'rejected',
               contextText: `Found on page ${page.pageNumber}`,
             };
             foundEntities.push(entity);
@@ -1230,7 +1226,6 @@ function App() {
                   confidenceCounts={confidenceCounts}
                   filteredCount={filteredEntities.length}
                   confirmedCount={confirmedCount}
-                  pendingCount={pendingCount}
                 />
               </div>
 
@@ -1264,8 +1259,7 @@ function App() {
                     confidenceCounts={confidenceCounts}
                     filteredCount={filteredEntities.length}
                     confirmedCount={confirmedCount}
-                    pendingCount={pendingCount}
-                  />
+                    />
                 </div>
 
                 {/* Mobile Entity List - Only visible when viewMode is 'entities' */}
@@ -1289,8 +1283,7 @@ function App() {
                     confidenceCounts={confidenceCounts}
                     filteredCount={filteredEntities.length}
                     confirmedCount={confirmedCount}
-                    pendingCount={pendingCount}
-                    compactCards={true}
+                      compactCards={true}
                   />
                 </div>
 

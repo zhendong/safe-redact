@@ -64,7 +64,7 @@ export type DetectionMethod = 'ml_ner' | 'regex' | 'custom' | 'manual';
 /**
  * Entity review status
  */
-export type EntityStatus = 'pending' | 'confirmed' | 'rejected' | 'modified';
+export type EntityStatus = 'confirmed' | 'rejected';
 
 // ============================================================================
 // DOCUMENT PROCESSING

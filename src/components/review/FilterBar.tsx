@@ -17,7 +17,6 @@ interface FilterBarProps {
   confidenceCounts: { high: number; medium: number; low: number };
   filteredCount: number;
   confirmedCount: number;
-  pendingCount: number;
 }
 
 export function FilterBar({
@@ -33,7 +32,6 @@ export function FilterBar({
   confidenceCounts,
   filteredCount,
   confirmedCount,
-  pendingCount,
 }: FilterBarProps) {
   const [isFilterExpanded, setIsFilterExpanded] = useState(false);
 

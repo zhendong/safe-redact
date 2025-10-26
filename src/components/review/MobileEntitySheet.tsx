@@ -23,7 +23,6 @@ interface MobileEntitySheetProps {
   confidenceCounts?: { high: number; medium: number; low: number };
   filteredCount?: number;
   confirmedCount?: number;
-  pendingCount?: number;
 }
 
 export function MobileEntitySheet({
@@ -47,7 +46,6 @@ export function MobileEntitySheet({
   confidenceCounts,
   filteredCount,
   confirmedCount,
-  pendingCount,
 }: MobileEntitySheetProps) {
   return (
     <BottomSheet isOpen={isOpen} onClose={onClose} title="Entities">
@@ -74,7 +72,6 @@ export function MobileEntitySheet({
           confidenceCounts={confidenceCounts}
           filteredCount={filteredCount}
           confirmedCount={confirmedCount}
-          pendingCount={pendingCount}
           compactCards={true}
         />
       </div>

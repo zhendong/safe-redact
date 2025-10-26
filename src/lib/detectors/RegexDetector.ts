@@ -41,7 +41,7 @@ export class RegexDetector {
             id: generateId(),
             detectionMethod: 'regex' as const,
             confidence,
-            status: 'pending' as const,
+            status: 'rejected' as const,
             position: {
               pageNumber: 1, // DOCX doesn't have pages in XML
               textIndex: match.index,
@@ -130,7 +130,7 @@ export class RegexDetector {
           confidence,
           position,
           detectionMethod: 'regex',
-          status: 'pending',
+          status: 'rejected',
           contextText,
         });
       }
@@ -655,7 +655,7 @@ export class RegexDetector {
           confidence,
           position,
           detectionMethod: 'regex',
-          status: 'pending',
+          status: 'rejected',
           contextText,
         });
       }

@@ -24,7 +24,6 @@ interface EntityListProps {
   confidenceCounts?: { high: number; medium: number; low: number };
   filteredCount?: number;
   confirmedCount?: number;
-  pendingCount?: number;
   compactCards?: boolean;
 }
 
@@ -47,7 +46,6 @@ export function EntityList({
   confidenceCounts,
   filteredCount,
   confirmedCount,
-  pendingCount,
   compactCards = false,
 }: EntityListProps) {
   const [isFilterExpanded, setIsFilterExpanded] = useState(false);
@@ -57,7 +55,7 @@ export function EntityList({
       (e) =>
         e.text === entity.text &&
         e.entityType === entity.entityType &&
-        e.status === 'pending'
+        e.status === 'rejected'
     );
   };
 
