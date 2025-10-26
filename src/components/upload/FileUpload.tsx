@@ -231,7 +231,7 @@ export function FileUpload({ onFileSelect }: FileUploadProps) {
               >
                 GitHub
               </a>
-              . Contributions, bug reports, and feature requests are welcomed!
+              . Contributions, bug reports, and feature requests are welcome!
             </p>
           </details>
         </div>
