@@ -27,7 +27,7 @@ export function EntityCard({
   const color = getEntityColor(entity.entityType);
   const displayName = getEntityDisplayName(entity.entityType);
   const confidencePercent = Math.round(entity.confidence * 100);
-  const isChecked = entity.status === 'confirmed' || entity.status === 'pending';
+  const isChecked = entity.status === 'confirmed';
 
   const getConfidenceColor = (confidence: number) => {
     if (confidence >= 0.9) return 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30';

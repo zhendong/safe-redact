@@ -65,7 +65,7 @@ export function FilterBar({
             </div>
             <div className="flex items-center gap-1">
               <span className="text-green-600 dark:text-green-400">Selected:</span>
-              <span className="font-semibold text-green-700 dark:text-green-300">{confirmedCount + pendingCount}</span>
+              <span className="font-semibold text-green-700 dark:text-green-300">{confirmedCount}</span>
             </div>
           </div>
           <button
@@ -118,7 +118,7 @@ export function FilterBar({
           </div>
           <div className="flex items-center gap-2">
             <span className="font-medium text-green-700 dark:text-green-400">Selected:</span>
-            <span className="font-semibold text-green-900 dark:text-green-300">{confirmedCount + pendingCount}</span>
+            <span className="font-semibold text-green-900 dark:text-green-300">{confirmedCount}</span>
           </div>
         </div>
       </div>

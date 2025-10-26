@@ -121,7 +121,7 @@ export function EntityList({
               </div>
               <div className="flex items-center gap-1">
                 <span className="text-green-600 dark:text-green-400">Selected:</span>
-                <span className="font-semibold text-green-700 dark:text-green-300">{(confirmedCount ?? 0) + (pendingCount ?? 0)}</span>
+                <span className="font-semibold text-green-700 dark:text-green-300">{confirmedCount ?? 0}</span>
               </div>
             </div>
           )}
@@ -170,7 +170,7 @@ export function EntityList({
 
             {/* Context-aware Select/Unselect All */}
             {(() => {
-              const allSelected = entities.every((e) => e.status !== 'rejected');
+              const allSelected = entities.every((e) => e.status === 'confirmed');
 
               if (allSelected) {
                 return (
@@ -191,7 +191,7 @@ export function EntityList({
                   <button
                     onClick={() => {
                       const idsToConfirm = entities
-                        .filter((e) => e.status === 'rejected')
+                        .filter((e) => e.status !== 'confirmed')
                         .map((e) => e.id);
 
                       if (idsToConfirm.length > 0) {
