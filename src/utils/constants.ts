@@ -47,6 +47,16 @@ export const LLM_CHUNKING = {
   TOKEN_LIMIT: 512,      // Model token limit
 } as const;
 
+// MemPrivacy (generative LLM) chunking configuration.
+// The model has a huge context window and the cost is in *generation*, not
+// input length, so we use larger input chunks to minimize the number of (slow)
+// autoregressive passes.
+export const MEMPRIVACY_CHUNKING = {
+  CHUNK_SIZE: 3000,      // Larger input chunks -> fewer generations
+  CHUNK_OVERLAP: 200,    // Overlap to catch entities at boundaries
+  MAX_NEW_TOKENS: 1024,  // Output is just the extracted PII list
+} as const;
+
 // PDF redaction settings
 export const PDF_REDACTION = {
   MARGIN: 2,              // Margin around redaction box (pixels)
@@ -63,7 +73,9 @@ export const DETECTION_TIMEOUT_MS = 120000; // 2 minutes
 export const REDACTION_TIMEOUT_MS = 60000; // 1 minute
 
 // Model configuration
-export const ML_MODEL_NAME = 'Xenova/bert-base-NER';
+// MemPrivacy-1.7B-RL exported to ONNX for transformers.js (q4f16, WebGPU).
+// Update this to the HuggingFace repo id the web build is published under.
+export const ML_MODEL_NAME = 'zhendongliu/MemPrivacy-1.7B-RL-ONNX';
 export const MODEL_CACHE_KEY = 'transformers-cache';
 
 // Storage keys

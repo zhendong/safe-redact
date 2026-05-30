@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import type { DetectionConfig } from '@/lib/types';
 import { EntityType } from '@/lib/types';
-import { STORAGE_KEYS, DEFAULT_CONFIDENCE_THRESHOLDS } from '@/utils/constants';
-import { LLMDetector } from '@/lib/detectors/LLMDetector';
+import { STORAGE_KEYS, DEFAULT_CONFIDENCE_THRESHOLDS, ML_MODEL_NAME } from '@/utils/constants';
+import { MemPrivacyDetector } from '@/lib/detectors/MemPrivacyDetector';
 import {
   getPredefinedWords,
   addPredefinedWord,
@@ -89,14 +89,22 @@ export function SettingsPanel({
   const handleMLModelToggle = async (enabled: boolean) => {
     setLocalConfig({ ...localConfig, useMLModel: enabled });
 
+    if (!enabled) return;
+
+    if (!MemPrivacyDetector.isWebGPUSupported()) {
+      setModelDownloadMessage('This browser does not support WebGPU. Use Chrome/Edge 113+.');
+      setLocalConfig({ ...localConfig, useMLModel: false });
+      return;
+    }
+
     // If enabling ML model, preload it in the background
-    if (enabled && !LLMDetector.isModelLoaded()) {
+    if (!MemPrivacyDetector.isModelLoaded()) {
       setIsDownloadingModel(true);
       setModelDownloadProgress(0);
       setModelDownloadMessage('Starting download...');
 
       try {
-        await LLMDetector.preloadModel('Xenova/bert-base-NER', (progress, message) => {
+        await MemPrivacyDetector.preloadModel(ML_MODEL_NAME, (progress, message) => {
           setModelDownloadProgress(progress);
           setModelDownloadMessage(message);
         });
@@ -442,16 +450,21 @@ export function SettingsPanel({
               <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
                 <label className="flex items-center justify-between cursor-pointer">
                   <div className="flex-1 mr-3">
-                    <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Local LLM (Transformers.js)</div>
+                    <div className="text-sm font-medium text-gray-700 dark:text-gray-300">MemPrivacy-1.7B (Local, WebGPU)</div>
                     <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      Use AI for advanced entity detection (runs in browser)
+                      Context-aware PII detection (PL2–PL4) — runs fully in your browser
                     </div>
-                    {!LLMDetector.isModelLoaded() && !isDownloadingModel && (
-                      <div className="text-xs text-amber-600 mt-1">
-                        Note: First use will download ~110MB model
+                    {!MemPrivacyDetector.isWebGPUSupported() && (
+                      <div className="text-xs text-red-600 mt-1">
+                        Requires a WebGPU-capable browser (Chrome/Edge 113+)
                       </div>
                     )}
-                    {LLMDetector.isModelLoaded() && (
+                    {MemPrivacyDetector.isWebGPUSupported() && !MemPrivacyDetector.isModelLoaded() && !isDownloadingModel && (
+                      <div className="text-xs text-amber-600 mt-1">
+                        Note: first use downloads ~1.5GB (cached after); detection is slower than regex
+                      </div>
+                    )}
+                    {MemPrivacyDetector.isModelLoaded() && (
                       <div className="text-xs text-green-600 mt-1">
                         ✓ Model ready
                       </div>
@@ -461,7 +474,7 @@ export function SettingsPanel({
                     type="checkbox"
                     checked={localConfig.useMLModel}
                     onChange={(e) => handleMLModelToggle(e.target.checked)}
-                    disabled={isDownloadingModel}
+                    disabled={isDownloadingModel || !MemPrivacyDetector.isWebGPUSupported()}
                     className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 flex-shrink-0 disabled:opacity-50"
                   />
                 </label>

@@ -12,6 +12,7 @@ A privacy-focused document redaction tool that automatically detects and redacts
 
 ### 🔍 Smart Detection
 - **Automatic Detection**: Uses regex patterns and ML-based detection to find sensitive information
+- **Context-Aware AI**: Optional in-browser [MemPrivacy-1.7B-RL](https://huggingface.co/IAAR-Shanghai/MemPrivacy-1.7B-RL) model classifies privacy spans by sensitivity level (PL2–PL4) — catching contextual PII (passwords, tokens, account IDs, addresses, medical/financial details) that pattern matching misses
 - **Multiple Detection Methods**: Combines pattern matching with machine learning for high accuracy
 - **Customizable Patterns**: Add your own predefined words and custom detection rules
 - **Language Support**: Detects content in multiple languages (Latin, Chinese, Arabic, etc.)
@@ -177,7 +178,7 @@ npm test
 - **Vite**: Fast build tool and dev server
 - **MuPDF**: PDF parsing, rendering, and manipulation
 - **PizZip + Mammoth**: DOCX processing
-- **Transformers.js**: ML-based entity detection (optional)
+- **Transformers.js + WebGPU**: In-browser ML detection running MemPrivacy-1.7B-RL (Qwen3) quantized to 4-bit weights + fp16 (q4f16) (optional; ~1.5GB, downloaded once and cached, requires a WebGPU-capable browser)
 - **Tailwind CSS**: Utility-first styling
 
 ## Privacy & Security
