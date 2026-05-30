@@ -14,7 +14,7 @@ import type { ParseProgress } from '@/lib/parsers/PdfParser';
 import { DocxParser } from '@/lib/parsers/DocxParser';
 import type { ParsedDocx } from '@/lib/parsers/DocxParser';
 import { RegexDetector } from '@/lib/detectors/RegexDetector';
-import { LLMDetector } from '@/lib/detectors/LLMDetector';
+import { MemPrivacyDetector } from '@/lib/detectors/MemPrivacyDetector';
 import { EntityAggregator } from '@/lib/detectors/EntityAggregator';
 import { RedactionEngine } from '@/lib/redaction/RedactionEngine';
 import { DocxRedactor } from '@/lib/redaction/DocxRedactor';
@@ -22,6 +22,7 @@ import { DocxViewer } from '@/components/viewer/DocxViewer';
 import type { ProcessedDocument, ProcessedPage, ProcessingStage, DetectedEntity, BoundingBox, EntityType, DetectionConfig } from '@/lib/types';
 import { EntityType as EntityTypeEnum } from '@/lib/types';
 import { generateId } from '@/utils/validation';
+import { extractContext } from '@/utils/text-utils';
 import { STORAGE_KEYS, DEFAULT_CONFIDENCE_THRESHOLDS } from '@/utils/constants';
 import { generateRedactedFilename } from '@/utils/file-utils';
 import { useMemo } from 'react';
@@ -743,16 +744,16 @@ function App() {
       allEntities.push(...regexEntities);
     }
 
-    // Detect entities using LLM if enabled
+    // Detect entities using the MemPrivacy LLM if enabled
     if (detectionConfig.useMLModel) {
       try {
         setProcessingStage({
           stage: 'loading_model',
           progress: 60,
-          message: 'Loading LLM model...',
+          message: 'Loading MemPrivacy model...',
         });
 
-        const llmDetector = new LLMDetector();
+        const llmDetector = new MemPrivacyDetector();
         await llmDetector.initialize((progress, message) => {
           setProcessingStage({
             stage: 'loading_model',
@@ -764,7 +765,7 @@ function App() {
         setProcessingStage({
           stage: 'detecting',
           progress: 75,
-          message: 'Detecting entities with LLM...',
+          message: 'Detecting privacy with MemPrivacy...',
         });
 
         // Use page-based detection for PDFs with mupdf positioning
@@ -772,7 +773,7 @@ function App() {
           setProcessingStage({
             stage: 'detecting',
             progress: 75 + (progress * 0.10), // 75-85%
-            message: `Detecting entities with LLM... ${progress}%`,
+            message: `Detecting privacy with MemPrivacy... ${progress}%`,
           });
         });
 
@@ -780,11 +781,11 @@ function App() {
 
         await llmDetector.dispose();
       } catch (error) {
-        console.error('LLM detection failed, continuing with regex only:', error);
+        console.error('MemPrivacy detection failed, continuing with regex only:', error);
         setProcessingStage({
           stage: 'detecting',
           progress: 85,
-          message: 'LLM detection failed, using regex patterns only...',
+          message: 'MemPrivacy detection failed, using regex patterns only...',
         });
       }
     }
@@ -853,16 +854,16 @@ function App() {
       allEntities.push(...regexEntities);
     }
 
-    // Detect entities using LLM if enabled
+    // Detect entities using the MemPrivacy LLM if enabled
     if (detectionConfig.useMLModel) {
       try {
         setProcessingStage({
           stage: 'loading_model',
           progress: 70,
-          message: 'Loading LLM model...',
+          message: 'Loading MemPrivacy model...',
         });
 
-        const llmDetector = new LLMDetector();
+        const llmDetector = new MemPrivacyDetector();
         await llmDetector.initialize((progress, message) => {
           setProcessingStage({
             stage: 'loading_model',
@@ -874,27 +875,45 @@ function App() {
         setProcessingStage({
           stage: 'detecting',
           progress: 85,
-          message: 'Detecting entities with LLM...',
+          message: 'Detecting privacy with MemPrivacy...',
         });
 
-        const llmEntities = await llmDetector.detectEntitiesInChunks(docx.fullText, 512, (progress) => {
+        const llmEntities = await llmDetector.detectEntitiesInChunks(docx.fullText, undefined, (progress) => {
           setProcessingStage({
             stage: 'detecting',
             progress: 85 + (progress * 0.10), // 85-95%
-            message: `Detecting entities with LLM... ${progress}%`,
+            message: `Detecting privacy with MemPrivacy... ${progress}%`,
           });
         });
-        console.log(JSON.stringify(llmEntities));
-        // TODO: Convert simplified entities to DetectedEntity format
-        // allEntities.push(...llmEntities);
-        console.log(JSON.stringify(allEntities));
+
+        // Convert the model's text-only results into DetectedEntity objects.
+        // DOCX has no PDF geometry, so positions mirror the RegexDetector DOCX
+        // shape (page 1, text index, zero bounding box).
+        for (const item of llmEntities) {
+          const index = docx.fullText.indexOf(item.text);
+          allEntities.push({
+            id: generateId(),
+            text: item.text,
+            entityType: item.entityType,
+            confidence: item.confidence,
+            position: {
+              pageNumber: 1,
+              textIndex: index,
+              boundingBox: { x: 0, y: 0, width: 0, height: 0 },
+            },
+            detectionMethod: 'ml_ner',
+            status: 'rejected',
+            contextText: index !== -1 ? extractContext(docx.fullText, index, item.text.length) : item.text,
+          });
+        }
+
         await llmDetector.dispose();
       } catch (error) {
-        console.error('LLM detection failed, continuing with regex only:', error);
+        console.error('MemPrivacy detection failed, continuing with regex only:', error);
         setProcessingStage({
           stage: 'detecting',
           progress: 95,
-          message: 'LLM detection failed, using regex patterns only...',
+          message: 'MemPrivacy detection failed, using regex patterns only...',
         });
       }
     }
