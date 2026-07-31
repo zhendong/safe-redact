@@ -1,10 +1,12 @@
 import type { ProcessingStage } from '@/lib/types';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface ProgressIndicatorProps {
   stage: ProcessingStage;
 }
 
 export function ProgressIndicator({ stage }: ProgressIndicatorProps) {
+  const { t } = useLanguage();
   return (
     <div className="w-full max-w-md mx-auto p-6">
       <div className="mb-4">
@@ -29,11 +31,11 @@ export function ProgressIndicator({ stage }: ProgressIndicatorProps) {
       </div>
       <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
         {stage.stage === 'loading_model' &&
-          'The model is cached after first use'}
+          t('progress.loadingModelCached')}
         {stage.stage === 'parsing' &&
-          'Extracting text from your document...'}
+          t('progress.parsingText')}
         {stage.stage === 'detecting' &&
-          'Scanning for sensitive information...'}
+          t('progress.detectingSensitive')}
       </p>
     </div>
   );

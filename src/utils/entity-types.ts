@@ -1,4 +1,5 @@
 import { EntityType } from '@/lib/types';
+import { translations, type Language } from '@/i18n/translations';
 
 /**
  * Entity type metadata including colors and display names
@@ -77,17 +78,21 @@ export function getEntityColor(entityType: EntityType): string {
 }
 
 /**
- * Get entity type display name
+ * Get entity type display name, translated for the given language
  */
-export function getEntityDisplayName(entityType: EntityType): string {
-  return ENTITY_TYPE_METADATA[entityType]?.displayName || entityType;
+export function getEntityDisplayName(entityType: EntityType, language: Language = 'en'): string {
+  return translations[language].entityTypes[entityType]?.name
+    || ENTITY_TYPE_METADATA[entityType]?.displayName
+    || entityType;
 }
 
 /**
- * Get entity type description
+ * Get entity type description, translated for the given language
  */
-export function getEntityDescription(entityType: EntityType): string {
-  return ENTITY_TYPE_METADATA[entityType]?.description || '';
+export function getEntityDescription(entityType: EntityType, language: Language = 'en'): string {
+  return translations[language].entityTypes[entityType]?.description
+    || ENTITY_TYPE_METADATA[entityType]?.description
+    || '';
 }
 
 /**

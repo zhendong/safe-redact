@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { DetectedEntity } from '@/lib/types';
 import { getEntityColor, getEntityDisplayName } from '@/utils/entity-types';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface EntityCardProps {
   entity: DetectedEntity;
@@ -23,9 +24,10 @@ export function EntityCard({
   similarCount,
   compact = false,
 }: EntityCardProps) {
+  const { language, t } = useLanguage();
   const [isExpanded, setIsExpanded] = useState(false);
   const color = getEntityColor(entity.entityType);
-  const displayName = getEntityDisplayName(entity.entityType);
+  const displayName = getEntityDisplayName(entity.entityType, language);
   const confidencePercent = Math.round(entity.confidence * 100);
   const isChecked = entity.status === 'confirmed';
 
@@ -69,7 +71,7 @@ export function EntityCard({
             checked={isChecked}
             onChange={handleCheckboxChange}
             className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-green-600 focus:ring-green-500 focus:ring-1 cursor-pointer flex-shrink-0"
-            title={isChecked ? "Uncheck to skip redaction" : "Check to redact"}
+            title={isChecked ? t('entityCard.uncheckToSkip') : t('entityCard.checkToRedact')}
             onClick={(e) => e.stopPropagation()}
           />
 
@@ -92,7 +94,7 @@ export function EntityCard({
               {confidencePercent}%
             </span>
             <span className="text-xs text-gray-500 dark:text-gray-400">
-              P{entity.position.pageNumber}
+              {t('entityCard.pageShort', { page: entity.position.pageNumber })}
             </span>
           </div>
 
@@ -133,7 +135,7 @@ export function EntityCard({
                 }}
                 className="w-full px-3 py-1.5 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50 rounded transition-colors"
               >
-                ✓ Check All Similar ({similarCount})
+                {t('entityCard.checkAllSimilar', { count: similarCount })}
               </button>
             )}
           </div>
@@ -159,7 +161,7 @@ export function EntityCard({
           checked={isChecked}
           onChange={handleCheckboxChange}
           className="w-5 h-5 mt-0.5 rounded border-gray-300 dark:border-gray-600 text-green-600 focus:ring-green-500 focus:ring-2 cursor-pointer flex-shrink-0"
-          title={isChecked ? "Uncheck to skip redaction" : "Check to redact"}
+          title={isChecked ? t('entityCard.uncheckToSkip') : t('entityCard.checkToRedact')}
           onClick={(e) => e.stopPropagation()}
         />
 
@@ -179,7 +181,7 @@ export function EntityCard({
               {confidencePercent}%
             </span>
             <span className="text-xs text-gray-500 dark:text-gray-400 ml-auto">
-              Page {entity.position.pageNumber}
+              {t('entityCard.page', { page: entity.position.pageNumber })}
             </span>
           </div>
           <p className="text-sm font-medium text-gray-900 dark:text-gray-100 break-all">
@@ -204,7 +206,7 @@ export function EntityCard({
             }}
             className="px-3 py-1.5 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50 rounded transition-colors"
           >
-            ✓ Check All Similar ({similarCount})
+            {t('entityCard.checkAllSimilar', { count: similarCount })}
           </button>
         </div>
       )}

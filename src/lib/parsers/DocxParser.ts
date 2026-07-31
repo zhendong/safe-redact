@@ -35,6 +35,11 @@ export interface DocxHiddenContentWarning {
   locations?: string[];
   count?: number;
   details?: string;
+  // Structured data used to re-render description/details in the active UI language
+  insertions?: number;
+  deletions?: number;
+  moves?: number;
+  formatChanges?: number;
 }
 
 export type DocxHiddenContentType =
@@ -480,6 +485,10 @@ export class DocxParser {
             severity: 'high',
             description: `Found ${totalChanges} tracked change(s) that may reveal editing history`,
             count: totalChanges,
+            insertions: insertions?.length || 0,
+            deletions: deletions?.length || 0,
+            moves: moves?.length || 0,
+            formatChanges: formatChanges?.length || 0,
             details: details.join(', '),
           };
         }

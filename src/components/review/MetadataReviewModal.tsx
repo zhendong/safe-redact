@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { HiddenContentReport, ExtractedImage } from '@/lib/types';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { translateHiddenContentWarning, translateHiddenContentSummary } from '@/utils/hidden-content-i18n';
 
 interface DocumentMetadata {
   title?: string;
@@ -39,6 +41,7 @@ export function MetadataReviewModal({
   hiddenContentReport,
   fileType,
 }: MetadataReviewModalProps) {
+  const { language, t } = useLanguage();
   const [imagePreviews, setImagePreviews] = useState<Map<string, string>>(new Map());
 
   // Separate images from other metadata
@@ -109,12 +112,12 @@ export function MetadataReviewModal({
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-            Document Metadata & Hidden Content
+            {t('metadataModal.title')}
           </h2>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-            aria-label="Close modal"
+            aria-label={t('metadataModal.closeModal')}
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -130,7 +133,7 @@ export function MetadataReviewModal({
               <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
               </svg>
-              Document Metadata
+              {t('metadataModal.documentMetadata')}
             </h3>
 
             {hasMetadata ? (
@@ -138,8 +141,8 @@ export function MetadataReviewModal({
                 <table className="w-full text-sm">
                   <thead className="bg-gray-100 dark:bg-gray-800">
                     <tr>
-                      <th className="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Property</th>
-                      <th className="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">Value</th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">{t('metadataModal.property')}</th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-700 dark:text-gray-300">{t('metadataModal.value')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -168,7 +171,7 @@ export function MetadataReviewModal({
                   <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
-                  No metadata found in this document
+                  {t('metadataModal.noMetadata')}
                 </p>
               </div>
             )}
@@ -180,7 +183,7 @@ export function MetadataReviewModal({
               <svg className="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
               </svg>
-              Hidden Content Analysis
+              {t('metadataModal.hiddenContentAnalysis')}
             </h3>
 
             {hasHiddenContent ? (
@@ -191,11 +194,13 @@ export function MetadataReviewModal({
                     : 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800'
                 }`}>
                   <p className="text-sm font-medium text-gray-900 dark:text-white mb-2">
-                    {hiddenContentReport.summary}
+                    {translateHiddenContentSummary(hiddenContentReport.warnings, language)}
                   </p>
                 </div>
 
-                {hiddenContentReport.warnings.map((warning, index) => (
+                {hiddenContentReport.warnings.map((warning, index) => {
+                  const { description, details } = translateHiddenContentWarning(warning, language);
+                  return (
                   <div
                     key={index}
                     className={`rounded-lg border p-4 ${
@@ -226,10 +231,10 @@ export function MetadataReviewModal({
                             ? 'text-yellow-900 dark:text-yellow-200'
                             : 'text-blue-900 dark:text-blue-200'
                         }`}>
-                          {warning.description}
+                          {description}
                           {warning.count && ` (${warning.count})`}
                         </div>
-                        {warning.details && (
+                        {details && (
                           <p className={`text-xs mt-1 ${
                             warning.severity === 'high'
                               ? 'text-red-700 dark:text-red-300'
@@ -237,7 +242,7 @@ export function MetadataReviewModal({
                               ? 'text-yellow-700 dark:text-yellow-300'
                               : 'text-blue-700 dark:text-blue-300'
                           }`}>
-                            {warning.details}
+                            {details}
                           </p>
                         )}
                         {warning.pageNumbers && warning.pageNumbers.length > 0 && (
@@ -248,7 +253,7 @@ export function MetadataReviewModal({
                               ? 'text-yellow-700 dark:text-yellow-300'
                               : 'text-blue-700 dark:text-blue-300'
                           }`}>
-                            Pages: {warning.pageNumbers.join(', ')}
+                            {t('metadataModal.pages', { pages: warning.pageNumbers.join(', ') })}
                           </p>
                         )}
                       </div>
@@ -259,11 +264,12 @@ export function MetadataReviewModal({
                           ? 'bg-yellow-200 dark:bg-yellow-900/50 text-yellow-900 dark:text-yellow-200'
                           : 'bg-blue-200 dark:bg-blue-900/50 text-blue-900 dark:text-blue-200'
                       }`}>
-                        {warning.severity.toUpperCase()}
+                        {t(`common.${warning.severity}`).toUpperCase()}
                       </span>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
 
                 <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
                   <div className="flex items-start gap-3">
@@ -271,7 +277,7 @@ export function MetadataReviewModal({
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                     <div className="text-sm text-blue-800 dark:text-blue-200">
-                      <strong>Recommendation:</strong> Enable "Sanitize Document" in Settings to automatically remove metadata and hidden content when applying redactions.
+                      <strong>{t('metadataModal.recommendation')}</strong> {t('metadataModal.recommendationText')}
                     </div>
                   </div>
                 </div>
@@ -282,7 +288,7 @@ export function MetadataReviewModal({
                   <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
-                  No hidden content detected in this document
+                  {t('metadataModal.noHiddenContent')}
                 </p>
               </div>
             )}
@@ -294,7 +300,7 @@ export function MetadataReviewModal({
               <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
-              Document Images
+              {t('metadataModal.documentImages')}
             </h3>
 
             {hasImages ? (
@@ -306,10 +312,10 @@ export function MetadataReviewModal({
                     </svg>
                     <div className="flex-1">
                       <p className="text-sm font-medium text-purple-900 dark:text-purple-100">
-                        Found {images!.length} image{images!.length !== 1 ? 's' : ''} in this document
+                        {t('metadataModal.foundImages', { count: images!.length })}
                       </p>
                       <p className="text-xs mt-1 text-purple-700 dark:text-purple-300">
-                        Images may contain sensitive information or metadata. Review carefully before sharing.
+                        {t('metadataModal.imagesWarning')}
                       </p>
                     </div>
                   </div>
@@ -318,7 +324,7 @@ export function MetadataReviewModal({
                 <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
                   <div className="flex items-center justify-between mb-3">
                     <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
-                      Extracted Images
+                      {t('metadataModal.extractedImages')}
                     </h4>
                     {images!.length > 1 && (
                       <button
@@ -328,7 +334,7 @@ export function MetadataReviewModal({
                         <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                         </svg>
-                        Download All
+                        {t('metadataModal.downloadAll')}
                       </button>
                     )}
                   </div>
@@ -363,19 +369,19 @@ export function MetadataReviewModal({
                               <p className="text-xs text-gray-500 dark:text-gray-400">
                                 {image.mimeType}
                                 {image.width && image.height && ` • ${image.width}x${image.height}`}
-                                {image.pageNumber && ` • Page ${image.pageNumber}`}
+                                {image.pageNumber && ` • ${t('common.page')} ${image.pageNumber}`}
                               </p>
                             </div>
                           </div>
                           <button
                             onClick={() => downloadImage(image)}
                             className="ml-2 px-2 py-1 text-xs bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors flex items-center gap-1 flex-shrink-0"
-                            title="Download image"
+                            title={t('metadataModal.downloadImage')}
                           >
                             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                             </svg>
-                            Download
+                            {t('metadataModal.download')}
                           </button>
                         </div>
                       );
@@ -389,7 +395,7 @@ export function MetadataReviewModal({
                   <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
-                  No images found in this document
+                  {t('metadataModal.noImages')}
                 </p>
               </div>
             )}
@@ -402,7 +408,7 @@ export function MetadataReviewModal({
             onClick={onClose}
             className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-medium rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
           >
-            Close
+            {t('metadataModal.close')}
           </button>
         </div>
       </div>

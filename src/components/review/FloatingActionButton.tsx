@@ -1,3 +1,5 @@
+import { useLanguage } from '@/contexts/LanguageContext';
+
 interface FloatingActionButtonProps {
   entityCount: number;
   selectedCount: number;
@@ -5,11 +7,12 @@ interface FloatingActionButtonProps {
 }
 
 export function FloatingActionButton({ entityCount, selectedCount, onClick }: FloatingActionButtonProps) {
+  const { t } = useLanguage();
   return (
     <button
       onClick={onClick}
       className="fixed bottom-6 right-6 z-30 lg:hidden w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all flex items-center justify-center group"
-      aria-label="View entities"
+      aria-label={t('floatingActionButton.viewEntities')}
     >
       {/* Badge with count */}
       {entityCount > 0 && (
@@ -42,7 +45,7 @@ export function FloatingActionButton({ entityCount, selectedCount, onClick }: Fl
 
       {/* Tooltip */}
       <span className="absolute bottom-full mb-2 right-0 bg-gray-900 text-white text-xs py-1 px-2 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-        View Entities
+        {t('floatingActionButton.viewEntities')}
       </span>
     </button>
   );

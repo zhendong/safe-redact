@@ -18,6 +18,10 @@ export interface HiddenContentWarning {
   pageNumbers?: number[];
   count?: number;
   details?: string;
+  // Structured data used to re-render description/details in the active UI language
+  hiddenLayerCount?: number;
+  hiddenLayerNames?: string[];
+  fileNames?: string[];
 }
 
 export type HiddenContentType =
@@ -645,6 +649,8 @@ export class PdfParser {
           severity: 'high',
           description: `Document contains ${layerCount} Optional Content Group(s) (layers) that can hide/show content`,
           count: layerCount,
+          hiddenLayerCount: hiddenLayers.length,
+          hiddenLayerNames: hiddenLayers,
           details: hiddenLayers.length > 0
             ? `Found ${hiddenLayers.length} hidden layer(s): ${hiddenLayers.join(', ')}. Enable "Sanitize Document" to remove all layers when exporting.`
             : `All ${layerCount} layers are currently visible. Enable "Sanitize Document" to remove all layers when exporting.`,
@@ -797,6 +803,7 @@ export class PdfParser {
           severity: 'high',
           description: `Found ${fileNames.length} embedded file(s) that may contain sensitive information`,
           count: fileNames.length,
+          fileNames,
           details: `Embedded files: ${fileNames.slice(0, 5).join(', ')}${fileNames.length > 5 ? ` and ${fileNames.length - 5} more...` : ''}`,
         };
       } catch (e) {

@@ -1,5 +1,6 @@
 import { EntityType } from '@/lib/types';
 import { getEntityDisplayName, getEntityColor } from '@/utils/entity-types';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface FilterPanelProps {
   enabledTypes: Set<EntityType>;
@@ -22,13 +23,14 @@ export function FilterPanel({
   onToggleConfidence,
   confidenceCounts,
 }: FilterPanelProps) {
+  const { language, t } = useLanguage();
   const allEntityTypes = Object.values(EntityType);
 
   return (
     <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
       {/* Entity Types - Horizontal Pills */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Types:</span>
+        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('filterPanel.types')}</span>
         <div className="flex flex-wrap gap-2">
           {allEntityTypes.map((type) => {
             const count = entityCounts[type] || 0;
@@ -57,7 +59,7 @@ export function FilterPanel({
                   style={{ backgroundColor: color }}
                 />
                 <span className="font-medium">
-                  {getEntityDisplayName(type)}
+                  {getEntityDisplayName(type, language)}
                 </span>
                 <span className={`text-xs opacity-75 ${!isEnabled ? 'text-gray-500 dark:text-gray-400' : ''}`}>
                   {count}
@@ -73,7 +75,7 @@ export function FilterPanel({
 
       {/* Confidence Levels - Horizontal Pills */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Confidence:</span>
+        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('filterPanel.confidence')}</span>
         <div className="flex flex-wrap gap-2">
           <button
             onClick={() => onToggleConfidence('high')}
@@ -83,7 +85,7 @@ export function FilterPanel({
                 : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border-2 border-transparent opacity-50'
             }`}
           >
-            <span className="font-medium">High</span>
+            <span className="font-medium">{t('common.high')}</span>
             <span className="text-xs opacity-75">{confidenceCounts.high}</span>
           </button>
 
@@ -95,7 +97,7 @@ export function FilterPanel({
                 : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border-2 border-transparent opacity-50'
             }`}
           >
-            <span className="font-medium">Medium</span>
+            <span className="font-medium">{t('common.medium')}</span>
             <span className="text-xs opacity-75">{confidenceCounts.medium}</span>
           </button>
 
@@ -107,7 +109,7 @@ export function FilterPanel({
                 : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border-2 border-transparent opacity-50'
             }`}
           >
-            <span className="font-medium">Low</span>
+            <span className="font-medium">{t('common.low')}</span>
             <span className="text-xs opacity-75">{confidenceCounts.low}</span>
           </button>
         </div>

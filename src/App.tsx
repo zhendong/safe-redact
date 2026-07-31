@@ -26,12 +26,14 @@ import { STORAGE_KEYS, DEFAULT_CONFIDENCE_THRESHOLDS } from '@/utils/constants';
 import { generateRedactedFilename } from '@/utils/file-utils';
 import { useMemo } from 'react';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 type AppStage = 'upload' | 'preview' | 'processing' | 'review' | 'redacting' | 'complete';
 type FileType = 'pdf' | 'docx';
 
 function App() {
   const { theme, toggleTheme } = useTheme();
+  const { language, t, toggleLanguage } = useLanguage();
   const [stage, setStage] = useState<AppStage>('upload');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fileType, setFileType] = useState<FileType | null>(null);
@@ -595,7 +597,7 @@ function App() {
     );
 
     if (confirmedEntities.length === 0) {
-      setError('No entities confirmed for redaction');
+      setError(t('errors.noEntitiesConfirmed'));
       return;
     }
 
@@ -628,15 +630,15 @@ function App() {
         setProcessingStage({
           stage: 'complete',
           progress: 100,
-          message: `Successfully redacted ${result.redactedCount} entities`,
+          message: t('progress.redactionSuccess', { count: result.redactedCount }),
         });
       } else {
-        setError(result.error || 'Redaction failed');
+        setError(result.error || t('errors.redactionFailedGeneric'));
         setStage('review');
       }
     } catch (err) {
       console.error('Redaction error:', err);
-      setError(err instanceof Error ? err.message : 'An error occurred during redaction');
+      setError(err instanceof Error ? err.message : t('errors.redactionError'));
       setStage('review');
     }
   };
@@ -650,7 +652,7 @@ function App() {
     );
 
     if (confirmedEntities.length === 0) {
-      setError('No entities confirmed for redaction');
+      setError(t('errors.noEntitiesConfirmed'));
       return;
     }
 
@@ -682,15 +684,15 @@ function App() {
         setProcessingStage({
           stage: 'complete',
           progress: 100,
-          message: `Successfully redacted ${result.redactedCount} entities`,
+          message: t('progress.redactionSuccess', { count: result.redactedCount }),
         });
       } else {
-        setError(result.error || 'Redaction failed');
+        setError(result.error || t('errors.redactionFailedGeneric'));
         setStage('review');
       }
     } catch (err) {
       console.error('Redaction error:', err);
-      setError(err instanceof Error ? err.message : 'An error occurred during redaction');
+      setError(err instanceof Error ? err.message : t('errors.redactionError'));
       setStage('review');
     }
   };
@@ -709,7 +711,7 @@ function App() {
       }
     } catch (err) {
       console.error('Processing error:', err);
-      setError(err instanceof Error ? err.message : 'An error occurred during processing');
+      setError(err instanceof Error ? err.message : t('errors.processingError'));
       setStage('preview');
     }
   };
@@ -735,7 +737,7 @@ function App() {
       setProcessingStage({
         stage: 'detecting',
         progress: 50,
-        message: 'Detecting sensitive information...',
+        message: t('progress.detectingSensitiveInfo'),
       });
 
       const detector = new RegexDetector();
@@ -749,7 +751,7 @@ function App() {
         setProcessingStage({
           stage: 'loading_model',
           progress: 60,
-          message: 'Loading LLM model...',
+          message: t('progress.loadingLLMModel'),
         });
 
         const llmDetector = new LLMDetector();
@@ -764,7 +766,7 @@ function App() {
         setProcessingStage({
           stage: 'detecting',
           progress: 75,
-          message: 'Detecting entities with LLM...',
+          message: t('progress.detectingWithLLM'),
         });
 
         // Use page-based detection for PDFs with mupdf positioning
@@ -772,7 +774,7 @@ function App() {
           setProcessingStage({
             stage: 'detecting',
             progress: 75 + (progress * 0.10), // 75-85%
-            message: `Detecting entities with LLM... ${progress}%`,
+            message: t('progress.detectingWithLLMProgress', { progress }),
           });
         });
 
@@ -784,7 +786,7 @@ function App() {
         setProcessingStage({
           stage: 'detecting',
           progress: 85,
-          message: 'LLM detection failed, using regex patterns only...',
+          message: t('progress.llmDetectionFailedFallback'),
         });
       }
     }
@@ -793,7 +795,7 @@ function App() {
     setProcessingStage({
       stage: 'aggregating',
       progress: 90,
-      message: 'Removing duplicates...',
+      message: t('progress.removingDuplicates'),
     });
 
     console.debug("all detected entities %s", JSON.stringify(allEntities));
@@ -817,7 +819,7 @@ function App() {
     setProcessingStage({
       stage: 'complete',
       progress: 100,
-      message: `Found ${entities.length} entities`,
+      message: t('progress.foundEntities', { count: entities.length }),
     });
 
     setProcessedDocument(document);
@@ -845,7 +847,7 @@ function App() {
       setProcessingStage({
         stage: 'detecting',
         progress: 60,
-        message: 'Detecting sensitive information...',
+        message: t('progress.detectingSensitiveInfo'),
       });
 
       const detector = new RegexDetector();
@@ -859,7 +861,7 @@ function App() {
         setProcessingStage({
           stage: 'loading_model',
           progress: 70,
-          message: 'Loading LLM model...',
+          message: t('progress.loadingLLMModel'),
         });
 
         const llmDetector = new LLMDetector();
@@ -874,14 +876,14 @@ function App() {
         setProcessingStage({
           stage: 'detecting',
           progress: 85,
-          message: 'Detecting entities with LLM...',
+          message: t('progress.detectingWithLLM'),
         });
 
         const llmEntities = await llmDetector.detectEntitiesInChunks(docx.fullText, 512, (progress) => {
           setProcessingStage({
             stage: 'detecting',
             progress: 85 + (progress * 0.10), // 85-95%
-            message: `Detecting entities with LLM... ${progress}%`,
+            message: t('progress.detectingWithLLMProgress', { progress }),
           });
         });
         console.log(JSON.stringify(llmEntities));
@@ -894,7 +896,7 @@ function App() {
         setProcessingStage({
           stage: 'detecting',
           progress: 95,
-          message: 'LLM detection failed, using regex patterns only...',
+          message: t('progress.llmDetectionFailedFallback'),
         });
       }
     }
@@ -912,7 +914,7 @@ function App() {
     setProcessingStage({
       stage: 'complete',
       progress: 100,
-      message: `Found ${entities.length} entities`,
+      message: t('progress.foundEntities', { count: entities.length }),
     });
 
     setProcessedDocx(docx);
@@ -971,12 +973,20 @@ function App() {
                 <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M20.216 6.415l-.132-.666c-.119-.598-.388-1.163-1.001-1.379-.197-.069-.42-.098-.57-.241-.152-.143-.196-.366-.231-.572-.065-.378-.125-.756-.192-1.133-.057-.325-.102-.69-.25-.987-.195-.4-.597-.634-.996-.788a5.723 5.723 0 00-.626-.194c-1-.263-2.05-.36-3.077-.416a25.834 25.834 0 00-3.7.062c-.915.083-1.88.184-2.75.5-.318.116-.646.256-.888.501-.297.302-.393.77-.177 1.146.154.267.415.456.692.58.36.162.737.284 1.123.366 1.075.238 2.189.331 3.287.37 1.218.05 2.437.01 3.65-.118.299-.033.598-.073.896-.119.352-.054.578-.513.474-.834-.124-.383-.457-.531-.834-.473-.466.074-.96.108-1.382.146-1.177.08-2.358.082-3.536.006a22.228 22.228 0 01-1.157-.107c-.086-.01-.18-.025-.258-.036-.243-.036-.484-.08-.724-.13-.111-.027-.111-.185 0-.212h.005c.277-.06.557-.108.838-.147h.002c.131-.009.263-.032.394-.048a25.076 25.076 0 013.426-.12c.674.019 1.347.067 2.017.144l.228.031c.267.04.533.088.798.145.392.085.895.113 1.07.542.055.137.08.288.111.431l.319 1.484a.237.237 0 01-.199.284h-.003c-.037.006-.075.01-.112.015a36.704 36.704 0 01-4.743.295 37.059 37.059 0 01-4.699-.304c-.14-.017-.293-.042-.417-.06-.326-.048-.649-.108-.973-.161-.393-.065-.768-.032-1.123.161-.29.16-.527.404-.675.701-.154.316-.199.66-.267 1-.069.34-.176.707-.135 1.056.087.753.613 1.365 1.37 1.502a39.69 39.69 0 0011.343.376.483.483 0 01.535.53l-.071.697-1.018 9.907c-.041.41-.047.832-.125 1.237-.122.637-.553 1.028-1.182 1.171-.577.131-1.165.2-1.756.205-.656.004-1.31-.025-1.966-.022-.699.004-1.556-.06-2.095-.58-.475-.458-.54-1.174-.605-1.793l-.731-7.013-.322-3.094c-.037-.351-.286-.695-.678-.678-.336.015-.718.3-.678.679l.228 2.185.949 9.112c.147 1.344 1.174 2.068 2.446 2.272.742.12 1.503.144 2.257.156.966.016 1.942.053 2.892-.122 1.408-.258 2.465-1.198 2.616-2.657.34-3.332.683-6.663 1.024-9.995l.215-2.087a.484.484 0 01.39-.426c.402-.078.787-.212 1.074-.518.455-.488.546-1.124.385-1.766zm-1.478.772c-.145.137-.363.201-.578.233-2.416.359-4.866.54-7.308.46-1.748-.06-3.477-.254-5.207-.498-.17-.024-.353-.055-.47-.18-.22-.236-.111-.71-.054-.995.052-.26.152-.609.463-.646.484-.057 1.046.148 1.526.22.577.088 1.156.165 1.737.226 2.48.253 4.993.335 7.486.196.45-.025.9-.075 1.346-.155.299-.053.59-.11.794.265.102.186.078.446-.01.628-.061.127-.164.249-.325.326z"/>
                 </svg>
-                <span className="hidden md:inline">Buy Me a Coffee</span>
+                <span className="hidden md:inline">{t('header.buyMeCoffee')}</span>
               </a>
+              <button
+                onClick={toggleLanguage}
+                className="hidden sm:block px-2.5 py-2 text-xs font-medium hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                aria-label={t('header.language')}
+                title={t('header.language')}
+              >
+                {language === 'en' ? '中文' : 'EN'}
+              </button>
               <button
                 onClick={toggleTheme}
                 className="hidden sm:block p-2 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                aria-label="Toggle dark mode"
+                aria-label={t('header.toggleDarkMode')}
               >
                 {theme === 'light' ? (
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -992,20 +1002,20 @@ function App() {
                 onClick={() => setIsSettingsOpen(true)}
                 className="hidden sm:block p-2 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
               >
-                Settings
+                {t('header.settings')}
               </button>
               <button
                 onClick={() => setIsAboutOpen(true)}
                 className="hidden sm:block p-2 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
               >
-                About
+                {t('header.about')}
               </button>
 
               {/* Mobile menu button */}
               <button
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                 className="sm:hidden p-2 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                aria-label="Menu"
+                aria-label={t('header.menu')}
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
@@ -1020,6 +1030,18 @@ function App() {
               <div className="flex flex-col gap-2">
                 <button
                   onClick={() => {
+                    toggleLanguage();
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
+                  </svg>
+                  {language === 'en' ? '中文' : 'English'}
+                </button>
+                <button
+                  onClick={() => {
                     toggleTheme();
                     setIsMobileMenuOpen(false);
                   }}
@@ -1030,14 +1052,14 @@ function App() {
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
                       </svg>
-                      Dark Mode
+                      {t('header.darkMode')}
                     </>
                   ) : (
                     <>
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
                       </svg>
-                      Light Mode
+                      {t('header.lightMode')}
                     </>
                   )}
                 </button>
@@ -1052,7 +1074,7 @@ function App() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
-                  Settings
+                  {t('header.settings')}
                 </button>
                 <button
                   onClick={() => {
@@ -1064,7 +1086,7 @@ function App() {
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  About
+                  {t('header.about')}
                 </button>
                 <a
                   href="https://buymeacoffee.com/zhendong"
@@ -1076,7 +1098,7 @@ function App() {
                   <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M20.216 6.415l-.132-.666c-.119-.598-.388-1.163-1.001-1.379-.197-.069-.42-.098-.57-.241-.152-.143-.196-.366-.231-.572-.065-.378-.125-.756-.192-1.133-.057-.325-.102-.69-.25-.987-.195-.4-.597-.634-.996-.788a5.723 5.723 0 00-.626-.194c-1-.263-2.05-.36-3.077-.416a25.834 25.834 0 00-3.7.062c-.915.083-1.88.184-2.75.5-.318.116-.646.256-.888.501-.297.302-.393.77-.177 1.146.154.267.415.456.692.58.36.162.737.284 1.123.366 1.075.238 2.189.331 3.287.37 1.218.05 2.437.01 3.65-.118.299-.033.598-.073.896-.119.352-.054.578-.513.474-.834-.124-.383-.457-.531-.834-.473-.466.074-.96.108-1.382.146-1.177.08-2.358.082-3.536.006a22.228 22.228 0 01-1.157-.107c-.086-.01-.18-.025-.258-.036-.243-.036-.484-.08-.724-.13-.111-.027-.111-.185 0-.212h.005c.277-.06.557-.108.838-.147h.002c.131-.009.263-.032.394-.048a25.076 25.076 0 013.426-.12c.674.019 1.347.067 2.017.144l.228.031c.267.04.533.088.798.145.392.085.895.113 1.07.542.055.137.08.288.111.431l.319 1.484a.237.237 0 01-.199.284h-.003c-.037.006-.075.01-.112.015a36.704 36.704 0 01-4.743.295 37.059 37.059 0 01-4.699-.304c-.14-.017-.293-.042-.417-.06-.326-.048-.649-.108-.973-.161-.393-.065-.768-.032-1.123.161-.29.16-.527.404-.675.701-.154.316-.199.66-.267 1-.069.34-.176.707-.135 1.056.087.753.613 1.365 1.37 1.502a39.69 39.69 0 0011.343.376.483.483 0 01.535.53l-.071.697-1.018 9.907c-.041.41-.047.832-.125 1.237-.122.637-.553 1.028-1.182 1.171-.577.131-1.165.2-1.756.205-.656.004-1.31-.025-1.966-.022-.699.004-1.556-.06-2.095-.58-.475-.458-.54-1.174-.605-1.793l-.731-7.013-.322-3.094c-.037-.351-.286-.695-.678-.678-.336.015-.718.3-.678.679l.228 2.185.949 9.112c.147 1.344 1.174 2.068 2.446 2.272.742.12 1.503.144 2.257.156.966.016 1.942.053 2.892-.122 1.408-.258 2.465-1.198 2.616-2.657.34-3.332.683-6.663 1.024-9.995l.215-2.087a.484.484 0 01.39-.426c.402-.078.787-.212 1.074-.518.455-.488.546-1.124.385-1.766zm-1.478.772c-.145.137-.363.201-.578.233-2.416.359-4.866.54-7.308.46-1.748-.06-3.477-.254-5.207-.498-.17-.024-.353-.055-.47-.18-.22-.236-.111-.71-.054-.995.052-.26.152-.609.463-.646.484-.057 1.046.148 1.526.22.577.088 1.156.165 1.737.226 2.48.253 4.993.335 7.486.196.45-.025.9-.075 1.346-.155.299-.053.59-.11.794.265.102.186.078.446-.01.628-.061.127-.164.249-.325.326z"/>
                   </svg>
-                  Buy Me a Coffee
+                  {t('header.buyMeCoffee')}
                 </a>
               </div>
             </div>
@@ -1100,7 +1122,7 @@ function App() {
                 <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                   <path fillRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clipRule="evenodd" />
                 </svg>
-                Report Issue
+                {t('errorBanner.reportIssue')}
               </a>
             </div>
           </div>
@@ -1121,7 +1143,7 @@ function App() {
         {(stage === 'processing' || stage === 'redacting') && (
           <div className="flex flex-col items-center justify-center min-h-[400px]">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-8">
-              {stage === 'processing' ? 'Processing' : 'Redacting'} {selectedFile?.name}
+              {stage === 'processing' ? t('progress.processing') : t('progress.redacting')} {selectedFile?.name}
             </h2>
             <ProgressIndicator stage={processingStage} />
           </div>
@@ -1137,13 +1159,13 @@ function App() {
                   </svg>
                 </div>
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-                  Redaction Complete
+                  {t('complete.title')}
                 </h2>
                 <p className="text-gray-600 dark:text-gray-300">
                   {processingStage.message}
                 </p>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                  Your redacted PDF has been downloaded
+                  {t('complete.downloaded')}
                 </p>
               </div>
               <div className="flex flex-col gap-3">
@@ -1151,13 +1173,13 @@ function App() {
                   onClick={handleBackToUpload}
                   className="px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
                 >
-                  Process Another Document
+                  {t('complete.processAnother')}
                 </button>
                 <button
                   onClick={() => setStage('review')}
                   className="px-6 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-medium rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                 >
-                  Back to Review
+                  {t('complete.backToReview')}
                 </button>
               </div>
             </div>
@@ -1173,7 +1195,7 @@ function App() {
                     onClick={handleBackToUpload}
                     className="px-3 sm:px-4 py-2 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors flex-shrink-0"
                   >
-                    ← Back
+                    {t('review.backButton')}
                   </button>
                   <div className="min-w-0">
                     <h2 className="text-base sm:text-xl font-semibold text-gray-900 dark:text-white truncate">
@@ -1181,8 +1203,8 @@ function App() {
                     </h2>
                     <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">
                       {processedDocument
-                        ? `${processedDocument.pageCount} pages • ${processedDocument.allEntities.length} entities`
-                        : `${processedDocx?.allEntities.length} entities`
+                        ? t('review.pagesEntities', { pages: processedDocument.pageCount, entities: processedDocument.allEntities.length })
+                        : t('review.entities', { count: processedDocx?.allEntities.length ?? 0 })
                       }
                     </p>
                   </div>
@@ -1195,16 +1217,16 @@ function App() {
                     <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    <span className="hidden sm:inline">Review Metadata</span>
-                    <span className="sm:hidden">Metadata</span>
+                    <span className="hidden sm:inline">{t('review.reviewMetadata')}</span>
+                    <span className="sm:hidden">{t('review.metadata')}</span>
                   </button>
                   <button
                     className="px-4 sm:px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm whitespace-nowrap"
                     onClick={handleApplyRedactions}
                     disabled={confirmedCount === 0}
                   >
-                    <span className="hidden sm:inline">Apply Redactions ({confirmedCount})</span>
-                    <span className="sm:hidden">Apply ({confirmedCount})</span>
+                    <span className="hidden sm:inline">{t('review.applyRedactions', { count: confirmedCount })}</span>
+                    <span className="sm:hidden">{t('review.apply', { count: confirmedCount })}</span>
                   </button>
                 </div>
               </div>
@@ -1309,19 +1331,19 @@ function App() {
                         disabled={currentPage === 1}
                         className="min-w-[44px] min-h-[44px] px-4 sm:px-4 py-2.5 sm:py-2 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors active:scale-95"
                       >
-                        <span className="hidden sm:inline">← Previous</span>
-                        <span className="sm:hidden">←</span>
+                        <span className="hidden sm:inline">{t('review.previousFull')}</span>
+                        <span className="sm:hidden">{t('review.previousShort')}</span>
                       </button>
                       <span className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 font-medium">
-                        Page {currentPage} of {processedDocument.pageCount}
+                        {t('review.pageOf', { current: currentPage, total: processedDocument.pageCount })}
                       </span>
                       <button
                         onClick={() => setCurrentPage(p => Math.min(processedDocument.pageCount, p + 1))}
                         disabled={currentPage === processedDocument.pageCount}
                         className="min-w-[44px] min-h-[44px] px-4 sm:px-4 py-2.5 sm:py-2 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors active:scale-95"
                       >
-                        <span className="hidden sm:inline">Next →</span>
-                        <span className="sm:hidden">→</span>
+                        <span className="hidden sm:inline">{t('review.nextFull')}</span>
+                        <span className="sm:hidden">{t('review.nextShort')}</span>
                       </button>
                     </div>
                   </>
@@ -1354,7 +1376,7 @@ function App() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setIsAboutOpen(false)}>
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-start mb-4">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">About SafeRedact</h2>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{t('about.title')}</h2>
               <button
                 onClick={() => setIsAboutOpen(false)}
                 className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
@@ -1382,16 +1404,16 @@ function App() {
                 </svg>
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-white">SafeRedact</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-300">Version {packageJson.version}</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">{t('about.version', { version: packageJson.version })}</p>
                 </div>
               </div>
 
               <p className="text-sm text-gray-600 dark:text-gray-300">
-                A privacy-focused document redaction tool that helps you identify and remove sensitive information from PDFs and DOCX files.
+                {t('about.description')}
               </p>
 
               <div className="pt-4 mt-4 border-t border-gray-200 dark:border-gray-700">
-                <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Need Help?</h4>
+                <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">{t('about.needHelp')}</h4>
                 <a
                   href="https://github.com/zhendong/safe-redact/issues/new"
                   target="_blank"
@@ -1401,10 +1423,10 @@ function App() {
                   <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                     <path fillRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clipRule="evenodd" />
                   </svg>
-                  Report an Issue
+                  {t('about.reportIssue')}
                 </a>
                 <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                  Report bugs, request features, or ask questions on GitHub
+                  {t('about.reportIssueDesc')}
                 </p>
               </div>
             </div>

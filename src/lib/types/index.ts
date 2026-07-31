@@ -380,6 +380,10 @@ export interface HiddenContentWarning {
   pageNumbers?: number[];
   count?: number;
   details?: string;
+  // Structured data used to re-render description/details in the active UI language
+  hiddenLayerCount?: number;
+  hiddenLayerNames?: string[];
+  fileNames?: string[];
 }
 
 /**

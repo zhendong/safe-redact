@@ -1,9 +1,12 @@
+import { useLanguage } from '@/contexts/LanguageContext';
+
 interface LoadingSpinnerProps {
   message?: string;
   size?: 'sm' | 'md' | 'lg';
 }
 
 export function LoadingSpinner({ message, size = 'md' }: LoadingSpinnerProps) {
+  const { language } = useLanguage();
   const sizeClasses = {
     sm: 'w-4 h-4 border-2',
     md: 'w-8 h-8 border-3',
@@ -15,7 +18,7 @@ export function LoadingSpinner({ message, size = 'md' }: LoadingSpinnerProps) {
       <div
         className={`${sizeClasses[size]} border-blue-600 border-t-transparent rounded-full animate-spin`}
         role="status"
-        aria-label="Loading"
+        aria-label={language === 'zh' ? '加载中' : 'Loading'}
       />
       {message && (
         <p className="text-sm text-gray-600">{message}</p>

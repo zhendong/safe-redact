@@ -1,4 +1,5 @@
 import { formatFileSize } from '@/utils/validation';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface FilePreviewProps {
   file: File;
@@ -13,6 +14,7 @@ export function FilePreview({
   onRemove,
   onStartAnalysis,
 }: FilePreviewProps) {
+  const { t } = useLanguage();
   return (
     <div className="w-full max-w-2xl mx-auto p-8">
       <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6 shadow-sm">
@@ -36,8 +38,8 @@ export function FilePreview({
                 {file.name}
               </h3>
               <div className="mt-1 text-sm text-gray-500 dark:text-gray-400 space-y-1">
-                <p>Size: {formatFileSize(file.size)}</p>
-                {pageCount !== undefined && <p>Pages: {pageCount}</p>}
+                <p>{t('filePreview.size')}: {formatFileSize(file.size)}</p>
+                {pageCount !== undefined && <p>{t('filePreview.pages')}: {pageCount}</p>}
               </div>
             </div>
           </div>
@@ -45,7 +47,7 @@ export function FilePreview({
           <button
             onClick={onRemove}
             className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-            aria-label="Remove file"
+            aria-label={t('filePreview.removeFile')}
           >
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
               <path
@@ -61,7 +63,7 @@ export function FilePreview({
           onClick={onStartAnalysis}
           className="w-full mt-4 px-6 py-3 bg-blue-600 dark:bg-blue-500 text-white font-medium rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:ring-offset-2 dark:focus:ring-offset-gray-800"
         >
-          Start Analysis
+          {t('filePreview.startAnalysis')}
         </button>
       </div>
     </div>

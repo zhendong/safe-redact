@@ -3,6 +3,7 @@ import * as mupdf from 'mupdf';
 import type { ProcessedDocument, DetectedEntity, BoundingBox, EntityType } from '@/lib/types';
 import { EntityHighlight } from './EntityHighlight';
 import { ManualSelector } from '../controls/ManualSelector';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface DocumentViewerProps {
   document: ProcessedDocument;
@@ -19,6 +20,7 @@ export function DocumentViewer({
   onEntityClick,
   onManualEntityCreate,
 }: DocumentViewerProps) {
+  const { t } = useLanguage();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1.0);
@@ -150,7 +152,7 @@ export function DocumentViewer({
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-3 sm:p-3 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-0">
         <div className="flex items-center justify-between sm:justify-start gap-3">
           <span className="text-sm sm:text-sm text-gray-700 dark:text-gray-300 font-medium">
-            Page {currentPage} of {document.pageCount}
+            {t('documentViewer.pageOf', { current: currentPage, total: document.pageCount })}
           </span>
 
           {/* Zoom controls on mobile - improved touch targets */}
@@ -159,7 +161,7 @@ export function DocumentViewer({
               onClick={handleZoomOut}
               disabled={scale <= 0.5}
               className="min-w-[44px] min-h-[44px] flex items-center justify-center text-lg font-bold bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors active:scale-95"
-              aria-label="Zoom out"
+              aria-label={t('documentViewer.zoomOut')}
             >
               −
             </button>
@@ -170,7 +172,7 @@ export function DocumentViewer({
               onClick={handleZoomIn}
               disabled={scale >= 2.0}
               className="min-w-[44px] min-h-[44px] flex items-center justify-center text-lg font-bold bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors active:scale-95"
-              aria-label="Zoom in"
+              aria-label={t('documentViewer.zoomIn')}
             >
               +
             </button>
@@ -184,7 +186,7 @@ export function DocumentViewer({
               onClick={handleZoomOut}
               disabled={scale <= 0.5}
               className="px-3 py-1.5 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed rounded transition-colors"
-              aria-label="Zoom out"
+              aria-label={t('documentViewer.zoomOut')}
             >
               −
             </button>
@@ -195,7 +197,7 @@ export function DocumentViewer({
               onClick={handleZoomIn}
               disabled={scale >= 2.0}
               className="px-3 py-1.5 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed rounded transition-colors"
-              aria-label="Zoom in"
+              aria-label={t('documentViewer.zoomIn')}
             >
               +
             </button>
@@ -203,7 +205,7 @@ export function DocumentViewer({
               onClick={handleFitWidth}
               className="px-3 py-1.5 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
             >
-              Fit Width
+              {t('documentViewer.fitWidth')}
             </button>
             <div className="border-l border-gray-300 dark:border-gray-600 mx-2 h-6" />
           </div>
@@ -228,8 +230,8 @@ export function DocumentViewer({
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
-              <span className="hidden sm:inline">{isManualSelectionActive ? 'Manual Selection Active' : 'Add Manual Selection'}</span>
-              <span className="sm:hidden">{isManualSelectionActive ? 'Manual Active' : 'Add Selection'}</span>
+              <span className="hidden sm:inline">{isManualSelectionActive ? t('documentViewer.manualSelectionActive') : t('documentViewer.addManualSelection')}</span>
+              <span className="sm:hidden">{isManualSelectionActive ? t('documentViewer.manualActive') : t('documentViewer.addSelection')}</span>
             </button>
 
             {/* Tooltip guide - shows on first activation */}
@@ -240,8 +242,8 @@ export function DocumentViewer({
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                   <div>
-                    <span className="sm:hidden">Tap and drag on the document to select an area</span>
-                    <span className="hidden sm:inline">Click and drag on the document to select an area</span>
+                    <span className="sm:hidden">{t('documentViewer.dragGuideMobile')}</span>
+                    <span className="hidden sm:inline">{t('documentViewer.dragGuideDesktop')}</span>
                   </div>
                 </div>
                 <div className="absolute top-0 right-4 transform -translate-y-1/2 rotate-45 w-2 h-2 bg-blue-600" />

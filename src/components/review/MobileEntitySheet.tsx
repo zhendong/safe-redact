@@ -1,6 +1,7 @@
 import type { DetectedEntity, DetectionConfig, EntityType } from '@/lib/types';
 import { EntityList } from './EntityList';
 import { BottomSheet } from './BottomSheet';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface MobileEntitySheetProps {
   isOpen: boolean;
@@ -47,8 +48,9 @@ export function MobileEntitySheet({
   filteredCount,
   confirmedCount,
 }: MobileEntitySheetProps) {
+  const { t } = useLanguage();
   return (
-    <BottomSheet isOpen={isOpen} onClose={onClose} title="Entities">
+    <BottomSheet isOpen={isOpen} onClose={onClose} title={t('mobileViewSwitcher.entities')}>
       <div className="h-full">
         <EntityList
           entities={entities}

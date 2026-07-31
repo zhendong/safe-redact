@@ -1,4 +1,6 @@
 import type { HiddenContentReport } from '@/lib/types';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { translateHiddenContentWarning, translateHiddenContentSummary } from '@/utils/hidden-content-i18n';
 
 interface HiddenContentWarningProps {
   report: HiddenContentReport;
@@ -6,6 +8,7 @@ interface HiddenContentWarningProps {
 }
 
 export function HiddenContentWarning({ report, onDismiss }: HiddenContentWarningProps) {
+  const { language, t } = useLanguage();
   if (!report.hasHiddenContent) return null;
 
   const highSeverityWarnings = report.warnings.filter(w => w.severity === 'high');
@@ -43,17 +46,19 @@ export function HiddenContentWarning({ report, onDismiss }: HiddenContentWarning
           <h3 className={`text-sm font-semibold ${
             hasCriticalIssues ? 'text-red-900 dark:text-red-200' : 'text-yellow-900 dark:text-yellow-200'
           }`}>
-            Hidden Content Detected
+            {t('hiddenContentWarning.title')}
           </h3>
           <p className={`text-sm mt-1 ${
             hasCriticalIssues ? 'text-red-700 dark:text-red-300' : 'text-yellow-700 dark:text-yellow-300'
           }`}>
-            {report.summary}
+            {translateHiddenContentSummary(report.warnings, language)}
           </p>
 
           {/* Warning Details */}
           <div className="mt-3 space-y-2">
-            {report.warnings.map((warning, index) => (
+            {report.warnings.map((warning, index) => {
+              const { description, details } = translateHiddenContentWarning(warning, language);
+              return (
               <div
                 key={index}
                 className={`text-xs p-2 rounded ${
@@ -65,28 +70,29 @@ export function HiddenContentWarning({ report, onDismiss }: HiddenContentWarning
                 }`}
               >
                 <div className="font-medium">
-                  {warning.description}
+                  {description}
                   {warning.count && ` (${warning.count})`}
                 </div>
-                {warning.details && (
+                {details && (
                   <div className="mt-1 opacity-90">
-                    {warning.details}
+                    {details}
                   </div>
                 )}
                 {warning.pageNumbers && warning.pageNumbers.length > 0 && (
                   <div className="mt-1 opacity-90">
-                    Pages: {warning.pageNumbers.join(', ')}
+                    {t('hiddenContentWarning.pages', { pages: warning.pageNumbers.join(', ') })}
                   </div>
                 )}
               </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Recommendation */}
           <div className={`mt-3 text-xs ${
             hasCriticalIssues ? 'text-red-800 dark:text-red-200' : 'text-yellow-800 dark:text-yellow-200'
           }`}>
-            <strong>Recommendation:</strong> Enable "Sanitize Document" in Settings to remove hidden content when exporting.
+            <strong>{t('hiddenContentWarning.recommendation')}</strong> {t('hiddenContentWarning.recommendationText')}
           </div>
         </div>
 
@@ -97,7 +103,7 @@ export function HiddenContentWarning({ report, onDismiss }: HiddenContentWarning
             className={`flex-shrink-0 ${
               hasCriticalIssues ? 'text-red-400 hover:text-red-600 dark:hover:text-red-300' : 'text-yellow-400 hover:text-yellow-600 dark:hover:text-yellow-300'
             }`}
-            aria-label="Dismiss warning"
+            aria-label={t('hiddenContentWarning.dismiss')}
           >
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
               <path

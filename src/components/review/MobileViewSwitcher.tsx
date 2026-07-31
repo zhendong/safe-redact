@@ -1,3 +1,5 @@
+import { useLanguage } from '@/contexts/LanguageContext';
+
 interface MobileViewSwitcherProps {
   viewMode: 'document' | 'entities';
   onViewModeChange: (mode: 'document' | 'entities') => void;
@@ -5,6 +7,7 @@ interface MobileViewSwitcherProps {
 }
 
 export function MobileViewSwitcher({ viewMode, onViewModeChange, entityCount }: MobileViewSwitcherProps) {
+  const { t } = useLanguage();
   return (
     <div className="lg:hidden bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
       <div className="flex">
@@ -28,7 +31,7 @@ export function MobileViewSwitcher({ viewMode, onViewModeChange, entityCount }: 
                 d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
               />
             </svg>
-            <span>Document</span>
+            <span>{t('mobileViewSwitcher.document')}</span>
           </div>
         </button>
 
@@ -52,7 +55,7 @@ export function MobileViewSwitcher({ viewMode, onViewModeChange, entityCount }: 
                 d="M4 6h16M4 10h16M4 14h16M4 18h16"
               />
             </svg>
-            <span>Entities</span>
+            <span>{t('mobileViewSwitcher.entities')}</span>
             {entityCount > 0 && (
               <span className="ml-1 px-1.5 py-0.5 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-full">
                 {entityCount}

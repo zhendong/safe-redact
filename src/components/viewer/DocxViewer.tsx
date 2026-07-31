@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import type { DetectedEntity } from '@/lib/types';
-import { getEntityColor } from '@/utils/entity-types';
+import { getEntityColor, getEntityDisplayName } from '@/utils/entity-types';
+import { useLanguage } from '@/contexts/LanguageContext';
+import type { Language } from '@/i18n/translations';
 
 interface DocxViewerProps {
   htmlContent: string;
@@ -19,14 +21,15 @@ export function DocxViewer({
   selectedEntityId,
   onEntityClick,
 }: DocxViewerProps) {
+  const { language, t } = useLanguage();
   const containerRef = useRef<HTMLDivElement>(null);
   const [highlightedHtml, setHighlightedHtml] = useState('');
 
   useEffect(() => {
     // Inject entity highlights into HTML
-    const highlighted = highlightEntities(htmlContent, entities, selectedEntityId);
+    const highlighted = highlightEntities(htmlContent, entities, language, selectedEntityId);
     setHighlightedHtml(highlighted);
-  }, [htmlContent, entities, selectedEntityId]);
+  }, [htmlContent, entities, selectedEntityId, language]);
 
   // Handle clicks on highlighted entities
   useEffect(() => {
@@ -56,10 +59,10 @@ export function DocxViewer({
       {/* Toolbar */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
         <div className="text-sm text-gray-600 dark:text-gray-300">
-          Document Preview
+          {t('docxViewer.documentPreview')}
         </div>
         <div className="text-xs text-gray-500 dark:text-gray-400">
-          Click on highlighted text to review
+          {t('docxViewer.clickToReview')}
         </div>
       </div>
 
@@ -81,6 +84,7 @@ export function DocxViewer({
 function highlightEntities(
   html: string,
   entities: DetectedEntity[],
+  language: Language,
   selectedEntityId?: string
 ): string {
   let result = html;
@@ -107,7 +111,7 @@ function highlightEntities(
         padding: 2px 0;
         ${isSelected ? 'box-shadow: 0 0 0 3px ' + color + '40;' : ''}
       "
-      title="${entity.entityType} (${Math.round(entity.confidence * 100)}%)"
+      title="${getEntityDisplayName(entity.entityType, language)} (${Math.round(entity.confidence * 100)}%)"
     >$&</span>`;
 
     // Escape special regex characters in entity text

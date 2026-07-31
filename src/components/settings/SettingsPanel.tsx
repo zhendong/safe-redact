@@ -3,6 +3,8 @@ import type { DetectionConfig } from '@/lib/types';
 import { EntityType } from '@/lib/types';
 import { STORAGE_KEYS, DEFAULT_CONFIDENCE_THRESHOLDS } from '@/utils/constants';
 import { LLMDetector } from '@/lib/detectors/LLMDetector';
+import { getEntityDisplayName } from '@/utils/entity-types';
+import { useLanguage } from '@/contexts/LanguageContext';
 import {
   getPredefinedWords,
   addPredefinedWord,
@@ -28,6 +30,7 @@ export function SettingsPanel({
   config,
   onConfigChange,
 }: SettingsPanelProps) {
+  const { language, t } = useLanguage();
   const [localConfig, setLocalConfig] = useState<DetectionConfig>(config);
   const [modelDownloadProgress, setModelDownloadProgress] = useState<number>(0);
   const [modelDownloadMessage, setModelDownloadMessage] = useState<string>('');
@@ -93,7 +96,7 @@ export function SettingsPanel({
     if (enabled && !LLMDetector.isModelLoaded()) {
       setIsDownloadingModel(true);
       setModelDownloadProgress(0);
-      setModelDownloadMessage('Starting download...');
+      setModelDownloadMessage(t('settings.startingDownload'));
 
       try {
         await LLMDetector.preloadModel('Xenova/bert-base-NER', (progress, message) => {
@@ -102,7 +105,7 @@ export function SettingsPanel({
         });
       } catch (error) {
         console.error('Failed to preload model:', error);
-        setModelDownloadMessage('Download failed. Will retry when processing.');
+        setModelDownloadMessage(t('settings.downloadFailed'));
       } finally {
         setIsDownloadingModel(false);
       }
@@ -113,7 +116,7 @@ export function SettingsPanel({
     setWordError(null);
 
     if (!newWord.trim()) {
-      setWordError('Please enter a word');
+      setWordError(t('settings.pleaseEnterWord'));
       return;
     }
 
@@ -124,7 +127,7 @@ export function SettingsPanel({
       setNewWordCaseSensitive(false);
       setNewWordWholeWord(true);
     } catch (error) {
-      setWordError(error instanceof Error ? error.message : 'Failed to add word');
+      setWordError(error instanceof Error ? error.message : t('settings.failedToAddWord'));
     }
   };
 
@@ -140,10 +143,10 @@ export function SettingsPanel({
   const handleExportSettings = () => {
     try {
       downloadSettings();
-      setImportMessage({ type: 'success', text: 'Settings exported successfully!' });
+      setImportMessage({ type: 'success', text: t('settings.exportSuccess') });
       setTimeout(() => setImportMessage(null), 3000);
     } catch (error) {
-      setImportMessage({ type: 'error', text: 'Failed to export settings' });
+      setImportMessage({ type: 'error', text: t('settings.exportFailed') });
       setTimeout(() => setImportMessage(null), 3000);
     }
   };
@@ -159,7 +162,7 @@ export function SettingsPanel({
       if (result.success) {
         setImportMessage({
           type: 'success',
-          text: `Successfully imported: ${result.imported.join(', ')}`,
+          text: t('settings.importSuccess', { items: result.imported.join(', ') }),
         });
         // Reload settings and predefined words
         const settingsStr = localStorage.getItem(STORAGE_KEYS.SETTINGS);
@@ -171,13 +174,13 @@ export function SettingsPanel({
       } else {
         setImportMessage({
           type: 'error',
-          text: `Import failed: ${result.errors.join(', ')}`,
+          text: t('settings.importFailed', { errors: result.errors.join(', ') }),
         });
       }
     } catch (error) {
       setImportMessage({
         type: 'error',
-        text: 'Failed to read settings file',
+        text: t('settings.importReadFailed'),
       });
     }
 
@@ -197,7 +200,7 @@ export function SettingsPanel({
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Settings</h2>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{t('settings.title')}</h2>
           <button
             onClick={onClose}
             className="text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-300 transition-colors"
@@ -212,9 +215,9 @@ export function SettingsPanel({
         <div className="px-6 py-4 space-y-6">
           {/* Entity Type Toggles */}
           <div>
-            <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">Entity Types</h3>
+            <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">{t('settings.entityTypes')}</h3>
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-              Select which types of entities to detect
+              {t('settings.entityTypesDesc')}
             </p>
             <div className="grid grid-cols-2 gap-3">
               {Object.values(EntityType).map((type) => (
@@ -228,7 +231,7 @@ export function SettingsPanel({
                     onChange={() => toggleEntityType(type)}
                     className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
                   />
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{type}</span>
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{getEntityDisplayName(type, language)}</span>
                 </label>
               ))}
             </div>
@@ -236,9 +239,9 @@ export function SettingsPanel({
 
           {/* Predefined Words */}
           <div>
-            <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">Predefined Words</h3>
+            <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">{t('settings.predefinedWords')}</h3>
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-              Add words or phrases to automatically detect and redact across all documents
+              {t('settings.predefinedWordsDesc')}
             </p>
 
             {/* Add New Word Form */}
@@ -250,7 +253,7 @@ export function SettingsPanel({
                     value={newWord}
                     onChange={(e) => setNewWord(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && handleAddWord()}
-                    placeholder="Enter word or phrase..."
+                    placeholder={t('settings.enterWordPlaceholder')}
                     className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                   {wordError && (
@@ -266,7 +269,7 @@ export function SettingsPanel({
                       onChange={(e) => setNewWordCaseSensitive(e.target.checked)}
                       className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
                     />
-                    Case sensitive
+                    {t('settings.caseSensitive')}
                   </label>
 
                   <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
@@ -276,7 +279,7 @@ export function SettingsPanel({
                       onChange={(e) => setNewWordWholeWord(e.target.checked)}
                       className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
                     />
-                    Whole word only
+                    {t('settings.wholeWordOnly')}
                   </label>
                 </div>
 
@@ -284,7 +287,7 @@ export function SettingsPanel({
                   onClick={handleAddWord}
                   className="w-full px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors text-sm"
                 >
-                  Add Word
+                  {t('settings.addWord')}
                 </button>
               </div>
             </div>
@@ -304,12 +307,12 @@ export function SettingsPanel({
                       <div className="flex gap-2 mt-1">
                         {word.caseSensitive && (
                           <span className="text-xs px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded">
-                            Case sensitive
+                            {t('settings.caseSensitive')}
                           </span>
                         )}
                         {word.wholeWord && (
                           <span className="text-xs px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded">
-                            Whole word
+                            {t('settings.wholeWordOnly')}
                           </span>
                         )}
                       </div>
@@ -317,7 +320,7 @@ export function SettingsPanel({
                     <button
                       onClick={() => handleDeleteWord(word.id)}
                       className="ml-3 p-2 text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
-                      aria-label="Delete word"
+                      aria-label={t('settings.deleteWord')}
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -328,21 +331,21 @@ export function SettingsPanel({
               </div>
             ) : (
               <div className="text-center py-8 text-sm text-gray-500 dark:text-gray-400">
-                No predefined words yet. Add words above to get started.
+                {t('settings.noWordsYet')}
               </div>
             )}
           </div>
 
           {/* Confidence Thresholds */}
           <div>
-            <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">Confidence Thresholds</h3>
+            <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">{t('settings.confidenceThresholds')}</h3>
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-              Adjust the confidence levels for entity detection
+              {t('settings.confidenceThresholdsDesc')}
             </p>
             <div className="space-y-4">
               <div>
                 <label className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-gray-700 dark:text-gray-300">High Confidence</span>
+                  <span className="text-sm text-gray-700 dark:text-gray-300">{t('settings.highConfidence')}</span>
                   <span className="text-sm font-medium text-gray-900 dark:text-white">
                     {Math.round(localConfig.confidenceThresholds.high * 100)}%
                   </span>
@@ -368,7 +371,7 @@ export function SettingsPanel({
 
               <div>
                 <label className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-gray-700 dark:text-gray-300">Medium Confidence</span>
+                  <span className="text-sm text-gray-700 dark:text-gray-300">{t('settings.mediumConfidence')}</span>
                   <span className="text-sm font-medium text-gray-900 dark:text-white">
                     {Math.round(localConfig.confidenceThresholds.medium * 100)}%
                   </span>
@@ -394,7 +397,7 @@ export function SettingsPanel({
 
               <div>
                 <label className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-gray-700 dark:text-gray-300">Low Confidence</span>
+                  <span className="text-sm text-gray-700 dark:text-gray-300">{t('settings.lowConfidence')}</span>
                   <span className="text-sm font-medium text-gray-900 dark:text-white">
                     {Math.round(localConfig.confidenceThresholds.low * 100)}%
                   </span>
@@ -422,12 +425,12 @@ export function SettingsPanel({
 
           {/* Detection Options */}
           <div>
-            <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">Detection Options</h3>
+            <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">{t('settings.detectionOptions')}</h3>
             <div className="space-y-3">
               <label className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
                 <div>
-                  <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Regex Patterns</div>
-                  <div className="text-xs text-gray-500 dark:text-gray-400">Use pattern matching for structured data</div>
+                  <div className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('settings.regexPatterns')}</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">{t('settings.regexPatternsDesc')}</div>
                 </div>
                 <input
                   type="checkbox"
@@ -442,18 +445,18 @@ export function SettingsPanel({
               <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
                 <label className="flex items-center justify-between cursor-pointer">
                   <div className="flex-1 mr-3">
-                    <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Local LLM (Transformers.js)</div>
+                    <div className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('settings.localLLM')}</div>
                     <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      Use AI for advanced entity detection (runs in browser)
+                      {t('settings.localLLMDesc')}
                     </div>
                     {!LLMDetector.isModelLoaded() && !isDownloadingModel && (
                       <div className="text-xs text-amber-600 mt-1">
-                        Note: First use will download ~110MB model
+                        {t('settings.modelDownloadNote')}
                       </div>
                     )}
                     {LLMDetector.isModelLoaded() && (
                       <div className="text-xs text-green-600 mt-1">
-                        ✓ Model ready
+                        {t('settings.modelReady')}
                       </div>
                     )}
                   </div>
@@ -486,7 +489,7 @@ export function SettingsPanel({
 
           {/* Aggressiveness */}
           <div>
-            <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">Detection Aggressiveness</h3>
+            <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">{t('settings.detectionAggressiveness')}</h3>
             <div className="space-y-2">
               {(['conservative', 'balanced', 'aggressive'] as const).map((level) => (
                 <label
@@ -501,11 +504,11 @@ export function SettingsPanel({
                     className="border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
                   />
                   <div>
-                    <div className="text-sm font-medium text-gray-700 dark:text-gray-300 capitalize">{level}</div>
+                    <div className="text-sm font-medium text-gray-700 dark:text-gray-300 capitalize">{t(`settings.${level}`)}</div>
                     <div className="text-xs text-gray-500 dark:text-gray-400">
-                      {level === 'conservative' && 'Only high-confidence detections'}
-                      {level === 'balanced' && 'Include medium confidence (recommended)'}
-                      {level === 'aggressive' && 'Include low confidence, more false positives'}
+                      {level === 'conservative' && t('settings.conservativeDesc')}
+                      {level === 'balanced' && t('settings.balancedDesc')}
+                      {level === 'aggressive' && t('settings.aggressiveDesc')}
                     </div>
                   </div>
                 </label>
@@ -515,7 +518,7 @@ export function SettingsPanel({
 
           {/* Document Sanitization */}
           <div>
-            <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">Document Sanitization</h3>
+            <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">{t('settings.documentSanitization')}</h3>
             <label className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg cursor-pointer">
               <input
                 type="checkbox"
@@ -526,9 +529,9 @@ export function SettingsPanel({
                 className="mt-0.5 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
               />
               <div>
-                <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Strip Metadata & Hidden Content</div>
+                <div className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('settings.stripMetadata')}</div>
                 <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  Remove all metadata (author, dates, etc.), comments, track changes, and hidden content from the redacted document
+                  {t('settings.stripMetadataDesc')}
                 </div>
               </div>
             </label>
@@ -536,12 +539,12 @@ export function SettingsPanel({
 
           {/* Privacy Settings */}
           <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-            <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">Privacy & Data Management</h3>
+            <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">{t('settings.privacyDataManagement')}</h3>
 
             {/* Import/Export Section */}
             <div className="space-y-3 mb-4">
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                Backup and restore your settings, predefined words, and custom patterns
+                {t('settings.backupRestoreDesc')}
               </p>
 
               <div className="grid grid-cols-2 gap-3">
@@ -552,7 +555,7 @@ export function SettingsPanel({
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                   </svg>
-                  Export Settings
+                  {t('settings.exportSettings')}
                 </button>
 
                 <button
@@ -562,7 +565,7 @@ export function SettingsPanel({
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                   </svg>
-                  Import Settings
+                  {t('settings.importSettings')}
                 </button>
               </div>
 
@@ -598,10 +601,10 @@ export function SettingsPanel({
                 }}
                 className="w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
               >
-                Clear All Settings
+                {t('settings.clearAllSettings')}
               </button>
               <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                This will remove all saved preferences and reset to defaults
+                {t('settings.clearAllSettingsDesc')}
               </p>
             </div>
           </div>
@@ -613,20 +616,20 @@ export function SettingsPanel({
             onClick={handleReset}
             className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
           >
-            Reset to Defaults
+            {t('settings.resetToDefaults')}
           </button>
           <div className="flex gap-3">
             <button
               onClick={onClose}
               className="px-4 py-2 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
             >
-              Cancel
+              {t('settings.cancel')}
             </button>
             <button
               onClick={handleSave}
               className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
-              Save Changes
+              {t('settings.saveChanges')}
             </button>
           </div>
         </div>

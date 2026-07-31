@@ -1,5 +1,6 @@
 import type { DetectedEntity } from '@/lib/types';
-import { getEntityColor } from '@/utils/entity-types';
+import { getEntityColor, getEntityDisplayName } from '@/utils/entity-types';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface EntityHighlightProps {
   entity: DetectedEntity;
@@ -16,6 +17,7 @@ export function EntityHighlight({
   onClick,
   pageHeight,
 }: EntityHighlightProps) {
+  const { language } = useLanguage();
   const { boundingBox } = entity.position;
   const color = getEntityColor(entity.entityType);
 
@@ -40,7 +42,7 @@ export function EntityHighlight({
         boxShadow: isSelected ? `0 0 0 2px ${color}40` : 'none',
       }}
       onClick={onClick}
-      title={`${entity.entityType}: ${entity.text} (${Math.round(entity.confidence * 100)}%)`}
+      title={`${getEntityDisplayName(entity.entityType, language)}: ${entity.text} (${Math.round(entity.confidence * 100)}%)`}
     />
   );
 }
