@@ -4,9 +4,17 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8-blue)](https://www.typescriptlang.org/)
 [![React](https://img.shields.io/badge/React-19-blue)](https://reactjs.org/)
 
+English | [简体中文](README.zh-CN.md)
+
 A privacy-focused document redaction tool that automatically detects and redacts sensitive information from PDF and DOCX documents.
 
 **🔒 100% Local Processing** • **🚀 No Server Required** • **🎯 Smart Detection** • **🛡️ Privacy First**
+
+## 🆕 Newly Added Features and Fixes
+
+- **Chinese language support**: Full UI translation with a one-click language toggle in the header, auto-detected from your browser locale and remembered across sessions
+- **Image preview lightbox**: Preview images extracted from documents at full size right in the metadata review modal, with prev/next navigation, a thumbnail strip, and keyboard shortcuts (arrow keys, Escape)
+- **More reliable entity review**: Fixed inconsistent selection status when confirming/rejecting detected entities, and removed the confusing pending/modified state
 
 ## ✨ Features
 
