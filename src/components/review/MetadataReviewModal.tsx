@@ -43,6 +43,7 @@ export function MetadataReviewModal({
 }: MetadataReviewModalProps) {
   const { language, t } = useLanguage();
   const [imagePreviews, setImagePreviews] = useState<Map<string, string>>(new Map());
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
 
   // Separate images from other metadata
   const images = metadata.images;
@@ -72,6 +73,50 @@ export function MetadataReviewModal({
     };
   }, [images]);
 
+  // Reset preview when the modal closes or the image set changes
+  useEffect(() => {
+    if (!isOpen) setPreviewIndex(null);
+  }, [isOpen]);
+
+  useEffect(() => {
+    setPreviewIndex(null);
+  }, [images]);
+
+  const imageCount = images?.length ?? 0;
+
+  const showPreviousImage = () => {
+    setPreviewIndex((current) => {
+      if (current === null || imageCount === 0) return current;
+      return (current - 1 + imageCount) % imageCount;
+    });
+  };
+
+  const showNextImage = () => {
+    setPreviewIndex((current) => {
+      if (current === null || imageCount === 0) return current;
+      return (current + 1) % imageCount;
+    });
+  };
+
+  // Keyboard navigation while the image preview lightbox is open
+  useEffect(() => {
+    if (previewIndex === null) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setPreviewIndex(null);
+      } else if (event.key === 'ArrowLeft') {
+        showPreviousImage();
+      } else if (event.key === 'ArrowRight') {
+        showNextImage();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [previewIndex, imageCount]);
+
   if (!isOpen) return null;
 
   // Filter out images from metadata entries for display (only string values)
@@ -100,7 +145,11 @@ export function MetadataReviewModal({
     });
   };
 
+  const currentPreviewImage = previewIndex !== null ? images?.[previewIndex] : undefined;
+  const currentPreviewUrl = currentPreviewImage ? imagePreviews.get(currentPreviewImage.id) : undefined;
+
   return (
+    <>
     <div
       className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
       onClick={onClose}
@@ -340,7 +389,7 @@ export function MetadataReviewModal({
                   </div>
 
                   <div className="space-y-2 max-h-60 overflow-y-auto">
-                    {images!.map((image) => {
+                    {images!.map((image, index) => {
                       const previewUrl = imagePreviews.get(image.id);
                       return (
                         <div
@@ -349,12 +398,19 @@ export function MetadataReviewModal({
                         >
                           <div className="flex items-center gap-3 flex-1 min-w-0">
                             {previewUrl ? (
-                              <img
-                                src={previewUrl}
-                                alt={image.filename}
-                                className="w-12 h-12 object-cover rounded border border-gray-300 dark:border-gray-600 flex-shrink-0"
-                                loading="lazy"
-                              />
+                              <button
+                                type="button"
+                                onClick={() => setPreviewIndex(index)}
+                                className="flex-shrink-0 rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                title={t('metadataModal.previewImage')}
+                              >
+                                <img
+                                  src={previewUrl}
+                                  alt={image.filename}
+                                  className="w-12 h-12 object-cover rounded border border-gray-300 dark:border-gray-600 cursor-pointer hover:opacity-80 transition-opacity"
+                                  loading="lazy"
+                                />
+                              </button>
                             ) : (
                               <div className="w-12 h-12 flex items-center justify-center bg-gray-100 dark:bg-gray-700 rounded border border-gray-300 dark:border-gray-600 flex-shrink-0">
                                 <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -373,16 +429,30 @@ export function MetadataReviewModal({
                               </p>
                             </div>
                           </div>
-                          <button
-                            onClick={() => downloadImage(image)}
-                            className="ml-2 px-2 py-1 text-xs bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors flex items-center gap-1 flex-shrink-0"
-                            title={t('metadataModal.downloadImage')}
-                          >
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                            </svg>
-                            {t('metadataModal.download')}
-                          </button>
+                          <div className="flex items-center gap-2 ml-2 flex-shrink-0">
+                            <button
+                              onClick={() => setPreviewIndex(index)}
+                              disabled={!previewUrl}
+                              className="px-2 py-1 text-xs bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 rounded hover:bg-purple-200 dark:hover:bg-purple-900/60 transition-colors flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                              title={t('metadataModal.previewImage')}
+                            >
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                              </svg>
+                              {t('metadataModal.preview')}
+                            </button>
+                            <button
+                              onClick={() => downloadImage(image)}
+                              className="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors flex items-center gap-1"
+                              title={t('metadataModal.downloadImage')}
+                            >
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                              </svg>
+                              {t('metadataModal.download')}
+                            </button>
+                          </div>
                         </div>
                       );
                     })}
@@ -413,5 +483,118 @@ export function MetadataReviewModal({
         </div>
       </div>
     </div>
+
+    {/* Image Preview Lightbox */}
+    {currentPreviewImage && (
+      <div
+        className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60] p-4"
+        onClick={() => setPreviewIndex(null)}
+      >
+        <div className="relative w-full h-full max-w-5xl flex flex-col" onClick={(e) => e.stopPropagation()}>
+          {/* Top bar */}
+          <div className="flex items-center justify-between text-white mb-3 flex-shrink-0">
+            <div className="text-sm min-w-0">
+              <p className="font-medium truncate">{currentPreviewImage.filename}</p>
+              <p className="text-xs text-gray-300">
+                {currentPreviewImage.mimeType}
+                {currentPreviewImage.width && currentPreviewImage.height && ` • ${currentPreviewImage.width}x${currentPreviewImage.height}`}
+                {currentPreviewImage.pageNumber && ` • ${t('common.page')} ${currentPreviewImage.pageNumber}`}
+              </p>
+            </div>
+            <div className="flex items-center gap-3 flex-shrink-0 ml-3">
+              {imageCount > 1 && (
+                <span className="text-xs text-gray-300 whitespace-nowrap">
+                  {t('metadataModal.imageCounter', { current: previewIndex! + 1, total: imageCount })}
+                </span>
+              )}
+              <button
+                onClick={() => currentPreviewImage && downloadImage(currentPreviewImage)}
+                className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                title={t('metadataModal.downloadImage')}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+              </button>
+              <button
+                onClick={() => setPreviewIndex(null)}
+                className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                aria-label={t('metadataModal.closePreview')}
+                title={t('metadataModal.closePreview')}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          {/* Image area with prev/next controls */}
+          <div className="relative flex-1 min-h-0 flex items-center justify-center">
+            {imageCount > 1 && (
+              <button
+                onClick={showPreviousImage}
+                className="absolute left-0 sm:-left-4 z-10 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+                aria-label={t('common.previous')}
+                title={t('common.previous')}
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+            )}
+
+            {currentPreviewUrl ? (
+              <img
+                src={currentPreviewUrl}
+                alt={currentPreviewImage.filename}
+                className="max-w-full max-h-full object-contain rounded shadow-2xl"
+              />
+            ) : (
+              <div className="text-gray-300 text-sm">{t('metadataModal.previewUnavailable')}</div>
+            )}
+
+            {imageCount > 1 && (
+              <button
+                onClick={showNextImage}
+                className="absolute right-0 sm:-right-4 z-10 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+                aria-label={t('common.next')}
+                title={t('common.next')}
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            )}
+          </div>
+
+          {/* Thumbnail strip for quick navigation */}
+          {imageCount > 1 && images && (
+            <div className="flex-shrink-0 mt-3 flex items-center gap-2 overflow-x-auto pb-1">
+              {images.map((image, index) => {
+                const thumbUrl = imagePreviews.get(image.id);
+                return (
+                  <button
+                    key={image.id}
+                    onClick={() => setPreviewIndex(index)}
+                    className={`flex-shrink-0 w-12 h-12 rounded border-2 overflow-hidden transition-colors ${
+                      index === previewIndex ? 'border-purple-500' : 'border-transparent hover:border-white/40'
+                    }`}
+                    title={image.filename}
+                  >
+                    {thumbUrl ? (
+                      <img src={thumbUrl} alt={image.filename} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full bg-gray-700" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    )}
+    </>
   );
 }
