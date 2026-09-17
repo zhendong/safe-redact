@@ -29,6 +29,7 @@ A privacy-focused document redaction tool that automatically detects and redacts
 - **DOCX Files**: Microsoft Word document support
 - **Metadata Extraction**: View and remove document metadata and hidden content
 - **Image Extraction**: Extract and download embedded images from documents
+- **Sanitized PDF Export**: When sanitization is enabled, redacted PDFs are rebuilt from page images, with no selectable or searchable text layer
 
 ### 🎨 User Experience
 - **Interactive Review**: Review and confirm detected entities before redaction

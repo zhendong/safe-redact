@@ -20,7 +20,7 @@ export class DocumentSanitizer {
   /**
    * Sanitize PDF metadata and hidden content using MuPDF API
    */
-  async sanitizePdf(pdfDocument: any, options?: { removeFormFields?: boolean }): Promise<void> {
+  async sanitizePdf(pdfDocument: any, options?: { removeFormFields?: boolean; preserveLayerVisibility?: boolean }): Promise<void> {
     // 1. Clear all metadata fields
     this.clearPdfMetadata(pdfDocument);
 
@@ -41,8 +41,11 @@ export class DocumentSanitizer {
     // 5. Remove direct embedded files (EmbeddedFiles name tree)
     this.removePdfEmbeddedFiles(pdfDocument);
 
-    // 6. Remove Optional Content Groups (layers)
-    this.removePdfLayers(pdfDocument);
+    // 6. The image-only export renders the current visible layers and creates
+    // a new PDF without any layer objects, so keep visibility unchanged there.
+    if (!options?.preserveLayerVisibility) {
+      this.removePdfLayers(pdfDocument);
+    }
 
     // Note: MuPDF's saveToBuffer with 'compress' option will already remove:
     // - Unused objects

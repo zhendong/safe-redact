@@ -29,10 +29,11 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "npm run test:predefined-words && npm run test:regex-patterns && npm run test:language-detection",
+    "test": "npm run test:predefined-words && npm run test:regex-patterns && npm run test:language-detection && npm run test:rasterized-pdf",
     "test:predefined-words": "npx tsx test/test-predefined-words.ts",
     "test:regex-patterns": "npx tsx --tsconfig tsconfig.test.json test/test-regex-patterns.ts",
-    "test:language-detection": "npx tsx --tsconfig tsconfig.test.json test/test-language-detection.ts"
+    "test:language-detection": "npx tsx --tsconfig tsconfig.test.json test/test-language-detection.ts",
+    "test:rasterized-pdf": "esbuild test/test-rasterized-pdf.ts --bundle --platform=node --format=esm --packages=external --tsconfig=tsconfig.test.json --outfile=node_modules/.tmp/test-rasterized-pdf.mjs && node node_modules/.tmp/test-rasterized-pdf.mjs"
   },
   "dependencies": {
     "@huggingface/transformers": "^3.7.5",

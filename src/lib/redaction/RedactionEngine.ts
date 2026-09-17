@@ -20,6 +20,7 @@ export class RedactionEngine {
 
     try {
       onProgress?.(0, 'Loading PDF document...');
+      const mupdf = await import('mupdf');
 
       // Use the PDF document from the parser (it's stored in pdfPageObject)
       // We need to get it from the document
@@ -27,7 +28,6 @@ export class RedactionEngine {
         // The page object has a reference to the document
         // We'll need to reload the document for redaction
         const arrayBuffer = await file.arrayBuffer();
-        const mupdf = await import('mupdf');
         this.pdfDocument = mupdf.PDFDocument.openDocument(
           new Uint8Array(arrayBuffer),
           'application/pdf'
@@ -63,16 +63,20 @@ export class RedactionEngine {
 
       onProgress?.(95, 'Finalizing document...');
 
-      // Apply sanitization if requested
-      if (sanitize) {
-        onProgress?.(96, 'Sanitizing document metadata...');
-        const sanitizer = new DocumentSanitizer();
-        await sanitizer.sanitizePdf(this.pdfDocument);
-      }
+      let pdfBytes: Uint8Array;
 
-      // Use full save (not incremental) to ensure redacted content is completely removed
-      const pdfBuffer = this.pdfDocument.saveToBuffer('compress');
-      const pdfBytes = pdfBuffer.asUint8Array();
+      // A fresh PDF containing only rendered page images cannot retain text,
+      // annotations, attachments, or metadata from the source document.
+      if (sanitize) {
+        onProgress?.(96, 'Sanitizing document...');
+        const sanitizer = new DocumentSanitizer();
+        // Keep the source layer visibility for rendering. The new PDF has no layers.
+        await sanitizer.sanitizePdf(this.pdfDocument, { preserveLayerVisibility: true });
+        pdfBytes = this.createImageOnlyPdf(mupdf, onProgress);
+      } else {
+        // Use full save (not incremental) to ensure redacted content is removed.
+        pdfBytes = this.pdfDocument.saveToBuffer('compress').asUint8Array();
+      }
 
       const blob = new Blob([pdfBytes], { type: 'application/pdf' });
 
@@ -98,6 +102,40 @@ export class RedactionEngine {
         processingTime,
       };
     }
+  }
+
+  /** Build a new PDF whose pages contain only the visible rendered pixels. */
+  private createImageOnlyPdf(
+    mupdf: typeof import('mupdf'),
+    onProgress?: (progress: number, message: string) => void
+  ): Uint8Array {
+    const output = new mupdf.PDFDocument();
+    const pageCount = this.pdfDocument.countPages();
+    const scale = 300 / 72; // Render each PDF point at 300 dpi.
+
+    for (let index = 0; index < pageCount; index++) {
+      const page = this.pdfDocument.loadPage(index);
+      const [x0, y0, x1, y1] = page.getBounds();
+      const width = x1 - x0;
+      const height = y1 - y0;
+      const pixmap = page.toPixmap(mupdf.Matrix.scale(scale, scale), mupdf.ColorSpace.DeviceRGB, false, true);
+      const image = new mupdf.Image(pixmap.asPNG());
+      pixmap.destroy();
+
+      const imageRef = output.addImage(image);
+      image.destroy();
+      const contents = `q ${width} 0 0 ${height} 0 0 cm /Im0 Do Q`;
+      const pdfPage = output.addPage(
+        [0, 0, width, height],
+        0,
+        { XObject: { Im0: imageRef } },
+        contents
+      );
+      output.insertPage(-1, pdfPage);
+      onProgress?.(96 + ((index + 1) / pageCount) * 3, `Rasterizing page ${index + 1} of ${pageCount}...`);
+    }
+
+    return output.saveToBuffer('compress').asUint8Array();
   }
 
   /**
