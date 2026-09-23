@@ -52,6 +52,20 @@ export function DocumentViewer({
         const context = canvas.getContext('2d');
         if (!context) return;
 
+        if (currentPageData.imageBlob) {
+          const bitmap = await createImageBitmap(currentPageData.imageBlob);
+          try {
+            canvas.width = bitmap.width * scale;
+            canvas.height = bitmap.height * scale;
+            context.clearRect(0, 0, canvas.width, canvas.height);
+            context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+            setIsLoading(false);
+          } finally {
+            bitmap.close();
+          }
+          return;
+        }
+
         const page = currentPageData.pdfPageObject;
 
         // Get page bounds
@@ -129,8 +143,8 @@ export function DocumentViewer({
   const handleFitWidth = () => {
     if (containerRef.current && currentPageData) {
       const containerWidth = containerRef.current.clientWidth - 48; // padding
-      const bounds = currentPageData.pdfPageObject.getBounds();
-      const pageWidth = bounds[2] - bounds[0];
+      const bounds = currentPageData.imageBlob ? null : currentPageData.pdfPageObject.getBounds();
+      const pageWidth = bounds ? bounds[2] - bounds[0] : currentPageData.dimensions.width;
       setScale(containerWidth / pageWidth);
     }
   };

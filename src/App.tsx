@@ -18,6 +18,9 @@ import { LLMDetector } from '@/lib/detectors/LLMDetector';
 import { EntityAggregator } from '@/lib/detectors/EntityAggregator';
 import { RedactionEngine } from '@/lib/redaction/RedactionEngine';
 import { DocxRedactor } from '@/lib/redaction/DocxRedactor';
+import { processImage as processUploadedImage } from '@/lib/image/ImageProcessor';
+import { redactImage, downloadRedactedImage } from '@/lib/image/ImageRedactor';
+import { detectImageEntities } from '@/lib/image/ImageOcr';
 import { DocxViewer } from '@/components/viewer/DocxViewer';
 import type { ProcessedDocument, ProcessedPage, ProcessingStage, DetectedEntity, BoundingBox, EntityType, DetectionConfig } from '@/lib/types';
 import { EntityType as EntityTypeEnum } from '@/lib/types';
@@ -29,7 +32,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 type AppStage = 'upload' | 'preview' | 'processing' | 'review' | 'redacting' | 'complete';
-type FileType = 'pdf' | 'docx';
+type FileType = 'pdf' | 'docx' | 'image';
 
 function App() {
   const { theme, toggleTheme } = useTheme();
@@ -150,7 +153,9 @@ function App() {
   const handleFileSelect = (file: File) => {
     setSelectedFile(file);
     // Detect file type
-    const type: FileType = file.name.toLowerCase().endsWith('.docx') ? 'docx' : 'pdf';
+    const type: FileType = file.type.startsWith('image/') || /\.(png|jpe?g|webp)$/i.test(file.name)
+      ? 'image'
+      : file.name.toLowerCase().endsWith('.docx') ? 'docx' : 'pdf';
     setFileType(type);
     setStage('preview');
     setError(null);
@@ -452,6 +457,17 @@ function App() {
 
     // Search through each page using mupdf's search method
     for (const page of processedDocument.pages) {
+      if (page.imageBlob && page.ocrWords) {
+        const escaped = searchText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const matches = detectImageEntities(
+          { text: page.textContent, textItems: page.textItems, words: page.ocrWords },
+          page.dimensions.width,
+          page.dimensions.height,
+          [{ name: 'manual', entityType, pattern: new RegExp(escaped, 'gi'), confidence: 1, examples: [] }]
+        );
+        foundEntities.push(...matches.map(entity => ({ ...entity, detectionMethod: 'manual' as const })));
+        continue;
+      }
       try {
         const mupdfPage = page.pdfPageObject;
 
@@ -585,6 +601,30 @@ function App() {
       await handleApplyRedactionsPdf();
     } else if (fileType === 'docx') {
       await handleApplyRedactionsDocx();
+    } else if (fileType === 'image') {
+      await handleApplyRedactionsImage();
+    }
+  };
+
+  const handleApplyRedactionsImage = async () => {
+    const image = processedDocument?.pages[0]?.imageBlob;
+    if (!selectedFile || !processedDocument || !image) return;
+    const confirmed = processedDocument.allEntities.filter(entity => entity.status === 'confirmed');
+    if (!confirmed.length) {
+      setError(t('errors.noEntitiesConfirmed'));
+      return;
+    }
+    setStage('redacting');
+    setError(null);
+    try {
+      setProcessingStage({ stage: 'detecting', progress: 20, message: t('progress.redacting') });
+      const blob = await redactImage(image, confirmed);
+      downloadRedactedImage(blob, selectedFile.name);
+      setProcessingStage({ stage: 'complete', progress: 100, message: t('progress.redactionSuccess', { count: confirmed.length }) });
+      setStage('complete');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('errors.redactionError'));
+      setStage('review');
     }
   };
 
@@ -706,14 +746,32 @@ function App() {
     try {
       if (fileType === 'pdf') {
         await processPdf();
-      } else {
+      } else if (fileType === 'docx') {
         await processDocx();
+      } else {
+        await processImage();
       }
     } catch (err) {
       console.error('Processing error:', err);
       setError(err instanceof Error ? err.message : t('errors.processingError'));
       setStage('preview');
     }
+  };
+
+  const processImage = async () => {
+    if (!selectedFile) return;
+    setProcessingStage({ stage: 'parsing', progress: 0, message: t('progress.recognizingImage') });
+    const document = await processUploadedImage(selectedFile, progress => {
+      setProcessingStage({ stage: 'parsing', progress, message: t('progress.recognizingImage') });
+    });
+    const entities = detectionConfig.useRegexPatterns
+      ? filterEntitiesByConfig(document.allEntities)
+      : [];
+    document.allEntities = entities;
+    document.pages[0].entities = entities;
+    setProcessedDocument(document);
+    setCurrentPage(1);
+    setStage('review');
   };
 
   const processPdf = async () => {
@@ -1128,6 +1186,12 @@ function App() {
           </div>
         )}
 
+        {(stage === 'upload' || (stage === 'preview' && fileType === 'image')) && (
+          <p role="note" className="max-w-2xl mx-auto mt-3 px-4 py-3 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 text-sm text-amber-900 dark:text-amber-200">
+            {t('common.imageOcrNotice')}
+          </p>
+        )}
+
         {stage === 'upload' && (
           <FileUpload onFileSelect={handleFileSelect} />
         )}
@@ -1165,7 +1229,7 @@ function App() {
                   {processingStage.message}
                 </p>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                  {t('complete.downloaded')}
+                  {t(fileType === 'image' ? 'complete.imageDownloaded' : fileType === 'docx' ? 'complete.docxDownloaded' : 'complete.downloaded')}
                 </p>
               </div>
               <div className="flex flex-col gap-3">
@@ -1188,6 +1252,11 @@ function App() {
 
         {stage === 'review' && (processedDocument || processedDocx) && (
           <div className="space-y-3 sm:space-y-4">
+              {fileType === 'image' && (
+                <p role="note" className="px-4 py-3 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 text-sm text-amber-900 dark:text-amber-200">
+                  {t('common.imageOcrNotice')}
+                </p>
+              )}
               {/* Review Header */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0">
                 <div className="flex items-center gap-2 sm:gap-4">
@@ -1439,6 +1508,7 @@ function App() {
         isOpen={isMetadataModalOpen}
         onClose={() => setIsMetadataModalOpen(false)}
         metadata={processedDocument?.metadata || processedDocx?.metadata}
+        metadataScanFailed={processedDocument?.metadataScanFailed}
         hiddenContentReport={processedDocument?.hiddenContentReport || (processedDocx?.hiddenContentReport as any)}
         fileType={fileType || 'pdf'}
       />

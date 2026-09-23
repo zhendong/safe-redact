@@ -1,13 +1,15 @@
 {
   "name": "safe-redact",
   "version": "1.0.0",
-  "description": "A privacy-focused document redaction tool that automatically detects and redacts sensitive information from PDF and DOCX documents",
+  "description": "A privacy-focused tool that redacts sensitive information from PDF, DOCX, and image files",
   "type": "module",
   "keywords": [
     "redaction",
     "privacy",
     "pdf",
     "docx",
+    "image",
+    "ocr",
     "document-processing",
     "pii",
     "sensitive-data",
@@ -29,14 +31,16 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "npm run test:predefined-words && npm run test:regex-patterns && npm run test:language-detection && npm run test:rasterized-pdf",
+    "test": "npm run test:predefined-words && npm run test:regex-patterns && npm run test:language-detection && npm run test:rasterized-pdf && npm run test:image",
     "test:predefined-words": "npx tsx test/test-predefined-words.ts",
     "test:regex-patterns": "npx tsx --tsconfig tsconfig.test.json test/test-regex-patterns.ts",
     "test:language-detection": "npx tsx --tsconfig tsconfig.test.json test/test-language-detection.ts",
-    "test:rasterized-pdf": "esbuild test/test-rasterized-pdf.ts --bundle --platform=node --format=esm --packages=external --tsconfig=tsconfig.test.json --outfile=node_modules/.tmp/test-rasterized-pdf.mjs && node node_modules/.tmp/test-rasterized-pdf.mjs"
+    "test:rasterized-pdf": "esbuild test/test-rasterized-pdf.ts --bundle --platform=node --format=esm --packages=external --tsconfig=tsconfig.test.json --outfile=node_modules/.tmp/test-rasterized-pdf.mjs && node node_modules/.tmp/test-rasterized-pdf.mjs",
+    "test:image": "esbuild test/test-image.ts --bundle --platform=node --format=esm --packages=external --tsconfig=tsconfig.test.json --outfile=node_modules/.tmp/test-image.mjs && node node_modules/.tmp/test-image.mjs"
   },
   "dependencies": {
     "@huggingface/transformers": "^3.7.5",
+    "exifreader": "^4.45.2",
     "file-saver": "^2.0.5",
     "mammoth": "^1.11.0",
     "mupdf": "^1.26.4",
@@ -60,6 +64,7 @@
     "globals": "^16.4.0",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.14",
+    "tsx": "^4.23.15",
     "typescript": "~5.8.3",
     "typescript-eslint": "^8.44.0",
     "vite": "^7.1.7"

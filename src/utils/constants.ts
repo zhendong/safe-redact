@@ -7,8 +7,11 @@ export const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB in bytes
 export const ALLOWED_MIME_TYPES = [
   'application/pdf',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'image/png',
+  'image/jpeg',
+  'image/webp',
 ];
-export const ALLOWED_EXTENSIONS = ['.pdf', '.docx'];
+export const ALLOWED_EXTENSIONS = ['.pdf', '.docx', '.png', '.jpg', '.jpeg', '.webp'];
 
 // Detection thresholds
 export const DEFAULT_CONFIDENCE_THRESHOLDS = {
@@ -86,7 +89,7 @@ export const DEFAULT_ZOOM = 1.0;
 
 // Error messages
 export const ERROR_MESSAGES = {
-  INVALID_FILE_TYPE: 'Please upload a PDF or DOCX file',
+  INVALID_FILE_TYPE: 'Please upload a PDF, DOCX, PNG, JPEG, or WebP file',
   FILE_TOO_LARGE: `File exceeds ${MAX_FILE_SIZE / 1024 / 1024}MB limit`,
   CORRUPTED_PDF: 'Unable to read file. Please try another file.',
   PARSING_FAILED: 'Failed to parse document. The file may be corrupted or use unsupported features.',

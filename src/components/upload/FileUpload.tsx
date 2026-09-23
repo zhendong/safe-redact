@@ -93,7 +93,7 @@ export function FileUpload({ onFileSelect }: FileUploadProps) {
         <input
           id="file-input"
           type="file"
-          accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+          accept=".pdf,.docx,.png,.jpg,.jpeg,.webp,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/png,image/jpeg,image/webp"
           onChange={handleFileInput}
           className="hidden"
           aria-label={t('upload.uploadAriaLabel')}

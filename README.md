@@ -6,12 +6,15 @@
 
 English | [简体中文](README.zh-CN.md)
 
-A privacy-focused document redaction tool that automatically detects and redacts sensitive information from PDF and DOCX documents.
+A privacy-focused redaction tool for PDF, DOCX, PNG, JPEG, and WebP files.
 
 **🔒 100% Local Processing** • **🚀 No Server Required** • **🎯 Smart Detection** • **🛡️ Privacy First**
 
 ## 🆕 Newly Added Features and Fixes
 
+- **Image redaction**: Upload PNG, JPEG, or WebP images; Tesseract.js recognizes English and Simplified Chinese text for pattern matching. Review detections or draw a manual selection, then download a flattened PNG with the selected pixels covered.
+- **OCR accuracy**: Image OCR is best effort. Tesseract.js can miss or misread text; inspect the entire image and manually select any sensitive area it missed before exporting.
+- **Image metadata review**: Open Review Metadata for an uploaded image to inspect supported embedded EXIF, GPS, XMP, IPTC, and PNG tags. The downloaded PNG is redrawn from pixels, so original file metadata is not copied; inspect visible pixels separately.
 - **Chinese language support**: Full UI translation with a one-click language toggle in the header, auto-detected from your browser locale and remembered across sessions
 - **Image preview lightbox**: Preview images extracted from documents at full size right in the metadata review modal, with prev/next navigation, a thumbnail strip, and keyboard shortcuts (arrow keys, Escape)
 - **More reliable entity review**: Fixed inconsistent selection status when confirming/rejecting detected entities, and removed the confusing pending/modified state
@@ -27,6 +30,7 @@ A privacy-focused document redaction tool that automatically detects and redacts
 ### 📄 Format Support
 - **PDF Files**: Full support for text-based PDFs
 - **DOCX Files**: Microsoft Word document support
+- **Image Files**: PNG, JPEG, and WebP uploads with browser-based OCR and PNG export
 - **Metadata Extraction**: View and remove document metadata and hidden content
 - **Image Extraction**: Extract and download embedded images from documents
 - **Sanitized PDF Export**: When sanitization is enabled, redacted PDFs are rebuilt from page images, with no selectable or searchable text layer
@@ -45,7 +49,7 @@ A privacy-focused document redaction tool that automatically detects and redacts
 
 ## Data Types Detected
 
-Safe Redact automatically detects the following types of sensitive information in both PDF and DOCX documents:
+Safe Redact detects the following types of sensitive information in PDF, DOCX, and OCR text from uploaded images:
 
 ### Personal Identifiers
 
@@ -187,6 +191,7 @@ npm test
 - **MuPDF**: PDF parsing, rendering, and manipulation
 - **PizZip + Mammoth**: DOCX processing
 - **Transformers.js**: ML-based entity detection (optional)
+- **Tesseract.js v5**: Browser OCR for uploaded images, loaded from a CDN
 - **Tailwind CSS**: Utility-first styling
 
 ## Privacy & Security
@@ -194,6 +199,7 @@ npm test
 - All document processing happens **100% locally** in your browser
 - No data is sent to external servers
 - Documents never leave your device
+- Image OCR begins loading its worker, engine, and language data when the page opens. Allow the initial download to finish before disconnecting, then keep the tab open to redact images offline. The image itself stays in the browser.
 - Open source and auditable
 
 ## 🤝 Contributing

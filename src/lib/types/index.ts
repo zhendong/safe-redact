@@ -116,6 +116,7 @@ export interface ProcessedDocument {
   createdAt: number;                       // Timestamp
   hiddenContentReport?: HiddenContentReport; // Hidden content detection results
   metadata?: DocumentMetadata;             // Document metadata
+  metadataScanFailed?: boolean;             // Original image metadata could not be inspected
 }
 
 /**
@@ -134,6 +135,8 @@ export interface ProcessedPage {
   };
   formFields?: FormFieldData[];            // Form fields on this page
   images?: ExtractedImage[];
+  imageBlob?: Blob;                        // Normalized raster image for image uploads
+  ocrWords?: Array<{ start: number; end: number; left: number; top: number; width: number; height: number; confidence: number }>;
 }
 
 /**
