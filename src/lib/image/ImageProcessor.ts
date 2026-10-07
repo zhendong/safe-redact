@@ -2,7 +2,8 @@ import type { ProcessedDocument } from '@/lib/types';
 import { EntityAggregator } from '@/lib/detectors/EntityAggregator';
 import { getPatternsForText } from '@/utils/regex-patterns';
 import { generateId } from '@/utils/validation';
-import { detectImageEntities, parseOcrTsv } from './ImageOcr';
+import { detectImageEntities } from './ImageOcr';
+import { recognizeImageOcr } from './ImageOrientation';
 import { imageOcrWorker } from './ImageOcrWorker';
 import { inspectImageMetadata } from './ImageMetadata';
 
@@ -45,11 +46,9 @@ export async function processImage(file: File, onProgress?: (progress: number) =
   const { canvas, blob } = await normalizeImage(file);
   onProgress?.(15);
 
-  const { data } = await imageOcrWorker.recognize(canvas, progress => {
+  const ocr = await recognizeImageOcr(canvas, (image, progress) => imageOcrWorker.recognize(image, progress), progress => {
     onProgress?.(20 + Math.round(progress * 60));
   });
-  if (typeof data.tsv !== 'string') throw new Error('OCR did not return word locations');
-  const ocr = parseOcrTsv(data.tsv, canvas.width, canvas.height);
   const detected = detectImageEntities(ocr, canvas.width, canvas.height, getPatternsForText(ocr.text));
   const entities = new EntityAggregator().deduplicateEntities(detected);
   onProgress?.(100);
