@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { isDesktop } from '@/platform';
 
 type Theme = 'light' | 'dark';
 
@@ -28,6 +29,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       root.classList.remove('dark');
     }
     localStorage.setItem('theme', theme);
+    // Match the macOS window chrome and native dialogs to the app theme
+    if (isDesktop) {
+      void import('@tauri-apps/api/window').then(({ getCurrentWindow }) => getCurrentWindow().setTheme(theme));
+    }
   }, [theme]);
 
   const toggleTheme = () => {

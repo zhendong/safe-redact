@@ -34,3 +34,6 @@ test-files/
 # Claude Code internal files
 .claude/
 CLAUDE.md
+
+# Desktop app: offline assets fetched by scripts/fetch-desktop-assets.mjs
+desktop-assets/

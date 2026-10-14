@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { HiddenContentReport, ExtractedImage } from '@/lib/types';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translateHiddenContentWarning, translateHiddenContentSummary } from '@/utils/hidden-content-i18n';
+import { saveFile } from '@/platform';
 
 interface DocumentMetadata {
   title?: string;
@@ -128,23 +129,16 @@ export function MetadataReviewModal({
   const hasHiddenContent = hiddenContentReport?.hasHiddenContent;
 
   // Function to download a single image
-  const downloadImage = (image: ExtractedImage) => {
-    const url = URL.createObjectURL(image.data);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = image.filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
+  const downloadImage = (image: ExtractedImage) => saveFile(image.data, image.filename);
 
   // Function to download all images as a zip (simple approach: download one by one)
-  const downloadAllImages = () => {
+  const downloadAllImages = async () => {
     if (!images) return;
-    images.forEach((image, index) => {
-      setTimeout(() => downloadImage(image), index * 100); // Stagger downloads
-    });
+    for (const image of images) {
+      // Stop if the user cancels a desktop Save dialog
+      if (!(await downloadImage(image))) break;
+      await new Promise(resolve => setTimeout(resolve, 100)); // Stagger browser downloads
+    }
   };
 
   const currentPreviewImage = previewIndex !== null ? images?.[previewIndex] : undefined;

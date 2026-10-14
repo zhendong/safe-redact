@@ -5,6 +5,7 @@ import { STORAGE_KEYS, DEFAULT_CONFIDENCE_THRESHOLDS } from '@/utils/constants';
 import { LLMDetector } from '@/lib/detectors/LLMDetector';
 import { getEntityDisplayName } from '@/utils/entity-types';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { isDesktop, pickFile } from '@/platform';
 import {
   getPredefinedWords,
   addPredefinedWord,
@@ -140,9 +141,9 @@ export function SettingsPanel({
     }
   };
 
-  const handleExportSettings = () => {
+  const handleExportSettings = async () => {
     try {
-      downloadSettings();
+      if (!(await downloadSettings())) return;
       setImportMessage({ type: 'success', text: t('settings.exportSuccess') });
       setTimeout(() => setImportMessage(null), 3000);
     } catch (error) {
@@ -153,8 +154,19 @@ export function SettingsPanel({
 
   const handleImportSettings = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file) return;
+    if (file) await importSettingsFile(file);
+  };
 
+  const handleImportClick = async () => {
+    if (!isDesktop) {
+      fileInputRef.current?.click();
+      return;
+    }
+    const file = await pickFile(t('settings.settingsFileFilter'), ['json']);
+    if (file) await importSettingsFile(file);
+  };
+
+  const importSettingsFile = async (file: File) => {
     try {
       const jsonStr = await readSettingsFile(file);
       const result = importSettings(jsonStr);
@@ -559,7 +571,7 @@ export function SettingsPanel({
                 </button>
 
                 <button
-                  onClick={() => fileInputRef.current?.click()}
+                  onClick={() => void handleImportClick()}
                   className="px-4 py-2 text-sm text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors flex items-center justify-center gap-2"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

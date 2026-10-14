@@ -1,0 +1,18 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Permissions for the main window. File writes are limited to paths the user picks in the Save dialog.",
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "core:default",
+    "core:window:allow-start-dragging",
+    "core:window:allow-internal-toggle-maximize",
+    "core:window:allow-set-theme",
+    "dialog:allow-save",
+    "dialog:allow-ask",
+    "fs:allow-write-file",
+    "opener:default"
+  ]
+}
