@@ -6,6 +6,7 @@
 import { STORAGE_KEYS } from './constants';
 import { getPredefinedWords, type PredefinedWord } from './predefined-words';
 import type { DetectionConfig } from '@/lib/types';
+import { saveFile } from '@/platform';
 import packageJson from '../../package.json';
 
 interface ExportData {
@@ -63,17 +64,10 @@ export function exportSettings(): string {
 /**
  * Download settings as a JSON file
  */
-export function downloadSettings(): void {
+export function downloadSettings(): Promise<boolean> {
   const json = exportSettings();
   const blob = new Blob([json], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `safe-redact-settings-${new Date().toISOString().split('T')[0]}.json`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  return saveFile(blob, `safe-redact-settings-${new Date().toISOString().split('T')[0]}.json`);
 }
 
 /**

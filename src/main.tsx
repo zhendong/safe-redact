@@ -5,6 +5,9 @@ import App from './App.tsx'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { LanguageProvider } from './contexts/LanguageContext'
 import { imageOcrWorker } from './lib/image/ImageOcrWorker'
+import { installExternalLinkHandler } from './platform'
+
+installExternalLinkHandler()
 
 // Warm the OCR worker, engine, and language data while the page is online.
 void imageOcrWorker.preload().catch(() => {})

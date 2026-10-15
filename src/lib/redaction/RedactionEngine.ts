@@ -2,6 +2,7 @@ import type { ProcessedDocument, DetectedEntity, RedactionResult } from '@/lib/t
 import { DocumentSanitizer } from '@/lib/sanitize/DocumentSanitizer';
 import { boundingBoxToMuPdfRect } from '@/utils/coordinate-utils';
 import { PDF_REDACTION, COORDINATE_TOLERANCE } from '@/utils/constants';
+import { saveFile } from '@/platform';
 
 export class RedactionEngine {
   private pdfDocument: any = null;
@@ -259,14 +260,7 @@ export class RedactionEngine {
   /**
    * Download redacted PDF
    */
-  downloadRedactedPdf(blob: Blob, filename: string): void {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+  downloadRedactedPdf(blob: Blob, filename: string): Promise<boolean> {
+    return saveFile(blob, filename);
   }
 }

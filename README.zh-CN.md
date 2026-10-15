@@ -12,6 +12,7 @@
 
 ## 🆕 最新功能与修复
 
+- **macOS 应用**：SafeRedact 现已提供原生 Mac 应用。OCR 和人名识别模型已内置，可完全离线使用，且应用被禁止发起任何网络连接。可通过“文件”菜单、程序坞或访达的“打开方式”打开文件，并用系统“存储”对话框保存结果。详见 [macOS 应用](#-macos-应用)。
 - **图片脱敏**：上传 PNG、JPEG 或 WebP 图片，使用 Tesseract.js 识别英文和简体中文文字并匹配敏感信息。可审核识别结果或手动框选，最后下载像素已遮盖的 PNG 图片。
 - **识别准确性**：图片 OCR 仅供辅助，Tesseract.js 可能漏识或误识文字。导出前请检查整张图片，并手动框选遗漏的敏感区域。
 - **图片元数据审阅**：上传后可打开“审阅元数据”，查看受支持的 EXIF、GPS、XMP、IPTC 和 PNG 嵌入标签。下载的 PNG 由像素重新绘制，不会复制原文件元数据；仍需单独检查可见内容。
@@ -183,6 +184,33 @@ npm run build
 ```bash
 npm test
 ```
+
+## 🍎 macOS 应用
+
+从 [Releases](https://github.com/zhendong/safe-redact/releases) 下载适合你 Mac 的 DMG（Apple 芯片或 Intel），将 SafeRedact 拖入“应用程序”文件夹。需要 macOS 13 或更高版本。
+
+应用尚未经过 Apple 公证，首次打开会被 macOS 拦截。请在“应用程序”中右键点击 SafeRedact，选择**打开**并确认。如果提示应用已损坏，请运行：
+```bash
+xattr -cr /Applications/SafeRedact.app
+```
+
+与网页版的区别：
+- **完全离线**：OCR（Tesseract.js，支持英文和简体中文）和 NER 模型已内置（下载约 95 MB）
+- **禁止联网**：应用的内容安全策略（CSP）阻止所有对外连接，链接会在浏览器中打开
+- **原生文件操作**：通过 ⌘O、程序坞或访达的“打开方式”打开文件；用 ⌘S 和“存储”对话框保存脱敏文件
+
+### 构建 macOS 应用
+
+额外前置条件：[Rust](https://rustup.rs) 和 Xcode 命令行工具。
+
+```bash
+npm run tauri dev     # 以热重载方式运行应用
+npm run tauri build   # 在 src-tauri/target/release/bundle/ 生成 SafeRedact.app 和 DMG
+```
+
+两条命令都会先运行 `npm run desktop:assets`：从 `node_modules` 复制 OCR 文件，并从 Hugging Face 下载 NER 模型（约 105 MB，仅首次）到 `desktop-assets/`。
+
+推送 `v*` 标签会触发 GitHub Actions 工作流，构建 Apple 芯片和 Intel 版 DMG 并附加到草稿版本中。
 
 ## 🛠️ 技术栈
 

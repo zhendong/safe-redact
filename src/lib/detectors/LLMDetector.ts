@@ -4,10 +4,20 @@ import { generateId } from '@/utils/validation';
 import { extractContext, splitTextWithOverlap } from '@/utils/text-utils';
 import { LLM_CHUNKING } from '@/utils/constants';
 import { pipeline, type TokenClassificationPipeline, env } from '@huggingface/transformers';
+import { isDesktop } from '@/platform';
 
-// Configure transformers.js to use CDN for models
-env.allowLocalModels = false;
-env.allowRemoteModels = true;
+if (isDesktop) {
+  // The desktop app bundles the model and ONNX runtime so it works offline
+  env.allowLocalModels = true;
+  env.allowRemoteModels = false;
+  env.localModelPath = '/models/';
+  env.useBrowserCache = false;
+  if (env.backends.onnx.wasm) env.backends.onnx.wasm.wasmPaths = '/vendor/ort/';
+} else {
+  // Configure transformers.js to use CDN for models
+  env.allowLocalModels = false;
+  env.allowRemoteModels = true;
+}
 
 /**
  * Entity detection using local LLM (transformers.js)

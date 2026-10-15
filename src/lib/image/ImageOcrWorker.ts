@@ -1,3 +1,5 @@
+import { isDesktop } from '@/platform';
+
 interface OcrLogMessage {
   status: string;
   progress: number;
@@ -49,7 +51,12 @@ interface TesseractGlobal {
   createWorker: (
     languages: string[],
     oem: number,
-    options: { logger: (message: OcrLogMessage) => void }
+    options: {
+      logger: (message: OcrLogMessage) => void;
+      workerPath?: string;
+      corePath?: string;
+      langPath?: string;
+    }
   ) => Promise<ImageOcrWorker>;
 }
 
@@ -60,7 +67,9 @@ async function getTesseract(): Promise<TesseractGlobal> {
   // The initial CDN tag may have failed while the page was offline. Retry it.
   return new Promise((resolve, reject) => {
     const script = document.createElement('script');
-    script.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+    script.src = isDesktop
+      ? '/vendor/tesseract/tesseract.min.js'
+      : 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
     script.onload = () => browserWindow.Tesseract
       ? resolve(browserWindow.Tesseract)
       : reject(new Error('OCR script did not initialize'));
@@ -74,5 +83,13 @@ async function getTesseract(): Promise<TesseractGlobal> {
 
 export const imageOcrWorker = new ImageOcrWorkerManager(async logger => {
   const tesseract = await getTesseract();
-  return tesseract.createWorker(['eng', 'chi_sim'], 1, { logger });
+  // The desktop app bundles the worker, WASM core, and language data so OCR works offline
+  const offlinePaths = isDesktop
+    ? {
+        workerPath: new URL('/vendor/tesseract/worker.min.js', window.location.href).href,
+        corePath: new URL('/vendor/tesseract/core', window.location.href).href,
+        langPath: new URL('/vendor/tesseract/lang', window.location.href).href,
+      }
+    : {};
+  return tesseract.createWorker(['eng', 'chi_sim'], 1, { logger, ...offlinePaths });
 });

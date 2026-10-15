@@ -1,4 +1,4 @@
-import { saveAs } from 'file-saver';
+import { saveFile } from '@/platform';
 import type { DetectedEntity } from '@/lib/types';
 import { removeExtension } from '@/utils/file-utils';
 import { redactionRect } from './ImageOcr';
@@ -32,6 +32,6 @@ export async function redactImage(image: Blob, entities: DetectedEntity[]): Prom
   }
 }
 
-export function downloadRedactedImage(blob: Blob, originalFilename: string): void {
-  saveAs(blob, `${removeExtension(originalFilename)}-REDACTED.png`);
+export function downloadRedactedImage(blob: Blob, originalFilename: string): Promise<boolean> {
+  return saveFile(blob, `${removeExtension(originalFilename)}-REDACTED.png`);
 }

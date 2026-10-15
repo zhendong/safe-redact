@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import packageJson from '../package.json';
 import { FileUpload } from '@/components/upload/FileUpload';
 import { FilePreview } from '@/components/upload/FilePreview';
@@ -24,7 +24,8 @@ import { detectImageEntities } from '@/lib/image/ImageOcr';
 import { DocxViewer } from '@/components/viewer/DocxViewer';
 import type { ProcessedDocument, ProcessedPage, ProcessingStage, DetectedEntity, BoundingBox, EntityType, DetectionConfig } from '@/lib/types';
 import { EntityType as EntityTypeEnum } from '@/lib/types';
-import { generateId } from '@/utils/validation';
+import { generateId, validateFile } from '@/utils/validation';
+import { isDesktop, onDesktopFileOpened, onDesktopExportRequested, setDesktopExportEnabled, confirmAction } from '@/platform';
 import { STORAGE_KEYS, DEFAULT_CONFIDENCE_THRESHOLDS } from '@/utils/constants';
 import { generateRedactedFilename } from '@/utils/file-utils';
 import { useMemo } from 'react';
@@ -606,6 +607,44 @@ function App() {
     }
   };
 
+  // Desktop: files opened from the menu, Dock, or Finder, and File > Save Redacted File…
+  const handleDesktopFileOpened = async (file: File) => {
+    if (stage === 'processing' || stage === 'redacting') return;
+    const validation = validateFile(file);
+    if (!validation.valid) {
+      setError(validation.error || t('errors.invalidFileType'));
+      return;
+    }
+    if (
+      stage === 'review' &&
+      !(await confirmAction(t('common.discardReview', { name: file.name }), {
+        title: t('common.discardReviewTitle'),
+        okLabel: t('common.discardReviewConfirm'),
+        cancelLabel: t('common.cancel'),
+      }))
+    ) {
+      return;
+    }
+    handleBackToUpload();
+    handleFileSelect(file);
+  };
+  const desktopHandlersRef = useRef({ handleDesktopFileOpened, handleApplyRedactions, stage });
+  useEffect(() => {
+    desktopHandlersRef.current = { handleDesktopFileOpened, handleApplyRedactions, stage };
+  });
+  useEffect(() => {
+    const stopOpen = onDesktopFileOpened(file => void desktopHandlersRef.current.handleDesktopFileOpened(file));
+    const stopExport = onDesktopExportRequested(() => {
+      const current = desktopHandlersRef.current;
+      if (current.stage === 'review') void current.handleApplyRedactions();
+    });
+    return () => {
+      stopOpen();
+      stopExport();
+    };
+  }, []);
+  useEffect(() => setDesktopExportEnabled(stage === 'review'), [stage]);
+
   const handleApplyRedactionsImage = async () => {
     const image = processedDocument?.pages[0]?.imageBlob;
     if (!selectedFile || !processedDocument || !image) return;
@@ -619,7 +658,11 @@ function App() {
     try {
       setProcessingStage({ stage: 'detecting', progress: 20, message: t('progress.redacting') });
       const blob = await redactImage(image, confirmed);
-      downloadRedactedImage(blob, selectedFile.name);
+      if (!(await downloadRedactedImage(blob, selectedFile.name))) {
+        // Save dialog cancelled: return to review so the user can export again
+        setStage('review');
+        return;
+      }
       setProcessingStage({ stage: 'complete', progress: 100, message: t('progress.redactionSuccess', { count: confirmed.length }) });
       setStage('complete');
     } catch (err) {
@@ -664,7 +707,10 @@ function App() {
       if (result.success && result.pdfBlob) {
         // Download the redacted PDF
         const filename = generateRedactedFilename(selectedFile.name);
-        engine.downloadRedactedPdf(result.pdfBlob, filename);
+        if (!(await engine.downloadRedactedPdf(result.pdfBlob, filename))) {
+          setStage('review');
+          return;
+        }
 
         setStage('complete');
         setProcessingStage({
@@ -718,7 +764,10 @@ function App() {
 
       if (result.success && result.pdfBlob) {
         // Download the redacted DOCX (pdfBlob is reused for consistency)
-        redactor.downloadRedactedDocx(result.pdfBlob, selectedFile.name);
+        if (!(await redactor.downloadRedactedDocx(result.pdfBlob, selectedFile.name))) {
+          setStage('review');
+          return;
+        }
 
         setStage('complete');
         setProcessingStage({
@@ -1001,10 +1050,15 @@ function App() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
-      <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 sm:gap-3">
+      {/* In the macOS app the header doubles as the title bar: it stays on top, leaves room
+          for the window buttons, and drags the window */}
+      <header
+        className={`bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm ${isDesktop ? 'sticky top-0 z-40 pl-16' : ''}`}
+        data-tauri-drag-region
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-4" data-tauri-drag-region>
+          <div className="flex items-center justify-between" data-tauri-drag-region>
+            <div className="flex items-center gap-2 sm:gap-3" data-tauri-drag-region>
               <svg
                 className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600"
                 fill="none"

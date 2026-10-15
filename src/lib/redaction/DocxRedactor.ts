@@ -1,4 +1,4 @@
-import { saveAs } from 'file-saver';
+import { saveFile } from '@/platform';
 import type { DetectedEntity, RedactionResult } from '@/lib/types';
 import type { ParsedDocx } from '@/lib/parsers/DocxParser';
 import { DocumentSanitizer } from '@/lib/sanitize/DocumentSanitizer';
@@ -176,8 +176,8 @@ export class DocxRedactor {
   /**
    * Download redacted DOCX file
    */
-  downloadRedactedDocx(blob: Blob, filename: string): void {
+  downloadRedactedDocx(blob: Blob, filename: string): Promise<boolean> {
     const redactedFilename = generateRedactedFilename(filename);
-    saveAs(blob, redactedFilename);
+    return saveFile(blob, redactedFilename);
   }
 }

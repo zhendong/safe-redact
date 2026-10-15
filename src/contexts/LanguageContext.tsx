@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { translations, LANGUAGE_STORAGE_KEY, type Language } from '@/i18n/translations';
+import { setDesktopLanguage } from '@/platform';
 
 interface LanguageContextType {
   language: Language;
@@ -40,6 +41,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     localStorage.setItem(LANGUAGE_STORAGE_KEY, language);
     document.documentElement.lang = language === 'zh' ? 'zh-CN' : 'en';
+    setDesktopLanguage(language);
   }, [language]);
 
   const setLanguage = (next: Language) => setLanguageState(next);

@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import { validateFile } from '@/utils/validation';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { isDesktop, pickFile } from '@/platform';
 
 interface FileUploadProps {
   onFileSelect: (file: File) => void;
@@ -61,10 +62,15 @@ export function FileUpload({ onFileSelect }: FileUploadProps) {
     [handleFile]
   );
 
-  const handleClick = useCallback(() => {
+  const handleClick = useCallback(async () => {
+    if (isDesktop) {
+      const file = await pickFile(t('upload.fileFilterName'), ['pdf', 'docx', 'png', 'jpg', 'jpeg', 'webp']);
+      if (file) handleFile(file);
+      return;
+    }
     const input = document.getElementById('file-input') as HTMLInputElement;
     input?.click();
-  }, []);
+  }, [handleFile, t]);
 
   return (
     <div className="w-full max-w-2xl mx-auto p-8">
@@ -86,7 +92,7 @@ export function FileUpload({ onFileSelect }: FileUploadProps) {
         tabIndex={0}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
-            handleClick();
+            void handleClick();
           }
         }}
       >

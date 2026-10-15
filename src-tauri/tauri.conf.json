@@ -1,0 +1,147 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "productName": "SafeRedact",
+  "mainBinaryName": "SafeRedact",
+  "version": "../package.json",
+  "identifier": "io.github.zhendong.saferedact",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:5173",
+    "beforeDevCommand": "npm run dev:desktop",
+    "beforeBuildCommand": "npm run build:desktop"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "SafeRedact",
+        "width": 1280,
+        "height": 860,
+        "minWidth": 800,
+        "minHeight": 600,
+        "resizable": true,
+        "fullscreen": false,
+        "dragDropEnabled": false,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
+        "trafficLightPosition": {
+          "x": 20,
+          "y": 36
+        }
+      }
+    ],
+    "security": {
+      "csp": {
+        "default-src": "'self' ipc: http://ipc.localhost",
+        "connect-src": "'self' ipc: http://ipc.localhost blob: data:",
+        "script-src": "'self' 'wasm-unsafe-eval' blob:",
+        "worker-src": "'self' blob:",
+        "img-src": "'self' blob: data:",
+        "style-src": "'self' 'unsafe-inline'",
+        "font-src": "'self' data:",
+        "object-src": "'none'"
+      },
+      "devCsp": null,
+      "dangerousDisableAssetCspModification": [
+        "style-src"
+      ],
+      "headers": {
+        "Cross-Origin-Opener-Policy": "same-origin",
+        "Cross-Origin-Embedder-Policy": "require-corp"
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "app",
+      "dmg"
+    ],
+    "category": "Productivity",
+    "shortDescription": "Redact sensitive information from PDF, DOCX, and image files",
+    "copyright": "Copyright (c) zhendong. MIT License.",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "macOS": {
+      "minimumSystemVersion": "13.0",
+      "signingIdentity": "-",
+      "bundleName": "SafeRedact",
+      "dmg": {
+        "windowSize": {
+          "width": 660,
+          "height": 400
+        },
+        "appPosition": {
+          "x": 180,
+          "y": 180
+        },
+        "applicationFolderPosition": {
+          "x": 480,
+          "y": 180
+        }
+      }
+    },
+    "fileAssociations": [
+      {
+        "ext": [
+          "pdf"
+        ],
+        "contentTypes": [
+          "com.adobe.pdf"
+        ],
+        "name": "PDF Document",
+        "role": "Viewer",
+        "rank": "Alternate"
+      },
+      {
+        "ext": [
+          "docx"
+        ],
+        "contentTypes": [
+          "org.openxmlformats.wordprocessingml.document"
+        ],
+        "name": "Word Document",
+        "role": "Viewer",
+        "rank": "Alternate"
+      },
+      {
+        "ext": [
+          "png"
+        ],
+        "contentTypes": [
+          "public.png"
+        ],
+        "name": "PNG Image",
+        "role": "Viewer",
+        "rank": "Alternate"
+      },
+      {
+        "ext": [
+          "jpg",
+          "jpeg"
+        ],
+        "contentTypes": [
+          "public.jpeg"
+        ],
+        "name": "JPEG Image",
+        "role": "Viewer",
+        "rank": "Alternate"
+      },
+      {
+        "ext": [
+          "webp"
+        ],
+        "contentTypes": [
+          "org.webmproject.webp"
+        ],
+        "name": "WebP Image",
+        "role": "Viewer",
+        "rank": "Alternate"
+      }
+    ]
+  }
+}

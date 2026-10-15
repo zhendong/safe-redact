@@ -12,6 +12,7 @@ A privacy-focused redaction tool for PDF, DOCX, PNG, JPEG, and WebP files.
 
 ## 🆕 Newly Added Features and Fixes
 
+- **macOS app**: SafeRedact now runs as a native Mac app. OCR and the name-detection model are bundled, so it works fully offline, and the app is blocked from making any network connection. Open files from the File menu, the Dock, or Finder's "Open With", and save results with the native Save dialog. See [macOS App](#-macos-app).
 - **Image redaction**: Upload PNG, JPEG, or WebP images; Tesseract.js recognizes English and Simplified Chinese text for pattern matching. Review detections or draw a manual selection, then download a flattened PNG with the selected pixels covered.
 - **OCR accuracy**: Image OCR is best effort. Tesseract.js can miss or misread text; inspect the entire image and manually select any sensitive area it missed before exporting.
 - **Image metadata review**: Open Review Metadata for an uploaded image to inspect supported embedded EXIF, GPS, XMP, IPTC, and PNG tags. The downloaded PNG is redrawn from pixels, so original file metadata is not copied; inspect visible pixels separately.
@@ -183,6 +184,33 @@ Run the test suite:
 ```bash
 npm test
 ```
+
+## 🍎 macOS App
+
+Download the DMG for your Mac (Apple Silicon or Intel) from [Releases](https://github.com/zhendong/safe-redact/releases) and drag SafeRedact to Applications. Requires macOS 13 or later.
+
+The app is not notarized by Apple yet, so macOS blocks it the first time. Right-click SafeRedact in Applications and choose **Open**, then confirm. If macOS says the app is damaged, run:
+```bash
+xattr -cr /Applications/SafeRedact.app
+```
+
+What differs from the web version:
+- **Fully offline**: OCR (Tesseract.js with English and Simplified Chinese) and the NER model are bundled in the app (about 95 MB download)
+- **No network access**: the app's Content Security Policy blocks all outgoing connections; links open in your browser
+- **Native files**: open with ⌘O, the Dock, or Finder's "Open With"; save redacted files with ⌘S and the Save dialog
+
+### Building the macOS App
+
+Additional prerequisites: [Rust](https://rustup.rs) and Xcode Command Line Tools.
+
+```bash
+npm run tauri dev     # run the app with hot reload
+npm run tauri build   # build SafeRedact.app and a DMG in src-tauri/target/release/bundle/
+```
+
+Both commands first run `npm run desktop:assets`, which copies the OCR files from `node_modules` and downloads the NER model from Hugging Face (about 105 MB, once) into `desktop-assets/`.
+
+Pushing a `v*` tag runs the GitHub Actions workflow that builds Apple Silicon and Intel DMGs and attaches them to a draft release.
 
 ## 🛠️ Technology Stack
 
