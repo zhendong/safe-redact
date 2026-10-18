@@ -187,7 +187,7 @@ npm test
 
 ## 🍎 macOS App
 
-Download the DMG for your Mac (Apple Silicon or Intel) from [Releases](https://github.com/zhendong/safe-redact/releases) and drag SafeRedact to Applications. Requires macOS 13 or later.
+Download the DMG for your Mac (Apple Silicon or Intel) from [Releases](https://github.com/zhendong/safe-redact/releases) and drag SafeRedact to Applications. Requires macOS 13.4 or later.
 
 The app is not notarized by Apple yet, so macOS blocks it the first time. Right-click SafeRedact in Applications and choose **Open**, then confirm. If macOS says the app is damaged, run:
 ```bash
@@ -195,7 +195,8 @@ xattr -cr /Applications/SafeRedact.app
 ```
 
 What differs from the web version:
-- **Fully offline**: OCR (Tesseract.js with English and Simplified Chinese) and the NER model are bundled in the app (about 95 MB download)
+- **Fully offline**: OCR (Tesseract.js with English and Simplified Chinese) and the NER model are bundled in the app (about 100 MB download)
+- **Faster name detection**: the NER model runs on native ONNX Runtime with multiple threads, several times faster than in a browser
 - **No network access**: the app's Content Security Policy blocks all outgoing connections; links open in your browser
 - **Native files**: open with ⌘O, the Dock, or Finder's "Open With"; save redacted files with ⌘S and the Save dialog
 

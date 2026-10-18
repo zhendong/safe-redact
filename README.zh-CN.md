@@ -187,7 +187,7 @@ npm test
 
 ## 🍎 macOS 应用
 
-从 [Releases](https://github.com/zhendong/safe-redact/releases) 下载适合你 Mac 的 DMG（Apple 芯片或 Intel），将 SafeRedact 拖入“应用程序”文件夹。需要 macOS 13 或更高版本。
+从 [Releases](https://github.com/zhendong/safe-redact/releases) 下载适合你 Mac 的 DMG（Apple 芯片或 Intel），将 SafeRedact 拖入“应用程序”文件夹。需要 macOS 13.4 或更高版本。
 
 应用尚未经过 Apple 公证，首次打开会被 macOS 拦截。请在“应用程序”中右键点击 SafeRedact，选择**打开**并确认。如果提示应用已损坏，请运行：
 ```bash
@@ -195,7 +195,8 @@ xattr -cr /Applications/SafeRedact.app
 ```
 
 与网页版的区别：
-- **完全离线**：OCR（Tesseract.js，支持英文和简体中文）和 NER 模型已内置（下载约 95 MB）
+- **完全离线**：OCR（Tesseract.js，支持英文和简体中文）和 NER 模型已内置（下载约 100 MB）
+- **更快的人名识别**：NER 模型通过原生 ONNX Runtime 多线程运行，速度比浏览器快数倍
 - **禁止联网**：应用的内容安全策略（CSP）阻止所有对外连接，链接会在浏览器中打开
 - **原生文件操作**：通过 ⌘O、程序坞或访达的“打开方式”打开文件；用 ⌘S 和“存储”对话框保存脱敏文件
 

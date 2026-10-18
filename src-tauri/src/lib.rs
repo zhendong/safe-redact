@@ -8,6 +8,7 @@ use tauri::{AppHandle, Emitter, Manager, RunEvent, State};
 use tauri_plugin_dialog::DialogExt;
 
 mod menu;
+mod ner;
 
 #[derive(Clone, Serialize)]
 struct OpenedFile {
@@ -89,6 +90,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .manage(OpenedFiles::default())
         .manage(menu::MenuState::default())
+        .manage(ner::NerModel::default())
         .setup(|app| {
             menu::install_menu(app.handle())?;
             Ok(())
@@ -99,7 +101,9 @@ pub fn run() {
             pick_file,
             read_opened_file,
             menu::set_export_enabled,
-            menu::set_language
+            menu::set_language,
+            ner::ner_load,
+            ner::ner_run
         ])
         .build(tauri::generate_context!())
         .expect("error while building SafeRedact");

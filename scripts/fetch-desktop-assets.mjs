@@ -3,9 +3,9 @@
  * Collects everything the desktop app needs to run fully offline into
  * desktop-assets/, which the `desktop` Vite mode serves and copies into dist/.
  *
- *   vendor/ort/        onnxruntime-web WASM used by transformers.js
  *   vendor/tesseract/  tesseract.js, its worker, WASM core, and language data
- *   models/            the NER model, downloaded once from Hugging Face
+ *   models/            the NER model, downloaded once from Hugging Face; the app runs it
+ *                      in native ONNX Runtime (src-tauri/src/ner.rs)
  *
  * Files are copied from node_modules on every run (cheap). The model is only
  * downloaded when missing or when its checksum does not match.
@@ -43,10 +43,6 @@ async function sha256(path) {
 }
 
 async function copyRuntimeFiles() {
-  for (const name of ['ort-wasm-simd-threaded.jsep.mjs', 'ort-wasm-simd-threaded.jsep.wasm']) {
-    await copyInto(join(out, 'vendor/ort', name), join(modules, '@huggingface/transformers/dist', name));
-  }
-
   for (const name of ['tesseract.min.js', 'worker.min.js']) {
     await copyInto(join(out, 'vendor/tesseract', name), join(modules, 'tesseract.js/dist', name));
   }
