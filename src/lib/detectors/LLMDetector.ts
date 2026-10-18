@@ -7,12 +7,11 @@ import { pipeline, type TokenClassificationPipeline, env } from '@huggingface/tr
 import { isDesktop } from '@/platform';
 
 if (isDesktop) {
-  // The desktop app bundles the model and ONNX runtime so it works offline
+  // The desktop app bundles the model so it works offline; it runs in native ONNX Runtime
   env.allowLocalModels = true;
   env.allowRemoteModels = false;
   env.localModelPath = '/models/';
   env.useBrowserCache = false;
-  if (env.backends.onnx.wasm) env.backends.onnx.wasm.wasmPaths = '/vendor/ort/';
 } else {
   // Configure transformers.js to use CDN for models
   env.allowLocalModels = false;
@@ -54,6 +53,16 @@ export class LLMDetector {
     LLMDetector.initializationPromise = (async () => {
       try {
         onProgress?.(0, 'Starting model download...');
+
+        if (isDesktop) {
+          // The desktop app runs the model in native ONNX Runtime; WebKit limits WebAssembly to one thread
+          onProgress?.(50, 'Initializing model...');
+          const { createNativeNerPipeline } = await import('@/platform/nativeNer');
+          LLMDetector.pipeline = await createNativeNerPipeline(modelName);
+          LLMDetector.isInitialized = true;
+          onProgress?.(100, 'Model ready');
+          return;
+        }
 
         const pipelineResult = await pipeline('token-classification', modelName, {
           progress_callback: (data: any) => {

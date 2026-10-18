@@ -16,7 +16,8 @@ const contentTypes: Record<string, string> = {
 
 /**
  * Desktop build: serve and bundle the offline OCR/model assets fetched by
- * scripts/fetch-desktop-assets.mjs, and drop the CDN script used on the web.
+ * scripts/fetch-desktop-assets.mjs, and drop the CDN script and the
+ * onnxruntime-web WASM used on the web.
  */
 function desktopAssets(): Plugin {
   return {
@@ -43,7 +44,12 @@ function desktopAssets(): Plugin {
       return html.replace(/\s*<!-- v5 -->\s*<script src='https:\/\/cdn\.jsdelivr\.net[^>]*><\/script>/, '')
     },
     closeBundle() {
-      fs.cpSync(desktopAssetsDir, path.resolve(__dirname, 'dist'), { recursive: true })
+      const dist = path.resolve(__dirname, 'dist')
+      fs.cpSync(desktopAssetsDir, dist, { recursive: true })
+      // transformers.js references the onnxruntime-web WASM, but the app runs the model natively
+      for (const file of fs.readdirSync(path.join(dist, 'assets'))) {
+        if (/^ort-wasm.*\.wasm$/.test(file)) fs.rmSync(path.join(dist, 'assets', file))
+      }
     },
   }
 }
