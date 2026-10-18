@@ -4,6 +4,9 @@ import type { ProcessedDocument, DetectedEntity, BoundingBox, EntityType } from 
 import { EntityHighlight } from './EntityHighlight';
 import { ManualSelector } from '../controls/ManualSelector';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { createLogger } from '@/utils/logger';
+
+const log = createLogger('DocumentViewer');
 
 interface DocumentViewerProps {
   document: ProcessedDocument;
@@ -102,7 +105,6 @@ export function DocumentViewer({
           pngBytes = pngBuffer.asUint8Array();
         } else {
           // Fallback: try to access the buffer data directly
-          console.log('PNG buffer type:', pngBuffer);
           throw new Error('Unable to extract PNG data from buffer');
         }
 
@@ -118,13 +120,13 @@ export function DocumentViewer({
           setIsLoading(false);
         };
         img.onerror = () => {
-          console.error('Error loading rendered page image');
+          log.error('Error loading rendered page image');
           URL.revokeObjectURL(url);
           setIsLoading(false);
         };
         img.src = url;
       } catch (error) {
-        console.error('Error rendering page:', error);
+        log.error('Error rendering page', error);
         setIsLoading(false);
       }
     };

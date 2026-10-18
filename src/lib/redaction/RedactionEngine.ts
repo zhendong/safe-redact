@@ -3,6 +3,9 @@ import { DocumentSanitizer } from '@/lib/sanitize/DocumentSanitizer';
 import { boundingBoxToMuPdfRect } from '@/utils/coordinate-utils';
 import { PDF_REDACTION, COORDINATE_TOLERANCE } from '@/utils/constants';
 import { saveFile } from '@/platform';
+import { createLogger } from '@/utils/logger';
+
+const log = createLogger('RedactionEngine');
 
 export class RedactionEngine {
   private pdfDocument: any = null;
@@ -37,7 +40,7 @@ export class RedactionEngine {
         throw new Error('PDF document not available');
       }
 
-      console.log(`Entities to redact: ${JSON.stringify(entities)}`);
+      log.info('Applying redactions', { entities: entities.length, sanitize });
       // Group entities by page
       const entitiesByPage = new Map<number, DetectedEntity[]>();
       for (const entity of entities) {
@@ -92,7 +95,7 @@ export class RedactionEngine {
         processingTime,
       };
     } catch (error) {
-      console.error('Redaction error:', error);
+      log.error('Redaction error', error);
 
       const processingTime = performance.now() - startTime;
 
@@ -152,7 +155,7 @@ export class RedactionEngine {
     const pageData = document.pages.find(p => p.pageNumber === pageNumber);
 
     if (!pageData) {
-      console.warn(`Page ${pageNumber} not found in processed document`);
+      log.warn('Page not found in processed document', { page: pageNumber });
       return;
     }
 
@@ -168,14 +171,13 @@ export class RedactionEngine {
       // Check if entity is from a form field by checking if it has a formFieldName
       // This is more reliable than relying on textIndex
       if (entity.position.formFieldName) {
-        console.log(`Form field entity: ${entity.text}, formFieldName: ${entity.position.formFieldName}`);
         formFieldEntities.push(entity);
       } else {
         textEntities.push(entity);
       }
     }
 
-    console.log(`Found ${formFieldEntities.length} form field entities and ${textEntities.length} text entities`);
+    log.debug('Redacting page', { page: pageNumber, formFieldEntities: formFieldEntities.length, textEntities: textEntities.length });
 
     // Delete form field widgets that contain sensitive data
     // Use form field name if available, otherwise fall back to bounding box matching
@@ -184,7 +186,6 @@ export class RedactionEngine {
 
       // Get fresh list of widgets for each entity
       const widgets = page.getWidgets?.() || [];
-      console.log(`Looking for widget. formFieldName: ${formFieldName}, available widgets:`, widgets.map((w: any) => w.getName?.()).filter(Boolean));
       let foundWidget = false;
 
       // Find the widget by name (preferred method) or by bounding box
@@ -195,7 +196,7 @@ export class RedactionEngine {
             const widgetName = widget.getName?.();
             if (widgetName === formFieldName) {
               page.deleteAnnotation(widget);
-              console.log(`Deleted form field widget by name: ${formFieldName} on page ${pageNumber}`);
+              log.debug('Deleted form field widget', { page: pageNumber, matchedBy: 'name' });
               foundWidget = true;
               break;
             }
@@ -221,22 +222,21 @@ export class RedactionEngine {
               Math.abs(widgetBounds.height - boundingBox.height) < COORDINATE_TOLERANCE.STRICT
             ) {
               // Delete this widget
-              const widgetName = widget.getName?.() || 'unknown';
               page.deleteAnnotation(widget);
-              console.log(`Deleted form field widget by bounds: ${widgetName} on page ${pageNumber}`);
+              log.debug('Deleted form field widget', { page: pageNumber, matchedBy: 'bounds' });
               foundWidget = true;
               break;
             }
           }
         } catch (e) {
           // Widget may have been deleted in a previous iteration, skip it
-          console.warn(`Failed to check widget on page ${pageNumber}:`, e);
+          log.warn('Failed to check widget', { page: pageNumber, error: String(e) });
           continue;
         }
       }
 
       if (!foundWidget) {
-        console.warn(`Could not find form field widget for entity on page ${pageNumber}:`, entity.text, formFieldName || 'no name');
+        log.warn('Could not find form field widget for entity', { page: pageNumber, named: Boolean(formFieldName), widgets: page.getWidgets?.()?.length ?? 0 });
       }
     }
 

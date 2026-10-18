@@ -3,6 +3,9 @@ import type { EntityType, BoundingBox, FormFieldData } from '@/lib/types';
 import { EntityType as EntityTypeEnum } from '@/lib/types';
 import { getEntityDisplayName } from '@/utils/entity-types';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { createLogger } from '@/utils/logger';
+
+const log = createLogger('ManualSelector');
 
 interface ManualSelectorProps {
   canvasRef: React.RefObject<HTMLCanvasElement>;
@@ -170,7 +173,7 @@ export function ManualSelector({
           // Store the form field name (only the first one if multiple)
           if (!formFieldName) {
             formFieldName = field.name;
-            console.log(`Manual selection detected form field: ${field.name}`);
+            log.debug('Manual selection is over a form field');
           }
 
           // Add form field value, label, or name

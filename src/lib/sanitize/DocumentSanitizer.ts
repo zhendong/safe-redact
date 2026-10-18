@@ -3,6 +3,9 @@ import type { ParsedDocx } from '@/lib/parsers/DocxParser';
 import { PDF_METADATA_KEYS_ARRAY } from '@/utils/pdf-constants';
 import { parseXmlSafely, serializeXml, removeElements, unwrapElements } from '@/utils/xml-utils';
 import { DOCX_NAMESPACE } from '@/utils/docx-constants';
+import { createLogger } from '@/utils/logger';
+
+const log = createLogger('Sanitizer');
 
 /**
  * DocumentSanitizer - Removes sensitive metadata and hidden content from documents
@@ -61,7 +64,7 @@ export class DocumentSanitizer {
       try {
         pdfDocument.setMetaData(key, '');
       } catch (e) {
-        console.warn(`Failed to clear metadata ${key}:`, e);
+        log.warn(`Failed to clear metadata ${key}`, e);
       }
     });
   }
@@ -100,7 +103,7 @@ export class DocumentSanitizer {
               page.deleteAnnotation(annot);
               totalRemoved++;
             } catch (e) {
-              console.warn(`Failed to delete annotation ${j} on page ${i}:`, e);
+              log.warn(`Failed to delete annotation ${j} on page ${i}`, e);
             }
           }
         }
@@ -108,10 +111,10 @@ export class DocumentSanitizer {
 
       if (totalRemoved > 0) {
         const types = Array.from(annotTypes).join(', ');
-        console.log(`Removed ${totalRemoved} annotation(s) of types: ${types}`);
+        log.info('Removed annotations', { count: totalRemoved, types });
       }
     } catch (e) {
-      console.warn('Failed to remove annotations:', e);
+      log.warn('Failed to remove annotations', e);
     }
   }
 
@@ -124,13 +127,13 @@ export class DocumentSanitizer {
       // Get the PDF catalog (document root)
       const trailer = pdfDocument.getTrailer?.();
       if (!trailer) {
-        console.warn('Could not access PDF trailer');
+        log.warn('Could not access PDF trailer');
         return;
       }
 
       const catalog = trailer.get?.('Root');
       if (!catalog) {
-        console.warn('Could not access PDF catalog');
+        log.warn('Could not access PDF catalog');
         return;
       }
 
@@ -139,10 +142,10 @@ export class DocumentSanitizer {
       if (acroForm && !acroForm.isNull?.()) {
         // Delete the AcroForm entry from the catalog
         catalog.delete?.('AcroForm');
-        console.log('Removed AcroForm from PDF catalog');
+        log.info('Removed AcroForm from PDF catalog');
       }
     } catch (e) {
-      console.warn('Failed to strip PDF forms:', e);
+      log.warn('Failed to strip PDF forms', e);
     }
   }
 
@@ -158,9 +161,9 @@ export class DocumentSanitizer {
       // The actual removal requires manipulating the Names tree
       // When saved with 'compress', unreferenced JS objects should be removed
 
-      console.log('Disabled JavaScript in document');
+      log.info('Disabled JavaScript in document');
     } catch (e) {
-      console.warn('Failed to remove JavaScript:', e);
+      log.warn('Failed to remove JavaScript', e);
     }
   }
 
@@ -187,13 +190,13 @@ export class DocumentSanitizer {
         try {
           pdfDocument.deleteEmbeddedFile?.(fileName);
         } catch (e) {
-          console.warn(`Failed to delete embedded file "${fileName}":`, e);
+          log.warn('Failed to delete embedded file', e);
         }
       }
 
-      console.log(`Removed ${fileNames.length} embedded file(s)`);
+      log.info('Removed embedded files', { count: fileNames.length });
     } catch (e) {
-      console.warn('Failed to remove embedded files:', e);
+      log.warn('Failed to remove embedded files', e);
     }
   }
 
@@ -219,7 +222,7 @@ export class DocumentSanitizer {
         try {
           pdfDocument.setLayerVisible?.(i, true);
         } catch (e) {
-          console.warn(`Failed to set layer ${i} visible:`, e);
+          log.warn(`Failed to set layer ${i} visible`, e);
         }
       }
 
@@ -227,10 +230,10 @@ export class DocumentSanitizer {
       // the layer structure should be flattened into the base content
       // For more aggressive removal, we'd need to manipulate the PDF catalog directly
 
-      console.log(`Set ${layerCount} layer(s) to visible for flattening`);
+      log.info('Set layers visible for flattening', { count: layerCount });
 
     } catch (e) {
-      console.warn('Failed to remove PDF layers:', e);
+      log.warn('Failed to remove PDF layers', e);
     }
   }
 
@@ -369,7 +372,7 @@ export class DocumentSanitizer {
     try {
       xmlDoc = parseXmlSafely(content, 'Failed to parse document.xml for track changes removal');
     } catch (e) {
-      console.warn('Failed to parse document.xml for track changes removal:', e);
+      log.warn('Failed to parse document.xml for track changes removal', e);
       return;
     }
 
@@ -421,7 +424,7 @@ export class DocumentSanitizer {
     try {
       xmlDoc = parseXmlSafely(content, 'Failed to parse document.xml for bookmark removal');
     } catch (e) {
-      console.warn('Failed to parse document.xml for bookmark removal:', e);
+      log.warn('Failed to parse document.xml for bookmark removal', e);
       return;
     }
 

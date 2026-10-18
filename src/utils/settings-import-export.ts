@@ -8,6 +8,9 @@ import { getPredefinedWords, type PredefinedWord } from './predefined-words';
 import type { DetectionConfig } from '@/lib/types';
 import { saveFile } from '@/platform';
 import packageJson from '../../package.json';
+import { createLogger } from './logger';
+
+const log = createLogger('Settings');
 
 interface ExportData {
   version: string;
@@ -35,7 +38,7 @@ export function exportSettings(): string {
       exportData.settings = JSON.parse(settingsStr);
     }
   } catch (error) {
-    console.error('Failed to export settings:', error);
+    log.error('Failed to export settings', error);
   }
 
   // Export predefined words
@@ -45,7 +48,7 @@ export function exportSettings(): string {
       exportData.predefinedWords = words;
     }
   } catch (error) {
-    console.error('Failed to export predefined words:', error);
+    log.error('Failed to export predefined words', error);
   }
 
   // Export custom patterns
@@ -55,7 +58,7 @@ export function exportSettings(): string {
       exportData.customPatterns = JSON.parse(patternsStr);
     }
   } catch (error) {
-    console.error('Failed to export custom patterns:', error);
+    log.error('Failed to export custom patterns', error);
   }
 
   return JSON.stringify(exportData, null, 2);

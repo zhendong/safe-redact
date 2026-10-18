@@ -7,6 +7,7 @@ use tauri::ipc::Response;
 use tauri::{AppHandle, Emitter, Manager, RunEvent, State};
 use tauri_plugin_dialog::DialogExt;
 
+mod logging;
 mod menu;
 mod ner;
 
@@ -29,6 +30,8 @@ struct OpenedFiles {
 /// Lets the frontend read this path through `read_opened_file`.
 fn allow_path(app: &AppHandle, path: PathBuf) -> Option<OpenedFile> {
     let name = path.file_name()?.to_string_lossy().into_owned();
+    // Only the extension: names and paths may identify a person
+    log::info!("file opened (extension={})", path.extension().unwrap_or_default().to_string_lossy());
     let file = OpenedFile { path: path.to_string_lossy().into_owned(), name };
     app.state::<OpenedFiles>().allowed.lock().unwrap().insert(path);
     Some(file)
@@ -76,14 +79,26 @@ async fn pick_file(app: AppHandle, filter_name: String, extensions: Vec<String>)
 fn read_opened_file(path: String, state: State<OpenedFiles>) -> Result<Response, String> {
     let path = PathBuf::from(path);
     if !state.allowed.lock().unwrap().contains(&path) {
+        log::warn!("refused to read a file the user did not open");
         return Err("File was not opened by the user".into());
     }
-    std::fs::read(&path).map(Response::new).map_err(|e| e.to_string())
+    match std::fs::read(&path) {
+        Ok(bytes) => {
+            log::debug!("read opened file ({} bytes)", bytes.len());
+            Ok(Response::new(bytes))
+        }
+        Err(e) => {
+            log::error!("failed to read opened file: {}", e.kind());
+            Err(e.to_string())
+        }
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    logging::install_panic_hook();
     let app = tauri::Builder::default()
+        .plugin(logging::plugin())
         .plugin(tauri_plugin_window_state::Builder::default().build())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
@@ -92,6 +107,7 @@ pub fn run() {
         .manage(menu::MenuState::default())
         .manage(ner::NerModel::default())
         .setup(|app| {
+            logging::log_startup(app.handle());
             menu::install_menu(app.handle())?;
             Ok(())
         })
@@ -100,6 +116,9 @@ pub fn run() {
             take_pending_file,
             pick_file,
             read_opened_file,
+            logging::log_frontend,
+            logging::read_logs,
+            logging::reveal_logs,
             menu::set_export_enabled,
             menu::set_language,
             ner::ner_load,

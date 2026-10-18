@@ -1,0 +1,41 @@
+name: Bug report
+description: Something doesn't work as expected
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Never attach the document you were redacting** or screenshots showing its content. If the bug depends on a document, try to reproduce it with a sample containing made-up data.
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Where did it happen?
+      options:
+        - Web (browser)
+        - macOS app
+    validations:
+      required: true
+  - type: dropdown
+    id: file-type
+    attributes:
+      label: File type
+      options:
+        - PDF
+        - DOCX
+        - Image (PNG / JPEG / WebP)
+        - Not file-specific
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostic-log
+    attributes:
+      label: Diagnostic log
+      description: |
+        Open **Settings → Diagnostics → Save Diagnostic Log** right after the bug happens, then drag the saved `.log` file here. It contains no document content, file names, or predefined words.
+    validations:
+      required: true

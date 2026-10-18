@@ -5,6 +5,9 @@ import { generateId } from '@/utils/validation';
 import { parseDocxDateToIso } from '@/utils/date-parsing';
 import { parseXmlSafely } from '@/utils/xml-utils';
 import { DOCX_NAMESPACE } from '@/utils/docx-constants';
+import { createLogger } from '@/utils/logger';
+
+const log = createLogger('DocxParser');
 
 /**
  * Parsed DOCX document structure
@@ -175,12 +178,12 @@ export class DocxParser {
       // Filter out warnings about unrecognized styles (they don't affect functionality)
       const errors = result.messages.filter(m => m.type === 'error');
       if (errors.length > 0) {
-        console.error('Mammoth conversion errors:', errors);
+        log.warn('DOCX preview conversion reported errors', { count: errors.length, first: errors[0].message });
       }
 
       return result.value;
     } catch (error) {
-      console.error('Failed to convert DOCX to HTML:', error);
+      log.error('Failed to convert DOCX to HTML', error);
       throw new Error('Failed to generate document preview');
     }
   }
@@ -253,15 +256,15 @@ export class DocxParser {
           });
 
         } catch (error) {
-          console.warn(`Failed to extract image ${mediaPath}:`, error);
+          log.warn(`Failed to extract image ${mediaPath}`, error);
         }
       }
 
-      console.log(`Extracted ${images.length} image(s) from DOCX`);
+      log.info('Extracted images', { count: images.length });
       return images;
 
     } catch (error) {
-      console.warn('Failed to extract images from DOCX:', error);
+      log.warn('Failed to extract images from DOCX', error);
       return images;
     }
   }
@@ -330,7 +333,7 @@ export class DocxParser {
         if (companyEl?.textContent) metadata.company = companyEl.textContent.trim();
       }
     } catch (error) {
-      console.warn('Failed to extract DOCX metadata:', error);
+      log.warn('Failed to extract DOCX metadata', error);
     }
 
     // Detect hidden content
@@ -415,7 +418,7 @@ export class DocxParser {
   
         return null;
       } catch (e) {
-        console.warn('Failed to detect hidden text:', e);
+        log.warn('Failed to detect hidden text', e);
         return null;
       }
     }
@@ -446,7 +449,7 @@ export class DocxParser {
   
         return null;
       } catch (e) {
-        console.warn('Failed to detect comments:', e);
+        log.warn('Failed to detect comments', e);
         return null;
       }
     }
@@ -495,7 +498,7 @@ export class DocxParser {
   
         return null;
       } catch (e) {
-        console.warn('Failed to detect track changes:', e);
+        log.warn('Failed to detect track changes', e);
         return null;
       }
     }
@@ -521,7 +524,7 @@ export class DocxParser {
   
         return null;
       } catch (e) {
-        console.warn('Failed to detect custom XML:', e);
+        log.warn('Failed to detect custom XML', e);
         return null;
       }
     }
@@ -545,7 +548,7 @@ export class DocxParser {
   
         return null;
       } catch (e) {
-        console.warn('Failed to detect macros:', e);
+        log.warn('Failed to detect macros', e);
         return null;
       }
     }
@@ -577,7 +580,7 @@ export class DocxParser {
   
         return null;
       } catch (e) {
-        console.warn('Failed to detect field codes:', e);
+        log.warn('Failed to detect field codes', e);
         return null;
       }
     }
@@ -603,7 +606,7 @@ export class DocxParser {
   
         return null;
       } catch (e) {
-        console.warn('Failed to detect embedded objects:', e);
+        log.warn('Failed to detect embedded objects', e);
         return null;
       }
     }
@@ -634,7 +637,7 @@ export class DocxParser {
   
         return null;
       } catch (e) {
-        console.warn('Failed to detect smart tags:', e);
+        log.warn('Failed to detect smart tags', e);
         return null;
       }
     }
@@ -665,7 +668,7 @@ export class DocxParser {
   
         return null;
       } catch (e) {
-        console.warn('Failed to detect alt text:', e);
+        log.warn('Failed to detect alt text', e);
         return null;
       }
     }
@@ -693,7 +696,7 @@ export class DocxParser {
   
         return null;
       } catch (e) {
-        console.warn('Failed to detect headers/footers:', e);
+        log.warn('Failed to detect headers/footers', e);
         return null;
       }
     }
@@ -724,7 +727,7 @@ export class DocxParser {
   
         return null;
       } catch (e) {
-        console.warn('Failed to detect bookmarks:', e);
+        log.warn('Failed to detect bookmarks', e);
         return null;
       }
     }

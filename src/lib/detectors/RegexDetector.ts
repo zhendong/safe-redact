@@ -4,6 +4,9 @@ import { getAllPatterns, getPatternsForText, getContextConfidenceBoost } from '@
 import { generateId } from '@/utils/validation';
 import { extractContext } from '@/utils/text-utils';
 import { DEFAULT_SEARCH_CONTEXT_WINDOW, DEFAULT_CONFIDENCE_BOOST } from '@/utils/constants';
+import { createLogger } from '@/utils/logger';
+
+const log = createLogger('RegexDetector');
 
 export class RegexDetector {
   /**
@@ -95,7 +98,12 @@ export class RegexDetector {
         // Try using MuPDF's native search for precise positioning
         let position = formFieldInfo?.position ||
                        this.findPositionWithSearch(mupdfPage, page, matchedText, match.index);
-        console.debug(`Match #${matchCount} for pattern ${pattern.name || pattern.entityType}:`, matchedText, 'at index:', match.index, 'Position found:', JSON.stringify(position));
+        log.debug('Pattern matched', {
+          pattern: pattern.name || pattern.entityType,
+          page: page.pageNumber,
+          match: matchCount,
+          positioned: Boolean(position),
+        });
         // Fallback to text item-based method if search fails
         if (!position) {
           position = this.findPosition(page, match.index, matchedText);
@@ -369,21 +377,18 @@ export class RegexDetector {
       // Try the original search first
       let rawHits = mupdfPage.search(searchText, 100);
 
-      console.debug('MuPDF raw hits for:', searchText, rawHits);
-
       // If no hits found and search contains newlines with special characters, try fallbacks
       if ((!rawHits || rawHits.length === 0) && searchText.includes('\n')) {
-        console.debug('Original search failed for multi-line text, trying fallback strategies...');
+        log.debug('Multi-line search found nothing, trying fallbacks', { page: page.pageNumber });
 
         // Strategy 1: Try searching without hyphens before newlines (soft hyphen issue)
         // Example: "4-\n1301" -> "4\n1301"
         if (searchText.match(/-\n/)) {
           const searchWithoutHyphen = searchText.replace(/-\n/g, '\n');
-          console.debug('Trying without hyphen before newline:', searchWithoutHyphen);
           rawHits = mupdfPage.search(searchWithoutHyphen, 100);
 
           if (rawHits && rawHits.length > 0) {
-            console.debug('Success with hyphen removed before newline');
+            log.debug('Search fallback matched', { strategy: 'hyphen-removed', page: page.pageNumber });
           }
         }
 
@@ -391,11 +396,10 @@ export class RegexDetector {
         // Example: "4-\n1301" -> "41301"
         if ((!rawHits || rawHits.length === 0) && searchText.match(/-\n/)) {
           const searchJoined = searchText.replace(/-\n/g, '');
-          console.debug('Trying with hyphen and newline removed:', searchJoined);
           rawHits = mupdfPage.search(searchJoined, 100);
 
           if (rawHits && rawHits.length > 0) {
-            console.debug('Success with joined text (no hyphen, no newline)');
+            log.debug('Search fallback matched', { strategy: 'joined', page: page.pageNumber });
           }
         }
 
@@ -403,17 +407,16 @@ export class RegexDetector {
         // Example: "4-\n1301" -> "4-1301"
         if (!rawHits || rawHits.length === 0) {
           const searchNoNewline = searchText.replace(/\n/g, '');
-          console.debug('Trying with newline removed:', searchNoNewline);
           rawHits = mupdfPage.search(searchNoNewline, 100);
 
           if (rawHits && rawHits.length > 0) {
-            console.debug('Success with newline removed');
+            log.debug('Search fallback matched', { strategy: 'newline-removed', page: page.pageNumber });
           }
         }
       }
 
       if (!rawHits || rawHits.length === 0) {
-        console.debug('All search strategies failed for:', searchText);
+        log.debug('All search strategies failed', { page: page.pageNumber, chars: searchText.length });
         return null;
       }
 
@@ -429,22 +432,24 @@ export class RegexDetector {
       const textBefore = page.textContent.substring(0, matchIndex);
       const occurrenceIndex = (textBefore.match(new RegExp(searchText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) || []).length;
 
-      console.debug('MuPDF search for:', searchText,
-                    '\n  Contains newline:', searchText.includes('\n'),
-                    '\n  Raw hits:', rawHits.length,
-                    '\n  Normalized hits:', hits.length,
-                    '\n  Occurrence index:', occurrenceIndex,
-                    '\n  Match index:', matchIndex);
+      log.debug('MuPDF search', {
+        page: page.pageNumber,
+        multiline: searchText.includes('\n'),
+        rawHits: rawHits.length,
+        hits: hits.length,
+        occurrence: occurrenceIndex,
+        matchIndex,
+      });
 
       if (occurrenceIndex >= hits.length) {
         // Use first hit as fallback
-        console.warn(`Occurrence index ${occurrenceIndex} >= hits length ${hits.length}, using first hit`);
+        log.warn('Occurrence beyond search hits, using first hit', { page: page.pageNumber, occurrence: occurrenceIndex, hits: hits.length });
         return this.convertQuadToPosition(hits[0], page);
       }
 
       return this.convertQuadToPosition(hits[occurrenceIndex], page);
     } catch (error) {
-      console.warn('MuPDF search failed for:', searchText, error);
+      log.warn('MuPDF search failed', { page: page.pageNumber, error: String(error) });
       return null;
     }
   }
@@ -497,7 +502,7 @@ export class RegexDetector {
     matchedText: string
   ) {
     // Find the text item that contains this match
-    console.debug("falling back to text item position for:", matchedText, "at index:", textIndex);
+    log.debug('Falling back to text item position', { page: page.pageNumber, textIndex });
     let currentIndex = 0;
     let itemIndex = -1;
     let offsetInItem = 0;

@@ -5,6 +5,9 @@ import { extractContext, splitTextWithOverlap } from '@/utils/text-utils';
 import { LLM_CHUNKING } from '@/utils/constants';
 import { pipeline, type TokenClassificationPipeline, env } from '@huggingface/transformers';
 import { isDesktop } from '@/platform';
+import { createLogger } from '@/utils/logger';
+
+const log = createLogger('LLMDetector');
 
 if (isDesktop) {
   // The desktop app bundles the model so it works offline; it runs in native ONNX Runtime
@@ -51,6 +54,8 @@ export class LLMDetector {
 
     // Create new initialization promise
     LLMDetector.initializationPromise = (async () => {
+      const start = performance.now();
+      log.info('Model loading', { model: modelName, runtime: isDesktop ? 'native' : 'wasm' });
       try {
         onProgress?.(0, 'Starting model download...');
 
@@ -60,6 +65,7 @@ export class LLMDetector {
           const { createNativeNerPipeline } = await import('@/platform/nativeNer');
           LLMDetector.pipeline = await createNativeNerPipeline(modelName);
           LLMDetector.isInitialized = true;
+          log.info('Model ready', { ms: Math.round(performance.now() - start) });
           onProgress?.(100, 'Model ready');
           return;
         }
@@ -79,10 +85,11 @@ export class LLMDetector {
         LLMDetector.pipeline = pipelineResult as TokenClassificationPipeline;
 
         LLMDetector.isInitialized = true;
+        log.info('Model ready', { ms: Math.round(performance.now() - start) });
         onProgress?.(100, 'Model ready');
       } catch (error) {
         LLMDetector.initializationPromise = null;
-        console.error('Failed to preload model:', error);
+        log.error('Model failed to load', error, { model: modelName, ms: Math.round(performance.now() - start) });
         throw error;
       }
     })();
@@ -156,7 +163,7 @@ export class LLMDetector {
           throw new Error('Pipeline not initialized');
         }
         const results = await LLMDetector.pipeline(chunk);
-        console.log(`Page ${page.pageNumber},\n Chunk ${i + 1}/${chunks.length}: ${chunk},\n results:`, results);
+        log.debug('Chunk classified', { page: page.pageNumber, chunk: i + 1, chunks: chunks.length, chars: chunk.length, tokens: results.length });
         // Use official transformers aggregation strategy
         const aggregatedEntities = this.aggregate(results, 'first');
 
@@ -181,7 +188,7 @@ export class LLMDetector {
           const position = this.findPositionWithSearch(page, searchText, offset);
 
           if (!position) {
-            console.warn('Could not find position for entity:', searchText);
+            log.debug('Could not locate entity on page', { page: page.pageNumber, type: entityType, chars: searchText.length });
             continue;
           }
 
@@ -200,7 +207,7 @@ export class LLMDetector {
           });
         }
       } catch (error) {
-        console.error(`Error processing chunk ${i} on page ${page.pageNumber}:`, error);
+        log.error('Chunk classification failed', error, { page: page.pageNumber, chunk: i + 1, chunks: chunks.length });
       }
     }
 
@@ -611,44 +618,41 @@ export class LLMDetector {
 
       // If no hits found and search contains newlines with special characters, try fallbacks
       if ((!rawHits || rawHits.length === 0) && searchText.includes('\n')) {
-        console.debug('Original search failed for multi-line text, trying fallback strategies...');
+        log.debug('Multi-line search found nothing, trying fallbacks', { page: page.pageNumber });
 
         // Strategy 1: Try searching without hyphens before newlines (soft hyphen issue)
         if (searchText.match(/-\n/)) {
           const searchWithoutHyphen = searchText.replace(/-\n/g, '\n');
-          console.debug('Trying without hyphen before newline:', searchWithoutHyphen);
           rawHits = mupdfPage.search(searchWithoutHyphen, 100);
 
           if (rawHits && rawHits.length > 0) {
-            console.debug('Success with hyphen removed before newline');
+            log.debug('Search fallback matched', { strategy: 'hyphen-removed', page: page.pageNumber });
           }
         }
 
         // Strategy 2: Try searching with hyphen and newline removed (joined text)
         if ((!rawHits || rawHits.length === 0) && searchText.match(/-\n/)) {
           const searchJoined = searchText.replace(/-\n/g, '');
-          console.debug('Trying with hyphen and newline removed:', searchJoined);
           rawHits = mupdfPage.search(searchJoined, 100);
 
           if (rawHits && rawHits.length > 0) {
-            console.debug('Success with joined text (no hyphen, no newline)');
+            log.debug('Search fallback matched', { strategy: 'joined', page: page.pageNumber });
           }
         }
 
         // Strategy 3: Try searching with just newline removed (hyphen kept)
         if (!rawHits || rawHits.length === 0) {
           const searchNoNewline = searchText.replace(/\n/g, '');
-          console.debug('Trying with newline removed:', searchNoNewline);
           rawHits = mupdfPage.search(searchNoNewline, 100);
 
           if (rawHits && rawHits.length > 0) {
-            console.debug('Success with newline removed');
+            log.debug('Search fallback matched', { strategy: 'newline-removed', page: page.pageNumber });
           }
         }
       }
 
       if (!rawHits || rawHits.length === 0) {
-        console.debug('All search strategies failed for:', searchText);
+        log.debug('All search strategies failed', { page: page.pageNumber, chars: searchText.length });
         return null;
       }
 
@@ -659,16 +663,18 @@ export class LLMDetector {
         return null;
       }
 
-      console.debug('MuPDF search for:', searchText,
-                    '\n  Contains newline:', searchText.includes('\n'),
-                    '\n  Raw hits:', rawHits.length,
-                    '\n  Normalized hits:', hits.length);
+      log.debug('MuPDF search', {
+        page: page.pageNumber,
+        multiline: searchText.includes('\n'),
+        rawHits: rawHits.length,
+        hits: hits.length,
+      });
 
       // For now, use the first hit
       // TODO: Handle multiple occurrences by tracking offset in text
       return this.convertQuadToPosition(hits[0], page);
     } catch (error) {
-      console.warn('MuPDF search failed for:', searchText, error);
+      log.warn('MuPDF search failed', { page: page.pageNumber, error: String(error) });
       return null;
     }
   }
@@ -758,7 +764,7 @@ export class LLMDetector {
           });
         }
       } catch (error) {
-        console.warn(`Error detecting entities in chunk ${i}:`, error);
+        log.warn('Chunk classification failed', { chunk: i + 1, chunks: chunks.length, error: String(error) });
       }
 
       onProgress?.(Math.round(((i + 1) / chunks.length) * 100));

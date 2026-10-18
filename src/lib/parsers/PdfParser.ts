@@ -2,6 +2,9 @@ import * as mupdf from 'mupdf';
 import type { ProcessedDocument, ProcessedPage, TextItem, FormFieldData, DocumentMetadata, ExtractedImage } from '@/lib/types';
 import { generateId } from '@/utils/validation';
 import { parsePdfDateToIso } from '@/utils/date-parsing';
+import { createLogger } from '@/utils/logger';
+
+const log = createLogger('PdfParser');
 
 export interface ParseProgress {
   stage: 'loading' | 'parsing' | 'complete';
@@ -104,7 +107,7 @@ export class PdfParser {
       // Check if document was repaired
       const wasRepaired = this.pdfDocument.wasRepaired?.();
       if (wasRepaired) {
-        console.log('PDF was automatically repaired (had structural issues)');
+        log.info('PDF was automatically repaired (had structural issues)');
       }
 
       const pageCount = this.pdfDocument.countPages();
@@ -117,10 +120,10 @@ export class PdfParser {
           try {
             this.pdfDocument.setLayerVisible?.(i, true);
           } catch (e) {
-            console.warn(`Failed to enable layer ${i}:`, e);
+            log.warn(`Failed to enable layer ${i}`, e);
           }
         }
-        console.log(`Enabled ${layerCount} layer(s) for complete text extraction`);
+        log.info('Enabled layers for complete text extraction', { count: layerCount });
       }
 
       this.reportProgress({
@@ -189,9 +192,9 @@ export class PdfParser {
             height: img.height,
             pageNumber: img.pageNumber,
           }));
-          console.log(`Successfully extracted ${allImages.length} image(s) from PDF`);
+          log.info('Extracted images', { count: allImages.length });
         } else {
-          console.debug('No images found in PDF');
+          log.debug('No images found in PDF');
         }
 
       this.reportProgress({
@@ -215,7 +218,7 @@ export class PdfParser {
         metadata,
       };
     } catch (error) {
-      console.error('PDF parsing error:', error);
+      log.error('PDF parsing failed', error);
       throw new Error(`Failed to parse PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -250,10 +253,15 @@ export class PdfParser {
 
     // Combine text items into continuous text
     const combinedText = this.combineTextItems(textItems);
-    console.debug('Extracted text %s for page %d', combinedText, pageNumber);
     // Extract form fields if available
     const formFields = this.extractFormFields(page, height);
-    console.debug('Extracted %d form fields for page %d', formFields.length, pageNumber);
+    log.debug('Page parsed', {
+      page: pageNumber,
+      chars: combinedText.length,
+      textItems: textItems.length,
+      formFields: formFields.length,
+      images: images.length,
+    });
 
     return {
       pageNumber,
@@ -272,15 +280,12 @@ export class PdfParser {
   }
 
   private extractImages(structuredText: mupdf.StructuredText, pageNumber: number): ExtractedImage[] {
-    console.debug('Starting image extraction from PDF pages');
     const images: ExtractedImage[] = [];
     let imageIndex = 0;
 
     structuredText.walk({
       onImageBlock: function (bbox: mupdf.Rect, _transform: mupdf.Matrix, image: mupdf.Image) {
         try {
-          console.log("Found image in Page", pageNumber);
-
           // Get image dimensions
           const width = image.getWidth();
           const height = image.getHeight();
@@ -313,9 +318,9 @@ export class PdfParser {
             bbox: boundingBox,
           });
 
-          console.log(`Successfully extracted image ${imageIndex} from page ${pageNumber} (${width}x${height})`);
+          log.debug('Extracted image', { page: pageNumber, index: imageIndex, width, height });
         } catch (error) {
-          console.error(`Failed to extract image from page ${pageNumber}:`, error);
+          log.error('Failed to extract image', error, { page: pageNumber });
         }
       }
     });
@@ -461,7 +466,7 @@ export class PdfParser {
             try {
               options = widget.getOptions?.() || [];
             } catch (e) {
-              console.warn('Failed to get options for choice field:', e);
+              log.warn('Failed to get options for choice field', e);
             }
           }
 
@@ -471,7 +476,7 @@ export class PdfParser {
             try {
               maxLength = widget.getMaxLen?.() || undefined;
             } catch (e) {
-              console.warn('Failed to get max length for text field:', e);
+              log.warn('Failed to get max length for text field', e);
             }
           }
 
@@ -494,11 +499,11 @@ export class PdfParser {
             bounds,
           });
         } catch (error) {
-          console.warn('Failed to extract form field data:', error);
+          log.warn('Failed to extract form field data', error);
         }
       }
     } catch (error) {
-      console.warn('Failed to get widgets from page:', error);
+      log.warn('Failed to get widgets from page', error);
     }
 
     return formFields;
@@ -556,7 +561,7 @@ export class PdfParser {
         }
       }
     } catch (error) {
-      console.warn('Failed to extract PDF metadata:', error);
+      log.warn('Failed to extract PDF metadata', error);
     }
 
     // Detect hidden content (pass pageStats to avoid re-scanning)
@@ -640,7 +645,7 @@ export class PdfParser {
               hiddenLayers.push(layerName);
             }
           } catch (e) {
-            console.warn(`Failed to get info for layer ${i}:`, e);
+            log.warn(`Failed to get info for layer ${i}`, e);
           }
         }
   
@@ -657,7 +662,7 @@ export class PdfParser {
         };
   
       } catch (e) {
-        console.warn('Failed to detect OCG layers:', e);
+        log.warn('Failed to detect OCG layers', e);
         return null;
       }
     }
@@ -715,7 +720,7 @@ export class PdfParser {
   
         return null;
       } catch (e) {
-        console.warn('Failed to detect annotations:', e);
+        log.warn('Failed to detect annotations', e);
         return null;
       }
     }
@@ -773,7 +778,7 @@ export class PdfParser {
   
         return null;
       } catch (e) {
-        console.warn('Failed to detect form fields:', e);
+        log.warn('Failed to detect form fields', e);
         return null;
       }
     }
@@ -807,7 +812,7 @@ export class PdfParser {
           details: `Embedded files: ${fileNames.slice(0, 5).join(', ')}${fileNames.length > 5 ? ` and ${fileNames.length - 5} more...` : ''}`,
         };
       } catch (e) {
-        console.warn('Failed to detect embedded files:', e);
+        log.warn('Failed to detect embedded files', e);
         return null;
       }
     }
@@ -849,12 +854,12 @@ export class PdfParser {
           }
         } catch (e) {
           // If we can't check, be cautious if JS is supported
-          console.warn('Could not check for JavaScript:', e);
+          log.warn('Could not check for JavaScript', e);
         }
   
         return null;
       } catch (e) {
-        console.warn('Failed to detect JavaScript:', e);
+        log.warn('Failed to detect JavaScript', e);
         return null;
       }
     }
@@ -880,7 +885,7 @@ export class PdfParser {
   
         return null;
       } catch (e) {
-        console.warn('Failed to detect transparent objects:', e);
+        log.warn('Failed to detect transparent objects', e);
         return null;
       }
     }
@@ -904,7 +909,7 @@ export class PdfParser {
   
         return null;
       } catch (e) {
-        console.warn('Failed to detect off-page content:', e);
+        log.warn('Failed to detect off-page content', e);
         return null;
       }
     }

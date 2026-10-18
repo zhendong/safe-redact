@@ -242,6 +242,12 @@ npm run tauri build   # 在 src-tauri/target/release/bundle/ 生成 SafeRedact.a
 - 提交 Pull Request
 - 添加测试用例
 
+### 报告 Bug
+
+SafeRedact 离线运行，提交问题时请附上诊断日志：打开 **设置 → 诊断 → 保存诊断日志**。日志记录应用版本、运行环境、设置、耗时和错误信息，但绝不包含文档内容、文件名或预定义词汇。
+
+在 macOS 应用中，日志也保存在 `~/Library/Logs/io.github.zhendong.saferedact/`（**帮助 → 显示日志文件**）。如需更详细的日志，请在浏览器控制台运行 `localStorage.setItem('safe-redact-verbose-logging', 'true')`，刷新页面后重现问题。
+
 ## 许可证
 
 MIT License - 详见 [LICENSE](LICENSE) 文件

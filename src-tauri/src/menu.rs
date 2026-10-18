@@ -44,6 +44,7 @@ struct Labels {
     help: &'static str,
     github: &'static str,
     report_issue: &'static str,
+    show_logs: &'static str,
     file_filter: &'static str,
 }
 
@@ -73,6 +74,7 @@ const EN: Labels = Labels {
     help: "Help",
     github: "SafeRedact on GitHub",
     report_issue: "Report an Issue…",
+    show_logs: "Show Log Files",
     file_filter: "PDF, Word Documents, and Images",
 };
 
@@ -103,6 +105,7 @@ const ZH: Labels = Labels {
     help: "帮助",
     github: "在 GitHub 上查看 SafeRedact",
     report_issue: "报告问题…",
+    show_logs: "显示日志文件",
     file_filter: "PDF、Word 文档和图片",
 };
 
@@ -184,6 +187,7 @@ fn build_menu(app: &AppHandle, l: &Labels, export_enabled: bool) -> tauri::Resul
     let help_menu = SubmenuBuilder::new(app, l.help)
         .item(&MenuItemBuilder::with_id("help-github", l.github).build(app)?)
         .item(&MenuItemBuilder::with_id("help-issue", l.report_issue).build(app)?)
+        .item(&MenuItemBuilder::with_id("help-logs", l.show_logs).build(app)?)
         .build()?;
 
     let menu = MenuBuilder::new(app)
@@ -204,6 +208,7 @@ pub fn install_menu(app: &AppHandle) -> tauri::Result<()> {
 }
 
 pub fn handle_menu_event(app: &AppHandle, id: &str) {
+    log::debug!("menu: {id}");
     match id {
         "open" => {
             let language = *app.state::<MenuState>().language.lock().unwrap();
@@ -225,6 +230,11 @@ pub fn handle_menu_event(app: &AppHandle, id: &str) {
         }
         "help-issue" => {
             let _ = app.opener().open_url(format!("{REPO_URL}/issues/new"), None::<&str>);
+        }
+        "help-logs" => {
+            if let Err(e) = crate::logging::reveal_logs(app.clone()) {
+                log::error!("failed to show log files: {e}");
+            }
         }
         _ => {}
     }

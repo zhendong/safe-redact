@@ -3,6 +3,8 @@
  * The desktop build is selected at compile time with `vite --mode desktop`.
  */
 
+import { formatLogMessage, setLogSink } from '@/utils/logger';
+
 // import.meta.env is undefined when tests run modules outside Vite
 export const isDesktop = import.meta.env?.MODE === 'desktop';
 
@@ -161,4 +163,30 @@ export async function confirmAction(
   if (!isDesktop) return window.confirm(message);
   const { ask } = await import('@tauri-apps/plugin-dialog');
   return ask(message, { ...options, kind: 'warning' });
+}
+
+/** Desktop only: also write log entries to the rotating log file (src-tauri/src/logging.rs). */
+export function installDesktopLogging(): void {
+  if (!isDesktop) return;
+  // Chaining on one promise keeps entries in order while the module loads
+  const core = import('@tauri-apps/api/core');
+  setLogSink(entry => {
+    void core
+      .then(({ invoke }) =>
+        invoke('log_frontend', { level: entry.level, scope: entry.scope, message: formatLogMessage(entry) }),
+      )
+      .catch(() => {});
+  });
+}
+
+/** Desktop only: the contents of the log files, oldest first. */
+export async function readDesktopLogs(): Promise<string> {
+  const { invoke } = await import('@tauri-apps/api/core');
+  return invoke<string>('read_logs');
+}
+
+/** Desktop only: show the log files in Finder. */
+export async function revealDesktopLogs(): Promise<void> {
+  const { invoke } = await import('@tauri-apps/api/core');
+  await invoke('reveal_logs');
 }

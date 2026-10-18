@@ -5,6 +5,9 @@ import { DocumentSanitizer } from '@/lib/sanitize/DocumentSanitizer';
 import { generateRedactedFilename } from '@/utils/file-utils';
 import { parseXmlSafely, serializeXml } from '@/utils/xml-utils';
 import { DOCX_NAMESPACE } from '@/utils/docx-constants';
+import { createLogger } from '@/utils/logger';
+
+const log = createLogger('DocxRedactor');
 
 /**
  * DOCX Redactor
@@ -77,7 +80,7 @@ export class DocxRedactor {
         processingTime: Date.now() - startTime,
       };
     } catch (error) {
-      console.error('DOCX redaction error:', error);
+      log.error('DOCX redaction error', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Redaction failed',
@@ -126,7 +129,7 @@ export class DocxRedactor {
 
       // Skip if entity text is empty or invalid
       if (!entity.text || entity.text.length === 0) {
-        console.warn('Skipping entity with empty text:', entity);
+        log.warn('Skipping entity with empty text', { type: entity.entityType, method: entity.detectionMethod });
         continue;
       }
 

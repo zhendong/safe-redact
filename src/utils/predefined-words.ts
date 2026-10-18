@@ -3,6 +3,10 @@
  * Handles CRUD operations for user-defined words to be automatically detected and redacted
  */
 
+import { createLogger } from './logger';
+
+const log = createLogger('PredefinedWords');
+
 const PREDEFINED_WORDS_KEY = 'saferedact:predefined-words';
 
 export interface PredefinedWord {
@@ -22,7 +26,7 @@ export function getPredefinedWords(): PredefinedWord[] {
     if (!stored) return [];
     return JSON.parse(stored);
   } catch (error) {
-    console.error('Failed to load predefined words:', error);
+    log.error('Failed to load predefined words', error);
     return [];
   }
 }
@@ -34,7 +38,7 @@ function savePredefinedWords(words: PredefinedWord[]): void {
   try {
     localStorage.setItem(PREDEFINED_WORDS_KEY, JSON.stringify(words));
   } catch (error) {
-    console.error('Failed to save predefined words:', error);
+    log.error('Failed to save predefined words', error);
     throw new Error('Failed to save predefined words');
   }
 }
@@ -388,7 +392,6 @@ function createCyrillicPattern(word: PredefinedWord): RegExp {
  */
 export function createPatternFromWord(word: PredefinedWord): RegExp {
   const scriptType = detectScriptType(word.word);
-  console.debug(`Predefined word ${word.word} detected script type: ${scriptType}`);
 
   switch (scriptType) {
     case ScriptType.CJK:

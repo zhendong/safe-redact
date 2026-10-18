@@ -242,6 +242,12 @@ Contributions are welcome!
 - Submit pull requests
 - Add test cases
 
+### Reporting Bugs
+
+SafeRedact runs offline, so please attach a diagnostic log to bug reports: open **Settings → Diagnostics → Save Diagnostic Log**. The log records the app version, environment, settings, timings, and errors, but never document content, file names, or predefined words.
+
+In the macOS app, logs are also kept in `~/Library/Logs/io.github.zhendong.saferedact/` (**Help → Show Log Files**). To include more detail, run `localStorage.setItem('safe-redact-verbose-logging', 'true')` in the browser console, reload, and reproduce the bug.
+
 ## License
 
 MIT License - see [LICENSE](LICENSE) file for details

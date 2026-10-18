@@ -60,7 +60,9 @@ pub async fn ner_load(app: AppHandle) -> Result<(), String> {
         let state = app.state::<NerModel>();
         let mut session = state.0.lock().unwrap();
         if session.is_none() {
-            *session = Some(load_session(&app)?);
+            let start = std::time::Instant::now();
+            *session = Some(load_session(&app).inspect_err(|e| log::error!("NER model failed to load: {e}"))?);
+            log::info!("NER model loaded in {} ms", start.elapsed().as_millis());
         }
         Ok(())
     })
@@ -75,7 +77,11 @@ pub async fn ner_run(app: AppHandle, input: NerInput) -> Result<Response, String
         let state: State<NerModel> = app.state();
         let mut guard = state.0.lock().unwrap();
         let session = guard.as_mut().ok_or("NER model is not loaded")?;
-        run(session, input).map_err(|e| e.to_string())
+        let dims = input.dims;
+        run(session, input).map_err(|e| {
+            log::error!("NER inference failed (batch={} sequence={}): {e}", dims[0], dims[1]);
+            e.to_string()
+        })
     })
     .await
     .map_err(|e| e.to_string())?

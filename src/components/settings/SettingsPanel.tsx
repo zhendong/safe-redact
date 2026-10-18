@@ -5,7 +5,9 @@ import { STORAGE_KEYS, DEFAULT_CONFIDENCE_THRESHOLDS } from '@/utils/constants';
 import { LLMDetector } from '@/lib/detectors/LLMDetector';
 import { getEntityDisplayName } from '@/utils/entity-types';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { isDesktop, pickFile } from '@/platform';
+import { isDesktop, pickFile, revealDesktopLogs } from '@/platform';
+import { saveDiagnosticReport } from '@/utils/diagnostics';
+import { createLogger } from '@/utils/logger';
 import {
   getPredefinedWords,
   addPredefinedWord,
@@ -17,6 +19,8 @@ import {
   importSettings,
   readSettingsFile,
 } from '@/utils/settings-import-export';
+
+const log = createLogger('Settings');
 
 interface SettingsPanelProps {
   isOpen: boolean;
@@ -47,6 +51,7 @@ export function SettingsPanel({
   // Import/Export state
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importMessage, setImportMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [diagnosticsMessage, setDiagnosticsMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Update local config when prop changes
   useEffect(() => {
@@ -105,7 +110,7 @@ export function SettingsPanel({
           setModelDownloadMessage(message);
         });
       } catch (error) {
-        console.error('Failed to preload model:', error);
+        log.error('Failed to preload model', error);
         setModelDownloadMessage(t('settings.downloadFailed'));
       } finally {
         setIsDownloadingModel(false);
@@ -137,7 +142,7 @@ export function SettingsPanel({
       deletePredefinedWord(id);
       setPredefinedWords(getPredefinedWords());
     } catch (error) {
-      console.error('Failed to delete word:', error);
+      log.error('Failed to delete predefined word', error);
     }
   };
 
@@ -147,9 +152,21 @@ export function SettingsPanel({
       setImportMessage({ type: 'success', text: t('settings.exportSuccess') });
       setTimeout(() => setImportMessage(null), 3000);
     } catch (error) {
+      log.error('Failed to export settings', error);
       setImportMessage({ type: 'error', text: t('settings.exportFailed') });
       setTimeout(() => setImportMessage(null), 3000);
     }
+  };
+
+  const handleSaveDiagnosticLog = async () => {
+    try {
+      if (!(await saveDiagnosticReport())) return;
+      setDiagnosticsMessage({ type: 'success', text: t('settings.diagnosticLogSaved') });
+    } catch (error) {
+      log.error('Failed to save diagnostic log', error);
+      setDiagnosticsMessage({ type: 'error', text: t('settings.diagnosticLogFailed') });
+    }
+    setTimeout(() => setDiagnosticsMessage(null), 3000);
   };
 
   const handleImportSettings = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -184,12 +201,14 @@ export function SettingsPanel({
         }
         setPredefinedWords(getPredefinedWords());
       } else {
+        log.warn('Settings import rejected', { errors: result.errors.length });
         setImportMessage({
           type: 'error',
           text: t('settings.importFailed', { errors: result.errors.join(', ') }),
         });
       }
     } catch (error) {
+      log.error('Failed to read settings file', error);
       setImportMessage({
         type: 'error',
         text: t('settings.importReadFailed'),
@@ -600,6 +619,39 @@ export function SettingsPanel({
                   }`}
                 >
                   {importMessage.text}
+                </div>
+              )}
+            </div>
+
+            {/* Diagnostics */}
+            <div className="pt-4 mb-4 border-t border-gray-200 dark:border-gray-700 space-y-3">
+              <h3 className="text-sm font-medium text-gray-900 dark:text-white">{t('settings.diagnostics')}</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400">{t('settings.diagnosticsDesc')}</p>
+              <div className={`grid gap-3 ${isDesktop ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                <button
+                  onClick={() => void handleSaveDiagnosticLog()}
+                  className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                >
+                  {t('settings.saveDiagnosticLog')}
+                </button>
+                {isDesktop && (
+                  <button
+                    onClick={() => void revealDesktopLogs().catch(error => log.error('Failed to show log files', error))}
+                    className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                  >
+                    {t('settings.showLogFiles')}
+                  </button>
+                )}
+              </div>
+              {diagnosticsMessage && (
+                <div
+                  className={`p-3 rounded-lg text-sm ${
+                    diagnosticsMessage.type === 'success'
+                      ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-800 dark:text-green-200'
+                      : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-800 dark:text-red-200'
+                  }`}
+                >
+                  {diagnosticsMessage.text}
                 </div>
               )}
             </div>

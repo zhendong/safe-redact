@@ -31,6 +31,9 @@ import { generateRedactedFilename } from '@/utils/file-utils';
 import { useMemo } from 'react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { createLogger, describeFile, timed } from '@/utils/logger';
+
+const log = createLogger('App');
 
 type AppStage = 'upload' | 'preview' | 'processing' | 'review' | 'redacting' | 'complete';
 type FileType = 'pdf' | 'docx' | 'image';
@@ -69,7 +72,7 @@ function App() {
           sanitizeDocument: parsed.sanitizeDocument ?? false,
         };
       } catch (e) {
-        console.error('Failed to parse saved config:', e);
+        log.error('Failed to parse saved config, using defaults', e);
       }
     }
     return {
@@ -157,6 +160,7 @@ function App() {
     const type: FileType = file.type.startsWith('image/') || /\.(png|jpe?g|webp)$/i.test(file.name)
       ? 'image'
       : file.name.toLowerCase().endsWith('.docx') ? 'docx' : 'pdf';
+    log.info('File selected', { type, ...describeFile(file) });
     setFileType(type);
     setStage('preview');
     setError(null);
@@ -477,38 +481,35 @@ function App() {
 
         // If no hits found and search contains newlines with special characters, try fallbacks
         if ((!rawHits || rawHits.length === 0) && searchText.includes('\n')) {
-          console.debug('Original search failed for multi-line text, trying fallback strategies...');
+          log.debug('Multi-line search found nothing, trying fallbacks', { page: page.pageNumber });
 
           // Strategy 1: Try searching without hyphens before newlines (soft hyphen issue)
           if (searchText.match(/-\n/)) {
             const searchWithoutHyphen = searchText.replace(/-\n/g, '\n');
-            console.debug('Trying without hyphen before newline:', searchWithoutHyphen);
             rawHits = mupdfPage.search(searchWithoutHyphen, 100);
 
             if (rawHits && rawHits.length > 0) {
-              console.debug('Success with hyphen removed before newline');
+              log.debug('Search fallback matched', { strategy: 'hyphen-removed', page: page.pageNumber });
             }
           }
 
           // Strategy 2: Try searching with hyphen and newline removed (joined text)
           if ((!rawHits || rawHits.length === 0) && searchText.match(/-\n/)) {
             const searchJoined = searchText.replace(/-\n/g, '');
-            console.debug('Trying with hyphen and newline removed:', searchJoined);
             rawHits = mupdfPage.search(searchJoined, 100);
 
             if (rawHits && rawHits.length > 0) {
-              console.debug('Success with joined text (no hyphen, no newline)');
+              log.debug('Search fallback matched', { strategy: 'joined', page: page.pageNumber });
             }
           }
 
           // Strategy 3: Try searching with just newline removed (hyphen kept)
           if (!rawHits || rawHits.length === 0) {
             const searchNoNewline = searchText.replace(/\n/g, '');
-            console.debug('Trying with newline removed:', searchNoNewline);
             rawHits = mupdfPage.search(searchNoNewline, 100);
 
             if (rawHits && rawHits.length > 0) {
-              console.debug('Success with newline removed');
+              log.debug('Search fallback matched', { strategy: 'newline-removed', page: page.pageNumber });
             }
           }
         }
@@ -537,7 +538,7 @@ function App() {
           }
         }
       } catch (error) {
-        console.warn(`MuPDF search failed on page ${page.pageNumber}:`, error);
+        log.warn('MuPDF search failed', { page: page.pageNumber, error: String(error) });
       }
     }
 
@@ -655,17 +656,21 @@ function App() {
     }
     setStage('redacting');
     setError(null);
+    log.info('Redaction started', { type: 'image', entities: confirmed.length });
     try {
       setProcessingStage({ stage: 'detecting', progress: 20, message: t('progress.redacting') });
       const blob = await redactImage(image, confirmed);
       if (!(await downloadRedactedImage(blob, selectedFile.name))) {
         // Save dialog cancelled: return to review so the user can export again
+        log.info('Save cancelled');
         setStage('review');
         return;
       }
+      log.info('Redaction finished', { type: 'image', redacted: confirmed.length, bytes: blob.size });
       setProcessingStage({ stage: 'complete', progress: 100, message: t('progress.redactionSuccess', { count: confirmed.length }) });
       setStage('complete');
     } catch (err) {
+      log.error('Redaction failed', err, { type: 'image' });
       setError(err instanceof Error ? err.message : t('errors.redactionError'));
       setStage('review');
     }
@@ -687,6 +692,7 @@ function App() {
     setStage('redacting');
     setError(null);
 
+    log.info('Redaction started', { type: 'pdf', entities: confirmedEntities.length, sanitize: detectionConfig.sanitizeDocument });
     try {
       const engine = new RedactionEngine();
 
@@ -708,9 +714,11 @@ function App() {
         // Download the redacted PDF
         const filename = generateRedactedFilename(selectedFile.name);
         if (!(await engine.downloadRedactedPdf(result.pdfBlob, filename))) {
+          log.info('Save cancelled');
           setStage('review');
           return;
         }
+        log.info('Redaction finished', { type: 'pdf', redacted: result.redactedCount, bytes: result.pdfBlob.size });
 
         setStage('complete');
         setProcessingStage({
@@ -719,11 +727,12 @@ function App() {
           message: t('progress.redactionSuccess', { count: result.redactedCount }),
         });
       } else {
+        log.error('Redaction failed', result.error, { type: fileType ?? undefined });
         setError(result.error || t('errors.redactionFailedGeneric'));
         setStage('review');
       }
     } catch (err) {
-      console.error('Redaction error:', err);
+      log.error('Redaction failed', err, { type: fileType ?? undefined });
       setError(err instanceof Error ? err.message : t('errors.redactionError'));
       setStage('review');
     }
@@ -745,6 +754,7 @@ function App() {
     setStage('redacting');
     setError(null);
 
+    log.info('Redaction started', { type: 'docx', entities: confirmedEntities.length, sanitize: detectionConfig.sanitizeDocument });
     try {
       const redactor = new DocxRedactor();
 
@@ -765,9 +775,11 @@ function App() {
       if (result.success && result.pdfBlob) {
         // Download the redacted DOCX (pdfBlob is reused for consistency)
         if (!(await redactor.downloadRedactedDocx(result.pdfBlob, selectedFile.name))) {
+          log.info('Save cancelled');
           setStage('review');
           return;
         }
+        log.info('Redaction finished', { type: 'docx', redacted: result.redactedCount, bytes: result.pdfBlob.size });
 
         setStage('complete');
         setProcessingStage({
@@ -776,11 +788,12 @@ function App() {
           message: t('progress.redactionSuccess', { count: result.redactedCount }),
         });
       } else {
+        log.error('Redaction failed', result.error, { type: fileType ?? undefined });
         setError(result.error || t('errors.redactionFailedGeneric'));
         setStage('review');
       }
     } catch (err) {
-      console.error('Redaction error:', err);
+      log.error('Redaction failed', err, { type: fileType ?? undefined });
       setError(err instanceof Error ? err.message : t('errors.redactionError'));
       setStage('review');
     }
@@ -793,15 +806,21 @@ function App() {
     setError(null);
 
     try {
-      if (fileType === 'pdf') {
-        await processPdf();
-      } else if (fileType === 'docx') {
-        await processDocx();
-      } else {
-        await processImage();
-      }
+      await timed(log, 'Analysis', async () => {
+        if (fileType === 'pdf') {
+          await processPdf();
+        } else if (fileType === 'docx') {
+          await processDocx();
+        } else {
+          await processImage();
+        }
+      }, {
+        type: fileType,
+        regex: detectionConfig.useRegexPatterns,
+        ml: detectionConfig.useMLModel,
+        aggressiveness: detectionConfig.aggressiveness,
+      });
     } catch (err) {
-      console.error('Processing error:', err);
       setError(err instanceof Error ? err.message : t('errors.processingError'));
       setStage('preview');
     }
@@ -816,6 +835,7 @@ function App() {
     const entities = detectionConfig.useRegexPatterns
       ? filterEntitiesByConfig(document.allEntities)
       : [];
+    log.info('Entities detected', { ocr: document.allEntities.length, filtered: entities.length });
     document.allEntities = entities;
     document.pages[0].entities = entities;
     setProcessedDocument(document);
@@ -835,7 +855,12 @@ function App() {
       });
     });
 
-    const document = await parser.parsePdf(selectedFile);
+    const document = await timed(log, 'PDF parsing', () => parser.parsePdf(selectedFile));
+    log.info('PDF parsed', {
+      pages: document.pages.length,
+      scannedPages: document.pages.filter(page => page.imageBlob).length,
+      textChars: document.pages.reduce((sum, page) => sum + page.textContent.length, 0),
+    });
 
     const allEntities: DetectedEntity[] = [];
 
@@ -848,7 +873,8 @@ function App() {
       });
 
       const detector = new RegexDetector();
-      const regexEntities = await detector.detectEntities(document.pages);
+      const regexEntities = await timed(log, 'Regex detection', () => detector.detectEntities(document.pages));
+      log.info('Regex entities detected', { count: regexEntities.length });
       allEntities.push(...regexEntities);
     }
 
@@ -877,19 +903,20 @@ function App() {
         });
 
         // Use page-based detection for PDFs with mupdf positioning
-        const llmEntities = await llmDetector.detectEntities(document.pages, (progress) => {
+        const llmEntities = await timed(log, 'ML detection', () => llmDetector.detectEntities(document.pages, (progress) => {
           setProcessingStage({
             stage: 'detecting',
             progress: 75 + (progress * 0.10), // 75-85%
             message: t('progress.detectingWithLLMProgress', { progress }),
           });
-        });
+        }));
+        log.info('ML entities detected', { count: llmEntities.length });
 
         allEntities.push(...llmEntities);
 
         await llmDetector.dispose();
       } catch (error) {
-        console.error('LLM detection failed, continuing with regex only:', error);
+        log.error('ML detection failed, continuing with regex only', error);
         setProcessingStage({
           stage: 'detecting',
           progress: 85,
@@ -905,13 +932,12 @@ function App() {
       message: t('progress.removingDuplicates'),
     });
 
-    console.debug("all detected entities %s", JSON.stringify(allEntities));
     const aggregator = new EntityAggregator();
     let entities = aggregator.deduplicateEntities(allEntities);
-    console.debug("deduplicated entities %s", JSON.stringify(entities));
+    const deduplicatedCount = entities.length;
     // Filter entities based on detection config
     entities = filterEntitiesByConfig(entities);
-    console.debug("filtered entities %s", JSON.stringify(entities));
+    log.info('Entities aggregated', { detected: allEntities.length, deduplicated: deduplicatedCount, filtered: entities.length });
     // Update document with detected entities
     document.allEntities = entities;
 
@@ -945,7 +971,8 @@ function App() {
       });
     });
 
-    const docx = await parser.parseDocx(selectedFile);
+    const docx = await timed(log, 'DOCX parsing', () => parser.parseDocx(selectedFile));
+    log.info('DOCX parsed', { textChars: docx.fullText.length });
 
     const allEntities: DetectedEntity[] = [];
 
@@ -958,7 +985,8 @@ function App() {
       });
 
       const detector = new RegexDetector();
-      const regexEntities = await detector.detectEntities(docx.fullText);
+      const regexEntities = await timed(log, 'Regex detection', () => detector.detectEntities(docx.fullText));
+      log.info('Regex entities detected', { count: regexEntities.length });
       allEntities.push(...regexEntities);
     }
 
@@ -993,13 +1021,12 @@ function App() {
             message: t('progress.detectingWithLLMProgress', { progress }),
           });
         });
-        console.log(JSON.stringify(llmEntities));
         // TODO: Convert simplified entities to DetectedEntity format
         // allEntities.push(...llmEntities);
-        console.log(JSON.stringify(allEntities));
+        log.info('ML entities detected (not yet used for DOCX)', { count: llmEntities.length });
         await llmDetector.dispose();
       } catch (error) {
-        console.error('LLM detection failed, continuing with regex only:', error);
+        log.error('ML detection failed, continuing with regex only', error);
         setProcessingStage({
           stage: 'detecting',
           progress: 95,
@@ -1011,10 +1038,10 @@ function App() {
     // Deduplicate entities
     const aggregator = new EntityAggregator();
     let entities = aggregator.deduplicateEntities(allEntities);
-    console.log("deduplicated entities %s", JSON.stringify(entities));
+    const deduplicatedCount = entities.length;
     // Filter entities based on detection config
     entities = filterEntitiesByConfig(entities);
-    console.log("filtered entities %s", JSON.stringify(entities));
+    log.info('Entities aggregated', { detected: allEntities.length, deduplicated: deduplicatedCount, filtered: entities.length });
     // Update DOCX with detected entities
     docx.allEntities = entities;
 

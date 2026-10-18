@@ -2,6 +2,9 @@ import { EntityType } from '@/lib/types';
 import type { RegexPattern } from '@/lib/types';
 import { getPredefinedWords, createPatternFromWord } from './predefined-words';
 import { DocumentScript, detectDocumentScript } from './language-detection';
+import { createLogger } from './logger';
+
+const log = createLogger('RegexPatterns');
 
 /**
  * Context validation helper
@@ -602,7 +605,7 @@ export function getPatternsForText(text: string): RegexPattern[] {
   const detectedScripts = detectDocumentScript(text);
   const filteredPatterns = filterPatternsByScript(allPatterns, detectedScripts);
 
-  console.debug(`Detected scripts: [${detectedScripts.join(', ')}], using patterns: ${filteredPatterns.map(p => p.name).join(', ')} `);
+  log.debug('Selected patterns for text', { scripts: detectedScripts.join(','), patterns: filteredPatterns.length });
 
   return filteredPatterns;
 }
