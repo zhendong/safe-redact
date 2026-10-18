@@ -195,7 +195,7 @@ xattr -cr /Applications/SafeRedact.app
 ```
 
 与网页版的区别：
-- **完全离线**：OCR（Tesseract.js，支持英文和简体中文）和 NER 模型已内置（下载约 100 MB）
+- **完全离线**：OCR（Tesseract.js，支持英文和简体中文）和 NER 模型已内置（下载约 145 MB）
 - **更快的人名识别**：NER 模型通过原生 ONNX Runtime 多线程运行，速度比浏览器快数倍
 - **禁止联网**：应用的内容安全策略（CSP）阻止所有对外连接，链接会在浏览器中打开
 - **原生文件操作**：通过 ⌘O、程序坞或访达的“打开方式”打开文件；用 ⌘S 和“存储”对话框保存脱敏文件
@@ -209,7 +209,7 @@ npm run tauri dev     # 以热重载方式运行应用
 npm run tauri build   # 在 src-tauri/target/release/bundle/ 生成 SafeRedact.app 和 DMG
 ```
 
-两条命令都会先运行 `npm run desktop:assets`：从 `node_modules` 复制 OCR 文件，并从 Hugging Face 下载 NER 模型（约 105 MB，仅首次）到 `desktop-assets/`。
+两条命令都会先运行 `npm run desktop:assets`：从 `node_modules` 复制 OCR 文件，并从 Hugging Face 下载 NER 模型（约 180 MB，仅首次）到 `desktop-assets/`。
 
 推送 `v*` 标签会触发 GitHub Actions 工作流，构建 Apple 芯片和 Intel 版 DMG 并附加到草稿版本中。
 

@@ -13,7 +13,7 @@ use serde::Deserialize;
 use tauri::ipc::Response;
 use tauri::{AppHandle, Manager, State};
 
-const MODEL_PATH: &str = "/models/Xenova/bert-base-NER/onnx/model_quantized.onnx";
+const MODEL_PATH: &str = "/models/Xenova/bert-base-multilingual-cased-ner-hrl/onnx/model_quantized.onnx";
 
 #[derive(Default)]
 pub struct NerModel(Mutex<Option<Session>>);

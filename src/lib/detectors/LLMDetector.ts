@@ -1,95 +1,56 @@
 import type { DetectedEntity, ProcessedPage, EntityPosition } from '@/lib/types';
 import { EntityType } from '@/lib/types';
 import { generateId } from '@/utils/validation';
-import { extractContext, splitTextWithOverlap } from '@/utils/text-utils';
-import { LLM_CHUNKING } from '@/utils/constants';
-import { pipeline, type TokenClassificationPipeline, env } from '@huggingface/transformers';
+import { extractContext } from '@/utils/text-utils';
+import { NER_MODEL } from '@/utils/constants';
 import { isDesktop } from '@/platform';
 import { createLogger } from '@/utils/logger';
+import { NerModel } from './nerModels';
+import { extendChineseAddresses, mergeTouchingSpans } from './nerDecoding';
 
 const log = createLogger('LLMDetector');
 
-if (isDesktop) {
-  // The desktop app bundles the model so it works offline; it runs in native ONNX Runtime
-  env.allowLocalModels = true;
-  env.allowRemoteModels = false;
-  env.localModelPath = '/models/';
-  env.useBrowserCache = false;
-} else {
-  // Configure transformers.js to use CDN for models
-  env.allowLocalModels = false;
-  env.allowRemoteModels = true;
-}
+const ENTITY_TYPES: Record<string, EntityType> = {
+  PER: EntityType.PERSON,
+  ORG: EntityType.ORGANIZATION,
+  LOC: EntityType.LOCATION,
+  DATE: EntityType.DATE,
+};
 
 /**
- * Entity detection using local LLM (transformers.js)
- * Runs NER models entirely in the browser
+ * Entity detection with a local NER model (transformers.js, or native ONNX Runtime on desktop)
  */
 export class LLMDetector {
-  private static pipeline: TokenClassificationPipeline | null = null;
-  private static isInitialized = false;
+  private static model: NerModel | null = null;
   private static initializationPromise: Promise<void> | null = null;
-  private modelName: string;
-
-  constructor(modelName: string = 'Xenova/bert-base-NER') {
-    this.modelName = modelName;
-  }
 
   /**
    * Preload the model in the background (static method for sharing across instances)
    */
-  static async preloadModel(
-    modelName: string = 'Xenova/bert-base-NER',
-    onProgress?: (progress: number, message: string) => void
-  ): Promise<void> {
+  static async preloadModel(onProgress?: (progress: number, message: string) => void): Promise<void> {
     // If already initialized or initializing, return existing promise
-    if (LLMDetector.isInitialized) {
+    if (LLMDetector.model) {
       onProgress?.(100, 'Model already loaded');
-      return Promise.resolve();
+      return;
     }
-
     if (LLMDetector.initializationPromise) {
       return LLMDetector.initializationPromise;
     }
 
-    // Create new initialization promise
     LLMDetector.initializationPromise = (async () => {
       const start = performance.now();
-      log.info('Model loading', { model: modelName, runtime: isDesktop ? 'native' : 'wasm' });
+      log.info('Model loading', { model: NER_MODEL, runtime: isDesktop ? 'native' : 'wasm' });
       try {
         onProgress?.(0, 'Starting model download...');
-
-        if (isDesktop) {
-          // The desktop app runs the model in native ONNX Runtime; WebKit limits WebAssembly to one thread
-          onProgress?.(50, 'Initializing model...');
-          const { createNativeNerPipeline } = await import('@/platform/nativeNer');
-          LLMDetector.pipeline = await createNativeNerPipeline(modelName);
-          LLMDetector.isInitialized = true;
-          log.info('Model ready', { ms: Math.round(performance.now() - start) });
-          onProgress?.(100, 'Model ready');
-          return;
-        }
-
-        const pipelineResult = await pipeline('token-classification', modelName, {
-          progress_callback: (data: any) => {
-            if (data.status === 'progress' && data.progress) {
-              const progress = Math.round(data.progress);
-              onProgress?.(progress, `Downloading model: ${progress}%`);
-            } else if (data.status === 'download') {
-              onProgress?.(0, `Downloading: ${data.name}`);
-            } else if (data.status === 'done') {
-              onProgress?.(50, 'Initializing model...');
-            }
-          },
+        LLMDetector.model = await NerModel.load(NER_MODEL, progress => {
+          const percent = Math.round(progress);
+          onProgress?.(percent, percent < 100 ? `Downloading model: ${percent}%` : 'Initializing model...');
         });
-        LLMDetector.pipeline = pipelineResult as TokenClassificationPipeline;
-
-        LLMDetector.isInitialized = true;
         log.info('Model ready', { ms: Math.round(performance.now() - start) });
         onProgress?.(100, 'Model ready');
       } catch (error) {
         LLMDetector.initializationPromise = null;
-        log.error('Model failed to load', error, { model: modelName, ms: Math.round(performance.now() - start) });
+        log.error('Model failed to load', error, { model: NER_MODEL, ms: Math.round(performance.now() - start) });
         throw error;
       }
     })();
@@ -101,21 +62,31 @@ export class LLMDetector {
    * Check if model is already loaded
    */
   static isModelLoaded(): boolean {
-    return LLMDetector.isInitialized;
+    return LLMDetector.model !== null;
   }
 
   /**
-   * Initialize the NER pipeline (uses shared static pipeline if already loaded)
+   * Initialize the NER model (uses the shared model if already loaded)
    */
   async initialize(onProgress?: (progress: number, message: string) => void): Promise<void> {
-    // Use preloaded model if available
-    if (LLMDetector.isInitialized) {
+    if (LLMDetector.model) {
       onProgress?.(100, 'Using preloaded model');
-      return Promise.resolve();
+      return;
     }
+    return LLMDetector.preloadModel(onProgress);
+  }
 
-    // Otherwise, preload now
-    return LLMDetector.preloadModel(this.modelName, onProgress);
+  /**
+   * Finds entities in text as character ranges, so their text can be sliced from the original
+   */
+  private async findSpans(text: string): Promise<Array<{ type: EntityType; start: number; end: number; score: number }>> {
+    if (!LLMDetector.model) {
+      throw new Error('LLM detector not initialized. Call initialize() first.');
+    }
+    const spans = mergeTouchingSpans(await LLMDetector.model.findSpans(text));
+    return extendChineseAddresses(text, spans, 'LOC').flatMap(span =>
+      ENTITY_TYPES[span.type] ? [{ ...span, type: ENTITY_TYPES[span.type] }] : []
+    );
   }
 
   /**
@@ -125,10 +96,6 @@ export class LLMDetector {
     pages: ProcessedPage[],
     onProgress?: (progress: number) => void
   ): Promise<DetectedEntity[]> {
-    if (!LLMDetector.isInitialized || !LLMDetector.pipeline) {
-      throw new Error('LLM detector not initialized. Call initialize() first.');
-    }
-
     const allEntities: DetectedEntity[] = [];
 
     for (let pageIndex = 0; pageIndex < pages.length; pageIndex++) {
@@ -146,334 +113,48 @@ export class LLMDetector {
    * Detect entities in a single page
    */
   private async detectInPage(page: ProcessedPage): Promise<DetectedEntity[]> {
-    const entities: DetectedEntity[] = [];
     const text = page.textContent;
+    const entities: DetectedEntity[] = [];
+    const seenEntities = new Set<string>();
 
-    // Split into chunks to handle pages longer than model's token limit (512 tokens)
-    // Use character-based chunking with overlap to prevent missing entities at boundaries
-    const chunks = splitTextWithOverlap(text, LLM_CHUNKING.CHUNK_SIZE, LLM_CHUNKING.CHUNK_OVERLAP);
-
-    const seenEntities = new Set<string>(); // Deduplicate entities from overlapping chunks
-
-    for (let i = 0; i < chunks.length; i++) {
-      const { text: chunk, offset } = chunks[i];
-
-      try {
-        if (!LLMDetector.pipeline) {
-          throw new Error('Pipeline not initialized');
-        }
-        const results = await LLMDetector.pipeline(chunk);
-        log.debug('Chunk classified', { page: page.pageNumber, chunk: i + 1, chunks: chunks.length, chars: chunk.length, tokens: results.length });
-        // Use official transformers aggregation strategy
-        const aggregatedEntities = this.aggregate(results, 'first');
-
-        // Convert and find actual positions in PDF using mupdf search
-        for (const aggEntity of aggregatedEntities) {
-          const entityType = this.mapNERLabelToEntityType(aggEntity.entity_group);
-          const searchText = aggEntity.word.trim();
-
-          // Skip very short entities
-          if (!searchText || searchText.length < 2) {
-            continue;
-          }
-
-          // Deduplicate entities from overlapping regions
-          const entityKey = `${searchText}:${entityType}`;
-          if (seenEntities.has(entityKey)) {
-            continue;
-          }
-          seenEntities.add(entityKey);
-
-          // Use mupdf to find position in PDF
-          const position = this.findPositionWithSearch(page, searchText, offset);
-
-          if (!position) {
-            log.debug('Could not locate entity on page', { page: page.pageNumber, type: entityType, chars: searchText.length });
-            continue;
-          }
-
-          const matchIndex = text.indexOf(searchText);
-          const contextText = matchIndex !== -1 ? extractContext(text, matchIndex, searchText.length) : searchText;
-
-          entities.push({
-            id: generateId(),
-            text: searchText,
-            entityType,
-            confidence: aggEntity.score,
-            position,
-            detectionMethod: 'ml_ner',
-            status: 'rejected',
-            contextText,
-          });
-        }
-      } catch (error) {
-        log.error('Chunk classification failed', error, { page: page.pageNumber, chunk: i + 1, chunks: chunks.length });
-      }
+    let spans: Awaited<ReturnType<LLMDetector['findSpans']>>;
+    try {
+      spans = await this.findSpans(text);
+    } catch (error) {
+      log.error('Page classification failed', error, { page: page.pageNumber });
+      return entities;
     }
+    log.debug('Page classified', { page: page.pageNumber, chars: text.length, spans: spans.length });
 
-    return entities;
-  }
+    for (const span of spans) {
+      const searchText = text.slice(span.start, span.end).trim();
+      // Skip very short entities
+      if (searchText.length < 2) continue;
 
-  /**
-   * Main aggregation method matching transformers implementation
-   * Supports strategies: 'none', 'simple', 'first', 'average', 'max'
-   */
-  private aggregate(
-    preEntities: any[],
-    aggregationStrategy: 'none' | 'simple' | 'first' | 'average' | 'max'
-  ): any[] {
-    // Gather pre-entities with scores
-    const gatheredEntities = this.gatherPreEntities(preEntities);
-    // console.log('Gathered entities:', gatheredEntities);
-    if (aggregationStrategy === 'none' || aggregationStrategy === 'simple') {
-      const entities = gatheredEntities.map(preEntity => {
-        const entityIdx = this.argmax(preEntity.scores);
-        return {
-          entity: preEntity.entity,
-          score: preEntity.scores[entityIdx],
-          index: preEntity.index,
-          word: preEntity.word,
-          start: preEntity.start,
-          end: preEntity.end,
-        };
-      });
+      const entityKey = `${searchText}:${span.type}`;
+      if (seenEntities.has(entityKey)) continue;
+      seenEntities.add(entityKey);
 
-      if (aggregationStrategy === 'none') {
-        return entities;
-      }
-      return this.groupEntities(entities);
-    } else {
-      // For word-based strategies (first, average, max)
-      const entities = this.aggregateWords(gatheredEntities, aggregationStrategy);
-      return this.groupEntities(entities);
-    }
-  }
-
-  /**
-   * Gather pre-entities with scores (simplified for transformers.js)
-   */
-  private gatherPreEntities(tokens: any[]): any[] {
-    return tokens.map((token, idx) => {
-      const word = token.word;
-      const entity = token.entity || token.entity_group;
-      const score = token.score;
-
-      // For transformers.js, we don't have full score arrays
-      // Create a simplified scores array
-      const scores = [score];
-
-      // A token is a subword if it starts with ## AND it's not the first token
-      // (First token can't be a continuation)
-      const isSubword = word.startsWith('##') && idx > 0;
-
-      return {
-        word,
-        entity,
-        scores,
-        score,
-        start: token.start,
-        end: token.end,
-        index: idx,
-        is_subword: isSubword,
-      };
-    });
-  }
-
-  /**
-   * Aggregate words using specified strategy
-   */
-  private aggregateWords(
-    entities: any[],
-    aggregationStrategy: 'first' | 'average' | 'max'
-  ): any[] {
-    const wordEntities: any[] = [];
-    let wordGroup: any[] | null = null;
-
-    for (const entity of entities) {
-      if (wordGroup === null) {
-        wordGroup = [entity];
-      } else if (entity.is_subword) {
-        wordGroup.push(entity);
-      } else {
-        wordEntities.push(this.aggregateWord(wordGroup, aggregationStrategy));
-        wordGroup = [entity];
-      }
-    }
-
-    // Last item
-    if (wordGroup !== null) {
-      wordEntities.push(this.aggregateWord(wordGroup, aggregationStrategy));
-    }
-
-    return wordEntities;
-  }
-
-  /**
-   * Aggregate a single word using specified strategy
-   */
-  private aggregateWord(
-    entities: any[],
-    aggregationStrategy: 'first' | 'average' | 'max'
-  ): any {
-    // Merge subword tokens with proper spacing
-    let word = '';
-    for (let i = 0; i < entities.length; i++) {
-      const token = entities[i].word;
-
-      if (token.startsWith('##')) {
-        if (i === 0) {
-          // First token starting with ## (edge case) - strip the prefix
-          word = token.substring(2);
-        } else {
-          // Subword token - attach to previous word
-          word += token.substring(2);
-        }
-      } else if (i === 0) {
-        // First token
-        word = token;
-      } else {
-        // Regular token - add space
-        word += ' ' + token;
-      }
-    }
-
-    let score: number;
-    let entity: string;
-
-    if (aggregationStrategy === 'first') {
-      score = entities[0].score;
-      entity = entities[0].entity;
-    } else if (aggregationStrategy === 'max') {
-      const maxEntity = entities.reduce((max, e) => e.score > max.score ? e : max);
-      score = maxEntity.score;
-      entity = maxEntity.entity;
-    } else if (aggregationStrategy === 'average') {
-      score = entities.reduce((sum, e) => sum + e.score, 0) / entities.length;
-      entity = entities[0].entity; // Use first entity type
-    } else {
-      throw new Error('Invalid aggregation_strategy');
-    }
-
-    return {
-      entity,
-      score,
-      word,
-      start: entities[0].start,
-      end: entities[entities.length - 1].end,
-    };
-  }
-
-  /**
-   * Group adjacent entities with the same entity tag
-   */
-  private groupEntities(entities: any[]): any[] {
-    const entityGroups: any[] = [];
-    let entityGroupDisagg: any[] = [];
-
-    for (const entity of entities) {
-      if (entityGroupDisagg.length === 0) {
-        entityGroupDisagg.push(entity);
+      // Use mupdf to find position in PDF
+      const position = this.findPositionWithSearch(page, searchText);
+      if (!position) {
+        log.debug('Could not locate entity on page', { page: page.pageNumber, type: span.type, chars: searchText.length });
         continue;
       }
 
-      const [bi, tag] = this.getTag(entity.entity);
-      const [lastBi, lastTag] = this.getTag(entityGroupDisagg[entityGroupDisagg.length - 1].entity);
-
-      if (tag === lastTag && bi !== 'B') {
-        entityGroupDisagg.push(entity);
-      } else {
-        entityGroups.push(this.groupSubEntities(entityGroupDisagg));
-        entityGroupDisagg = [entity];
-      }
+      entities.push({
+        id: generateId(),
+        text: searchText,
+        entityType: span.type,
+        confidence: span.score,
+        position,
+        detectionMethod: 'ml_ner',
+        status: 'rejected',
+        contextText: extractContext(text, span.start, span.end - span.start),
+      });
     }
 
-    if (entityGroupDisagg.length > 0) {
-      entityGroups.push(this.groupSubEntities(entityGroupDisagg));
-    }
-
-    return entityGroups;
-  }
-
-  /**
-   * Group sub-entities into a single entity group
-   */
-  private groupSubEntities(entities: any[]): any {
-    // Get the entity tag without B-/I- prefix
-    const entity = entities[0].entity.split('-').slice(-1)[0];
-    const scores = entities.map(e => e.score);
-    const avgScore = scores.reduce((a, b) => a + b, 0) / scores.length;
-
-    // Merge tokens with proper spacing
-    let word = '';
-    for (let i = 0; i < entities.length; i++) {
-      const token = entities[i].word;
-
-      if (token.startsWith('##')) {
-        if (i === 0) {
-          // First token starting with ## (edge case) - strip the prefix
-          word = token.substring(2);
-        } else {
-          // Subword token - attach to previous word
-          word += token.substring(2);
-        }
-      } else if (i === 0) {
-        // First token
-        word = token;
-      } else {
-        // Regular token - add space
-        word += ' ' + token;
-      }
-    }
-
-    return {
-      entity_group: entity,
-      score: avgScore,
-      word,
-      start: entities[0].start,
-      end: entities[entities.length - 1].end,
-    };
-  }
-
-  /**
-   * Extract B/I tag and entity type
-   */
-  private getTag(entityName: string): [string, string] {
-    if (entityName.startsWith('B-')) {
-      return ['B', entityName.substring(2)];
-    } else if (entityName.startsWith('I-')) {
-      return ['I', entityName.substring(2)];
-    } else {
-      return ['I', entityName];
-    }
-  }
-
-  /**
-   * Find index of maximum value in array
-   */
-  private argmax(arr: number[]): number {
-    return arr.indexOf(Math.max(...arr));
-  }
-
-  /**
-   * Map NER model labels to our EntityType enum
-   */
-  private mapNERLabelToEntityType(label: string): EntityType {
-    const normalizedLabel = label.toUpperCase().replace(/^(B-|I-)/, '');
-
-    const labelMap: Record<string, EntityType> = {
-      'PER': EntityType.PERSON,
-      'PERSON': EntityType.PERSON,
-      'ORG': EntityType.ORGANIZATION,
-      'ORGANIZATION': EntityType.ORGANIZATION,
-      'LOC': EntityType.LOCATION,
-      'LOCATION': EntityType.LOCATION,
-      'GPE': EntityType.LOCATION, // Geo-Political Entity
-      'DATE': EntityType.DATE,
-      'TIME': EntityType.DATE,
-      'MISC': EntityType.CUSTOM,
-    };
-
-    return labelMap[normalizedLabel] || EntityType.CUSTOM;
+    return entities;
   }
 
   /**
@@ -607,8 +288,7 @@ export class LLMDetector {
    */
   private findPositionWithSearch(
     page: ProcessedPage,
-    searchText: string,
-    offset: number
+    searchText: string
   ): EntityPosition | null {
     try {
       const mupdfPage = page.pdfPageObject;
@@ -724,60 +404,30 @@ export class LLMDetector {
    */
   async detectEntitiesInChunks(
     text: string,
-    tokenLimit: number = LLM_CHUNKING.TOKEN_LIMIT,
     onProgress?: (progress: number) => void
   ): Promise<Array<{ text: string; entityType: string; confidence: number }>> {
-    if (!LLMDetector.isInitialized || !LLMDetector.pipeline) {
-      throw new Error('LLM detector not initialized. Call initialize() first.');
-    }
-
-    const chunks = splitTextWithOverlap(text, LLM_CHUNKING.CHUNK_SIZE, LLM_CHUNKING.CHUNK_OVERLAP);
-    const allEntities: Array<{ text: string; entityType: string; confidence: number }> = [];
+    const entities: Array<{ text: string; entityType: string; confidence: number }> = [];
     const seenEntities = new Set<string>();
 
-    for (let i = 0; i < chunks.length; i++) {
-      const { text: chunkText, offset } = chunks[i];
+    for (const span of await this.findSpans(text)) {
+      const searchText = text.slice(span.start, span.end).trim();
+      if (searchText.length < 2) continue;
 
-      try {
-        if (!LLMDetector.pipeline) {
-          throw new Error('Pipeline not initialized');
-        }
-        const results = await LLMDetector.pipeline(chunkText);
-        const aggregatedResults = this.aggregate(results, 'first');
-
-        for (const result of aggregatedResults) {
-          const entityType = this.mapNERLabelToEntityType(result.entity_group);
-          if (!entityType) continue;
-
-          const searchText = result.word.trim();
-          if (!searchText || searchText.length < 2) continue;
-
-          // Deduplicate entities from overlapping chunks
-          const entityKey = `${searchText}:${entityType}`;
-          if (seenEntities.has(entityKey)) continue;
-
-          seenEntities.add(entityKey);
-          allEntities.push({
-            text: searchText,
-            entityType,
-            confidence: result.score,
-          });
-        }
-      } catch (error) {
-        log.warn('Chunk classification failed', { chunk: i + 1, chunks: chunks.length, error: String(error) });
-      }
-
-      onProgress?.(Math.round(((i + 1) / chunks.length) * 100));
+      const entityKey = `${searchText}:${span.type}`;
+      if (seenEntities.has(entityKey)) continue;
+      seenEntities.add(entityKey);
+      entities.push({ text: searchText, entityType: span.type, confidence: span.score });
     }
+    onProgress?.(100);
 
-    return allEntities;
+    return entities;
   }
 
   /**
    * Check if detector is ready
    */
   isReady(): boolean {
-    return LLMDetector.isInitialized && LLMDetector.pipeline !== null;
+    return LLMDetector.model !== null;
   }
 
   /**
@@ -792,8 +442,7 @@ export class LLMDetector {
    * Clear the loaded model from memory (static method)
    */
   static async clearModel(): Promise<void> {
-    LLMDetector.pipeline = null;
-    LLMDetector.isInitialized = false;
+    LLMDetector.model = null;
     LLMDetector.initializationPromise = null;
   }
 }

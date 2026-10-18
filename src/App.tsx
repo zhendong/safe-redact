@@ -1014,7 +1014,7 @@ function App() {
           message: t('progress.detectingWithLLM'),
         });
 
-        const llmEntities = await llmDetector.detectEntitiesInChunks(docx.fullText, 512, (progress) => {
+        const llmEntities = await llmDetector.detectEntitiesInChunks(docx.fullText, (progress) => {
           setProcessingStage({
             stage: 'detecting',
             progress: 85 + (progress * 0.10), // 85-95%

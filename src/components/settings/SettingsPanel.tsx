@@ -105,7 +105,7 @@ export function SettingsPanel({
       setModelDownloadMessage(t('settings.startingDownload'));
 
       try {
-        await LLMDetector.preloadModel('Xenova/bert-base-NER', (progress, message) => {
+        await LLMDetector.preloadModel((progress, message) => {
           setModelDownloadProgress(progress);
           setModelDownloadMessage(message);
         });
