@@ -77,6 +77,7 @@ export function SettingsPanel({
   const handleReset = () => {
     const defaultConfig: DetectionConfig = {
       enabledEntityTypes: Object.values(EntityType),
+      knownEntityTypes: Object.values(EntityType),
       confidenceThresholds: DEFAULT_CONFIDENCE_THRESHOLDS,
       useMLModel: false,
       useRegexPatterns: true,

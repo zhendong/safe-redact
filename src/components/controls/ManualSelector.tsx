@@ -310,7 +310,7 @@ export function ManualSelector({
               </div>
             )}
             <div className="grid grid-cols-2 gap-3 mb-4">
-              {Object.values(EntityTypeEnum).map((type) => (
+              {Object.values(EntityTypeEnum).filter((type) => type !== EntityTypeEnum.PREDEFINED).map((type) => (
                 <button
                   key={type}
                   onClick={() => handleTypeSelect(type)}

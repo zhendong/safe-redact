@@ -186,7 +186,8 @@ export const translations = {
       CREDIT_CARD: { name: 'Credit Card', description: 'Credit card numbers' },
       PHONE: { name: 'Phone', description: 'Phone numbers' },
       EMAIL: { name: 'Email', description: 'Email addresses' },
-      CUSTOM: { name: 'Custom', description: 'User-defined patterns' },
+      CUSTOM: { name: 'Custom', description: 'Other patterns such as IDs, URLs, and IP addresses' },
+      PREDEFINED: { name: 'Predefined Words', description: 'Words from your predefined list' },
     },
     entityCard: {
       uncheckToSkip: 'Uncheck to skip redaction',
@@ -562,7 +563,8 @@ export const translations = {
       CREDIT_CARD: { name: '信用卡', description: '信用卡号码' },
       PHONE: { name: '电话号码', description: '电话号码' },
       EMAIL: { name: '电子邮箱', description: '电子邮件地址' },
-      CUSTOM: { name: '自定义', description: '用户自定义的模式' },
+      CUSTOM: { name: '自定义', description: '其他模式，如证件号、网址和 IP 地址' },
+      PREDEFINED: { name: '预定义词汇', description: '来自预定义词汇列表的词语' },
     },
     entityCard: {
       uncheckToSkip: '取消勾选以跳过遮盖',

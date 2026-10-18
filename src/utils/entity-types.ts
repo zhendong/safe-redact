@@ -1,4 +1,5 @@
 import { EntityType } from '@/lib/types';
+import type { DetectionConfig } from '@/lib/types';
 import { translations, type Language } from '@/i18n/translations';
 
 /**
@@ -66,7 +67,13 @@ export const ENTITY_TYPE_METADATA: Record<EntityType, EntityTypeMetadata> = {
     type: EntityType.CUSTOM,
     displayName: 'Custom',
     color: '#EC4899', // pink
-    description: 'User-defined patterns',
+    description: 'Other patterns such as IDs, URLs, and IP addresses',
+  },
+  [EntityType.PREDEFINED]: {
+    type: EntityType.PREDEFINED,
+    displayName: 'Predefined Words',
+    color: '#14B8A6', // teal
+    description: 'Words from your predefined list',
   },
 };
 
@@ -100,6 +107,36 @@ export function getEntityDescription(entityType: EntityType, language: Language 
  */
 export function getEntityClassName(entityType: EntityType): string {
   return `entity-${entityType.toLowerCase()}`;
+}
+
+/**
+ * Entity types that existed before saved settings recorded `knownEntityTypes`
+ */
+const LEGACY_ENTITY_TYPES: EntityType[] = [
+  EntityType.PERSON,
+  EntityType.ORGANIZATION,
+  EntityType.LOCATION,
+  EntityType.DATE,
+  EntityType.SSN,
+  EntityType.CREDIT_CARD,
+  EntityType.PHONE,
+  EntityType.EMAIL,
+  EntityType.CUSTOM,
+];
+
+/**
+ * Enable entity types added since the settings were saved, so new types
+ * (e.g. PREDEFINED) aren't silently filtered out for existing users
+ */
+export function enableNewEntityTypes(config: DetectionConfig): DetectionConfig {
+  const allTypes = Object.values(EntityType);
+  const known = config.knownEntityTypes ?? LEGACY_ENTITY_TYPES;
+  const newTypes = allTypes.filter(type => !known.includes(type));
+  return {
+    ...config,
+    enabledEntityTypes: [...(config.enabledEntityTypes ?? []), ...newTypes],
+    knownEntityTypes: allTypes,
+  };
 }
 
 /**

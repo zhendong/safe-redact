@@ -563,7 +563,7 @@ export function getAllPatterns(): RegexPattern[] {
   // Convert predefined words to regex patterns
   const predefinedPatterns: RegexPattern[] = predefinedWords.map((word) => ({
     name: `Predefined: ${word.word}`,
-    entityType: EntityType.CUSTOM,
+    entityType: EntityType.PREDEFINED,
     pattern: createPatternFromWord(word),
     confidence: 1.0,
     examples: [word.word],

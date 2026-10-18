@@ -53,7 +53,8 @@ export enum EntityType {
   CREDIT_CARD = 'CREDIT_CARD',             // Credit card numbers
   PHONE = 'PHONE',                         // Phone numbers
   EMAIL = 'EMAIL',                         // Email addresses
-  CUSTOM = 'CUSTOM'                        // User-defined patterns
+  CUSTOM = 'CUSTOM',                       // Additional built-in patterns (IDs, URLs, IPs, ...)
+  PREDEFINED = 'PREDEFINED'                // User's predefined words
 }
 
 /**
@@ -249,6 +250,7 @@ export interface DetectionConfig {
   useCustomPatterns: boolean;              // Enable learned patterns
   aggressiveness: 'conservative' | 'balanced' | 'aggressive';
   sanitizeDocument: boolean;               // Strip metadata and hidden content
+  knownEntityTypes?: EntityType[];         // Types that existed when saved; newer ones get enabled on load
 }
 
 /**
