@@ -77,6 +77,7 @@ export function SettingsPanel({
   const handleReset = () => {
     const defaultConfig: DetectionConfig = {
       enabledEntityTypes: Object.values(EntityType),
+      knownEntityTypes: Object.values(EntityType),
       confidenceThresholds: DEFAULT_CONFIDENCE_THRESHOLDS,
       useMLModel: false,
       useRegexPatterns: true,
@@ -105,7 +106,7 @@ export function SettingsPanel({
       setModelDownloadMessage(t('settings.startingDownload'));
 
       try {
-        await LLMDetector.preloadModel('Xenova/bert-base-NER', (progress, message) => {
+        await LLMDetector.preloadModel((progress, message) => {
           setModelDownloadProgress(progress);
           setModelDownloadMessage(message);
         });

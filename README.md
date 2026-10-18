@@ -195,7 +195,7 @@ xattr -cr /Applications/SafeRedact.app
 ```
 
 What differs from the web version:
-- **Fully offline**: OCR (Tesseract.js with English and Simplified Chinese) and the NER model are bundled in the app (about 100 MB download)
+- **Fully offline**: OCR (Tesseract.js with English and Simplified Chinese) and the NER model are bundled in the app (about 145 MB download)
 - **Faster name detection**: the NER model runs on native ONNX Runtime with multiple threads, several times faster than in a browser
 - **No network access**: the app's Content Security Policy blocks all outgoing connections; links open in your browser
 - **Native files**: open with ⌘O, the Dock, or Finder's "Open With"; save redacted files with ⌘S and the Save dialog
@@ -209,7 +209,7 @@ npm run tauri dev     # run the app with hot reload
 npm run tauri build   # build SafeRedact.app and a DMG in src-tauri/target/release/bundle/
 ```
 
-Both commands first run `npm run desktop:assets`, which copies the OCR files from `node_modules` and downloads the NER model from Hugging Face (about 105 MB, once) into `desktop-assets/`.
+Both commands first run `npm run desktop:assets`, which copies the OCR files from `node_modules` and downloads the NER model from Hugging Face (about 180 MB, once) into `desktop-assets/`.
 
 Pushing a `v*` tag runs the GitHub Actions workflow that builds Apple Silicon and Intel DMGs and attaches them to a draft release.
 

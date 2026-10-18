@@ -12,7 +12,7 @@
  */
 import { createHash } from 'node:crypto';
 import { createReadStream, existsSync } from 'node:fs';
-import { copyFile, mkdir, readdir, rename, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, readdir, rename, rm, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -20,14 +20,14 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const out = join(root, 'desktop-assets');
 const modules = join(root, 'node_modules');
 
-const MODEL_ID = 'Xenova/bert-base-NER';
-const MODEL_REVISION = '8e892123e8b7c2c0c2bd1dcb598b7d244c4e53aa';
+const MODEL_ID = 'Xenova/bert-base-multilingual-cased-ner-hrl';
+const MODEL_REVISION = '263e82c06569c8c2ac46238a7ae5107598934234';
 const MODEL_FILES = {
   'config.json': null,
   'tokenizer.json': null,
   'tokenizer_config.json': null,
   'special_tokens_map.json': null,
-  'onnx/model_quantized.onnx': 'caaee70a5518ec7f9e46e5308fcc9263a8c227703a9ce46cf61c69a552349648',
+  'onnx/model_quantized.onnx': '5b65139844be260b624a2a13782b01d122e613d64ce16ed0ba4d82e0b816f1a9',
 };
 const OCR_LANGUAGES = ['eng', 'chi_sim'];
 
@@ -82,6 +82,21 @@ async function downloadModel() {
   }
 }
 
+// desktop-assets/ is copied into the app as is, so drop models it no longer uses
+async function removeOldModels() {
+  const models = join(out, 'models');
+  if (!existsSync(models)) return;
+  for (const owner of await readdir(models)) {
+    for (const name of await readdir(join(models, owner))) {
+      if (`${owner}/${name}` !== MODEL_ID) {
+        console.log(`Removing unused model ${owner}/${name}`);
+        await rm(join(models, owner, name), { recursive: true });
+      }
+    }
+  }
+}
+
 await copyRuntimeFiles();
+await removeOldModels();
 await downloadModel();
 console.log(`Desktop assets ready in ${out}`);

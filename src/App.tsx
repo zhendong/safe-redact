@@ -28,6 +28,7 @@ import { generateId, validateFile } from '@/utils/validation';
 import { isDesktop, onDesktopFileOpened, onDesktopExportRequested, setDesktopExportEnabled, confirmAction } from '@/platform';
 import { STORAGE_KEYS, DEFAULT_CONFIDENCE_THRESHOLDS } from '@/utils/constants';
 import { generateRedactedFilename } from '@/utils/file-utils';
+import { enableNewEntityTypes } from '@/utils/entity-types';
 import { useMemo } from 'react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -67,16 +68,17 @@ function App() {
       try {
         const parsed = JSON.parse(saved);
         // Ensure new fields have defaults for backward compatibility
-        return {
+        return enableNewEntityTypes({
           ...parsed,
           sanitizeDocument: parsed.sanitizeDocument ?? false,
-        };
+        });
       } catch (e) {
         log.error('Failed to parse saved config, using defaults', e);
       }
     }
     return {
       enabledEntityTypes: Object.values(EntityTypeEnum),
+      knownEntityTypes: Object.values(EntityTypeEnum),
       confidenceThresholds: DEFAULT_CONFIDENCE_THRESHOLDS,
       useMLModel: false,
       useRegexPatterns: true,
@@ -1014,7 +1016,7 @@ function App() {
           message: t('progress.detectingWithLLM'),
         });
 
-        const llmEntities = await llmDetector.detectEntitiesInChunks(docx.fullText, 512, (progress) => {
+        const llmEntities = await llmDetector.detectEntitiesInChunks(docx.fullText, (progress) => {
           setProcessingStage({
             stage: 'detecting',
             progress: 85 + (progress * 0.10), // 85-95%

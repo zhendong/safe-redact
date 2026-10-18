@@ -47,7 +47,16 @@ export const PROGRESS_STAGES = {
 export const LLM_CHUNKING = {
   CHUNK_SIZE: 2000,      // ~400-500 tokens for most text
   CHUNK_OVERLAP: 200,    // Overlap to catch entities at boundaries
-  TOKEN_LIMIT: 512,      // Model token limit
+} as const;
+
+// NER model (PER/ORG/LOC/DATE in 10 languages, including English and Chinese),
+// from Hugging Face on the web and bundled in the desktop app (scripts/fetch-desktop-assets.mjs)
+export const NER_MODEL = 'Xenova/bert-base-multilingual-cased-ner-hrl';
+
+// Text is classified in overlapping token windows that fit the models' 512-token limit
+export const NER_WINDOW = {
+  TOKENS: 510,           // Leaves room for [CLS] and [SEP]
+  OVERLAP: 64,
 } as const;
 
 // PDF redaction settings
