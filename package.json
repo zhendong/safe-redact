@@ -1,6 +1,6 @@
 {
   "name": "safe-redact",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "A privacy-focused tool that redacts sensitive information from PDF, DOCX, and image files",
   "type": "module",
   "keywords": [

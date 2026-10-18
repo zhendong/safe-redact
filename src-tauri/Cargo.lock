@@ -3090,7 +3090,7 @@ checksum = "cf54715a573b99ac80df0bc206da022bcd442c974952c7b9720069370852e21f"
 
 [[package]]
 name = "safe-redact"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "log",
  "ort",
