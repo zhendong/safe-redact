@@ -37,3 +37,6 @@ CLAUDE.md
 
 # Desktop app: offline assets fetched by scripts/fetch-desktop-assets.mjs
 desktop-assets/
+
+# Desktop app (Intel): ONNX Runtime built by scripts/build-onnxruntime-intel.sh
+src-tauri/onnxruntime/

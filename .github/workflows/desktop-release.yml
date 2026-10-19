@@ -15,8 +15,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: [aarch64-apple-darwin, x86_64-apple-darwin]
-    runs-on: macos-latest
+        include:
+          - target: aarch64-apple-darwin
+            runner: macos-latest
+            tauri-args: ''
+          # Native Intel runner so the checks below run on x86_64
+          - target: x86_64-apple-darwin
+            runner: macos-15-intel
+            tauri-args: --config src-tauri/tauri.intel.conf.json
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
 
@@ -35,6 +42,30 @@ jobs:
 
       - run: npm ci
 
+      # ONNX Runtime no longer publishes x86_64 macOS binaries, so Intel builds
+      # link a dylib built from source (same version as arm64) and bundle it.
+      # The build takes a while; it's cached until the script changes.
+      - name: Cache ONNX Runtime (Intel)
+        if: matrix.target == 'x86_64-apple-darwin'
+        uses: actions/cache@v4
+        with:
+          path: src-tauri/onnxruntime
+          key: onnxruntime-x86_64-${{ hashFiles('scripts/build-onnxruntime-intel.sh') }}
+
+      - name: Build ONNX Runtime (Intel)
+        if: matrix.target == 'x86_64-apple-darwin'
+        run: |
+          command -v ninja || brew install ninja
+          scripts/build-onnxruntime-intel.sh
+          echo "ORT_LIB_PATH=$PWD/src-tauri/onnxruntime/lib" >> "$GITHUB_ENV"
+          echo "ORT_PREFER_DYNAMIC_LINK=1" >> "$GITHUB_ENV"
+
+      # Run the NER model with the ONNX Runtime this build links
+      - name: Test native NER
+        run: |
+          npm run desktop:assets
+          DYLD_LIBRARY_PATH="${ORT_LIB_PATH:-}" cargo test --release --target ${{ matrix.target }} --manifest-path src-tauri/Cargo.toml ner::
+
       # The app is ad-hoc signed by default. To sign and notarize with a paid
       # Apple Developer account, add these repository secrets and pass them
       # in the env block below:
@@ -47,7 +78,19 @@ jobs:
           tagName: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
           releaseName: SafeRedact ${{ github.ref_name }}
           releaseDraft: true
-          args: --target ${{ matrix.target }} --bundles dmg
+          args: --target ${{ matrix.target }} --bundles dmg ${{ matrix.tauri-args }}
+
+      # Launch the app from the DMG to catch dylibs that are missing or rejected
+      # by the code signature
+      - name: Check the app launches
+        run: |
+          hdiutil attach -nobrowse -mountpoint /tmp/saferedact src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg
+          /tmp/saferedact/SafeRedact.app/Contents/MacOS/SafeRedact > launch.log 2>&1 &
+          pid=$!
+          sleep 15
+          cat launch.log
+          kill -0 $pid
+          kill $pid
 
       # Manual runs without a tag don't create a release; keep the DMG as an artifact
       - if: github.ref_type != 'tag'
