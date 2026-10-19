@@ -75,11 +75,12 @@ jobs:
           releaseDraft: true
           args: --target ${{ matrix.target }} --bundles dmg ${{ matrix.tauri-args }}
 
-      # Catches dylibs that are missing or rejected by the code signature at launch
+      # Launch the app from the DMG to catch dylibs that are missing or rejected
+      # by the code signature
       - name: Check the app launches
         run: |
-          app=src-tauri/target/${{ matrix.target }}/release/bundle/macos/SafeRedact.app/Contents/MacOS/SafeRedact
-          "$app" > launch.log 2>&1 &
+          hdiutil attach -nobrowse -mountpoint /tmp/saferedact src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg
+          /tmp/saferedact/SafeRedact.app/Contents/MacOS/SafeRedact > launch.log 2>&1 &
           pid=$!
           sleep 15
           cat launch.log
