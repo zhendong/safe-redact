@@ -213,6 +213,13 @@ Both commands first run `npm run desktop:assets`, which copies the OCR files fro
 
 Pushing a `v*` tag runs the GitHub Actions workflow that builds Apple Silicon and Intel DMGs and attaches them to a draft release.
 
+On an Intel Mac, ONNX Runtime has no prebuilt static library, so link Microsoft's 1.23.2 dylib instead: extract [onnxruntime-osx-x86_64-1.23.2.tgz](https://github.com/microsoft/onnxruntime/releases/tag/v1.23.2) to `src-tauri/onnxruntime/`, then run
+
+```bash
+ORT_LIB_PATH=$PWD/src-tauri/onnxruntime/lib ORT_PREFER_DYNAMIC_LINK=1 \
+  npm run tauri build -- --config src-tauri/tauri.intel.conf.json
+```
+
 ## 🛠️ Technology Stack
 
 - **React 19 + TypeScript**: UI framework with type safety

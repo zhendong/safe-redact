@@ -1,0 +1,9 @@
+{
+  "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
+  "bundle": {
+    "macOS": {
+      "frameworks": ["onnxruntime/lib/libonnxruntime.1.23.2.dylib"],
+      "entitlements": "Entitlements.intel.plist"
+    }
+  }
+}

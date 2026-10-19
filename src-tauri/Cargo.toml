@@ -22,7 +22,9 @@ tauri-plugin-fs = "2"
 tauri-plugin-opener = "2"
 tauri-plugin-window-state = "2"
 serde = { version = "1", features = ["derive"] }
-ort = "=2.0.0-rc.14"
+# Capped at API 23: Intel builds link ONNX Runtime 1.23, the last release with
+# x86_64 macOS binaries (see .github/workflows/desktop-release.yml)
+ort = { version = "=2.0.0-rc.14", default-features = false, features = ["std", "tracing", "download-binaries", "tls-native", "api-23"] }
 tauri-plugin-log = "2"
 log = "0.4"
 

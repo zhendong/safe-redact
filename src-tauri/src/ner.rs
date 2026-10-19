@@ -39,7 +39,10 @@ fn model_bytes(app: &AppHandle) -> Result<Vec<u8>, String> {
 }
 
 fn load_session(app: &AppHandle) -> Result<Session, String> {
-    let bytes = model_bytes(app)?;
+    session_from_bytes(&model_bytes(app)?)
+}
+
+fn session_from_bytes(bytes: &[u8]) -> Result<Session, String> {
     let environment = ort::init()
         .with_name("SafeRedact")
         .with_telemetry(false)
@@ -49,7 +52,7 @@ fn load_session(app: &AppHandle) -> Result<Session, String> {
         .map_err(|e| e.to_string())?
         .with_optimization_level(GraphOptimizationLevel::Level3)
         .map_err(|e| e.to_string())?
-        .commit_from_memory(&bytes)
+        .commit_from_memory(bytes)
         .map_err(|e| e.to_string())
 }
 
@@ -88,6 +91,11 @@ pub async fn ner_run(app: AppHandle, input: NerInput) -> Result<Response, String
 }
 
 fn run(session: &mut Session, input: NerInput) -> ort::Result<Response> {
+    let logits = infer(session, input)?;
+    Ok(Response::new(logits.iter().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>()))
+}
+
+fn infer(session: &mut Session, input: NerInput) -> ort::Result<Vec<f32>> {
     let shape = input.dims.map(|d| d as i64);
     let mut inputs = vec![
         ("input_ids", Tensor::from_array((shape, input.input_ids))?.into_dyn()),
@@ -101,5 +109,29 @@ fn run(session: &mut Session, input: NerInput) -> ort::Result<Response> {
     }
     let outputs = session.run(inputs)?;
     let (_, logits) = outputs["logits"].try_extract_tensor::<f32>()?;
-    Ok(Response::new(logits.iter().flat_map(|v| v.to_le_bytes()).collect::<Vec<u8>>()))
+    Ok(logits.to_vec())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Checks the linked ONNX Runtime can run the model. Needs the model in
+    /// desktop-assets/ (`npm run desktop:assets`).
+    #[test]
+    fn runs_model() {
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../desktop-assets").to_string() + MODEL_PATH;
+        let mut session = session_from_bytes(&std::fs::read(&path).unwrap()).unwrap();
+        // [CLS] Hello [SEP]
+        let input = NerInput {
+            dims: [1, 3],
+            input_ids: vec![101, 31178, 102],
+            attention_mask: vec![1, 1, 1],
+            token_type_ids: Some(vec![0, 0, 0]),
+        };
+        let logits = infer(&mut session, input).unwrap();
+        // 3 tokens x 9 labels
+        assert_eq!(logits.len(), 3 * 9);
+        assert!(logits.iter().all(|v| v.is_finite()));
+    }
 }
