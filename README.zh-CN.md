@@ -213,6 +213,14 @@ npm run tauri build   # 在 src-tauri/target/release/bundle/ 生成 SafeRedact.a
 
 推送 `v*` 标签会触发 GitHub Actions 工作流，构建 Apple 芯片和 Intel 版 DMG 并附加到草稿版本中。
 
+在 Intel Mac 上（或构建 Intel 版应用时），ONNX Runtime 没有预编译库，需先从源码构建（需要 CMake，首次耗时较长）：
+
+```bash
+scripts/build-onnxruntime-intel.sh
+ORT_LIB_PATH=$PWD/src-tauri/onnxruntime/lib ORT_PREFER_DYNAMIC_LINK=1 \
+  npm run tauri build -- --target x86_64-apple-darwin --config src-tauri/tauri.intel.conf.json
+```
+
 ## 🛠️ 技术栈
 
 - **React 19 + TypeScript**：具备类型安全的 UI 框架
