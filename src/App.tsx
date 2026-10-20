@@ -288,16 +288,7 @@ function App() {
 
     // If text was extracted and search is enabled, search for similar occurrences
     if (selectedText && selectedText.length > 0 && searchOccurrences) {
-      const allFoundEntities = searchForTextOccurrences(selectedText, entityType, pageNumber, boundingBox);
-
-      // Filter out the manual selection itself from search results by comparing positions
-      const similarEntities = allFoundEntities.filter(entity => {
-        // Skip if it's on the same page and overlaps with the manual selection
-        if (entity.position.pageNumber === pageNumber) {
-          return !boundingBoxesOverlap(entity.position.boundingBox, boundingBox);
-        }
-        return true;
-      });
+      const similarEntities = findOtherOccurrences(selectedText, entityType, pageNumber, boundingBox);
 
       // Update document with new entity and similar occurrences
       const updatedEntities = [...processedDocument.allEntities, newEntity, ...similarEntities];
@@ -344,6 +335,28 @@ function App() {
 
     // Select the new entity
     setSelectedEntityId(newEntity.id);
+  };
+
+  // Matches of a manual selection's text elsewhere in the document, excluding the selection itself
+  const findOtherOccurrences = (text: string, entityType: EntityType, pageNumber: number, boundingBox: BoundingBox) =>
+    searchForTextOccurrences(text, entityType, pageNumber, boundingBox).filter(entity =>
+      entity.position.pageNumber !== pageNumber || !boundingBoxesOverlap(entity.position.boundingBox, boundingBox)
+    );
+
+  const countOtherOccurrences = (text: string, pageNumber: number, boundingBox: BoundingBox) =>
+    text ? findOtherOccurrences(text, EntityTypeEnum.CUSTOM, pageNumber, boundingBox).length : 0;
+
+  // Only manual boxes can be deleted; detected items are unchecked instead
+  const handleEntityDelete = (entityId: string) => {
+    if (!processedDocument) return;
+    if (!processedDocument.allEntities.some(e => e.id === entityId && e.detectionMethod === 'manual')) return;
+    recordUndo();
+    setProcessedDocument({
+      ...processedDocument,
+      allEntities: processedDocument.allEntities.filter(e => e.id !== entityId),
+      pages: processedDocument.pages.map(page => ({ ...page, entities: page.entities.filter(e => e.id !== entityId) })),
+    });
+    if (selectedEntityId === entityId) setSelectedEntityId(undefined);
   };
 
   // DOCX: redact every occurrence of text the user selected in the preview
@@ -1613,6 +1626,8 @@ function App() {
                         selectedEntityId={selectedEntityId}
                         onEntityClick={handleEntitySelect}
                         onManualEntityCreate={handleManualEntityCreate}
+                        onCountOccurrences={countOtherOccurrences}
+                        onEntityDelete={handleEntityDelete}
                         onPageChange={setCurrentPage}
                       />
                     </div>

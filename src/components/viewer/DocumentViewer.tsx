@@ -14,6 +14,8 @@ interface DocumentViewerProps {
   selectedEntityId?: string;
   onEntityClick?: (entity: DetectedEntity) => void;
   onManualEntityCreate?: (boundingBox: BoundingBox, entityType: EntityType, pageNumber: number, selectedText?: string, searchOccurrences?: boolean, formFieldName?: string) => void;
+  onCountOccurrences?: (text: string, pageNumber: number, boundingBox: BoundingBox) => number;
+  onEntityDelete?: (entityId: string) => void;
   onPageChange?: (page: number) => void;
 }
 
@@ -23,6 +25,8 @@ export function DocumentViewer({
   selectedEntityId,
   onEntityClick,
   onManualEntityCreate,
+  onCountOccurrences,
+  onEntityDelete,
   onPageChange,
 }: DocumentViewerProps) {
   const { t } = useLanguage();
@@ -34,15 +38,25 @@ export function DocumentViewer({
   // Fit-width mode refits whenever the viewer resizes; zooming by hand leaves it
   const [isFitWidth, setIsFitWidth] = useState(true);
   const scrolledEntityIdRef = useRef<string | undefined>(undefined);
-  const [showManualGuide, setShowManualGuide] = useState(false);
 
   const currentPageData = document.pages[currentPage - 1];
 
-  const handleManualEntityCreate = (boundingBox: BoundingBox, entityType: EntityType, selectedText?: string, searchOccurrences?: boolean, formFieldName?: string) => {
-    if (onManualEntityCreate) {
-      onManualEntityCreate(boundingBox, entityType, currentPage, selectedText, searchOccurrences, formFieldName);
-    }
-  };
+  const selectedEntity = currentPageData?.entities.find((e) => e.id === selectedEntityId);
+  const canDeleteSelected = !!onEntityDelete && selectedEntity?.detectionMethod === 'manual';
+
+  // Delete or Backspace removes a selected manual box, unless the user is typing
+  useEffect(() => {
+    if (!canDeleteSelected || !selectedEntityId) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Delete' && e.key !== 'Backspace') return;
+      const target = e.target as HTMLElement | null;
+      if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
+      e.preventDefault();
+      onEntityDelete?.(selectedEntityId);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [canDeleteSelected, selectedEntityId, onEntityDelete]);
 
   useEffect(() => {
     if (!currentPageData || !canvasRef.current) {
@@ -183,15 +197,20 @@ export function DocumentViewer({
     const container = containerRef.current;
     const highlight = container?.querySelector<HTMLElement>(`[data-entity-id="${CSS.escape(selectedEntityId)}"]`);
     if (!container || !highlight) return;
-    // Scroll only the viewer, not the page around it
+    scrolledEntityIdRef.current = selectedEntityId;
     const containerRect = container.getBoundingClientRect();
     const highlightRect = highlight.getBoundingClientRect();
+    // Leave the view alone when the highlight is already fully visible, e.g. a box just drawn
+    if (
+      highlightRect.top >= containerRect.top && highlightRect.bottom <= containerRect.bottom &&
+      highlightRect.left >= containerRect.left && highlightRect.right <= containerRect.right
+    ) return;
+    // Scroll only the viewer, not the page around it
     container.scrollTo({
       top: container.scrollTop + highlightRect.top - containerRect.top - (container.clientHeight - highlightRect.height) / 2,
       left: container.scrollLeft + highlightRect.left - containerRect.left - (container.clientWidth - highlightRect.width) / 2,
       behavior: 'smooth',
     });
-    scrolledEntityIdRef.current = selectedEntityId;
   }, [selectedEntityId, isLoading, currentPage]);
 
   return (
@@ -300,14 +319,8 @@ export function DocumentViewer({
           {/* Manual Selection Button - Improved for mobile */}
           <div className="relative flex-1 sm:flex-initial">
             <button
-              onClick={() => {
-                const newState = !isManualSelectionActive;
-                setIsManualSelectionActive(newState);
-                if (newState) {
-                  setShowManualGuide(true);
-                  setTimeout(() => setShowManualGuide(false), 4000);
-                }
-              }}
+              onClick={() => setIsManualSelectionActive(!isManualSelectionActive)}
+              aria-pressed={isManualSelectionActive}
               className={`w-full sm:w-auto min-h-[44px] px-4 sm:px-4 py-2.5 sm:py-1.5 text-sm sm:text-sm rounded-full transition-all active:scale-95 flex items-center justify-center gap-2 ${
                 isManualSelectionActive
                   ? 'btn-primary'
@@ -321,79 +334,83 @@ export function DocumentViewer({
               <span className="sm:hidden">{isManualSelectionActive ? t('documentViewer.manualActive') : t('documentViewer.addSelection')}</span>
             </button>
 
-            {/* Tooltip guide - shows on first activation */}
-            {showManualGuide && isManualSelectionActive && (
-              <div className="absolute top-full mt-2 right-0 z-50 bg-ink text-paper text-xs rounded-lg px-3 py-2 shadow-lg max-w-[280px] sm:max-w-none">
-                <div className="flex items-start gap-2">
-                  <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <div>
-                    <span className="sm:hidden">{t('documentViewer.dragGuideMobile')}</span>
-                    <span className="hidden sm:inline">{t('documentViewer.dragGuideDesktop')}</span>
-                  </div>
-                </div>
-                <div className="absolute top-0 right-4 transform -translate-y-1/2 rotate-45 w-2 h-2 bg-ink" />
-              </div>
-            )}
           </div>
         </div>
       </div>
 
-      {/* Canvas Container */}
-      <div
-        ref={containerRef}
-        className="flex-1 overflow-auto bg-gray-100 p-6"
-        // Reserve the scrollbar's space so fitting can't toggle it and trigger another refit
-        style={{ scrollbarGutter: 'stable' }}
-      >
-        <div className="relative inline-block bg-white shadow-lg">
-          <canvas ref={canvasRef} className="block" style={{ pointerEvents: isManualSelectionActive ? 'none' : 'auto' }} />
+      <div className="relative flex-1 min-h-0 flex flex-col">
+        {/* Stays up while the tool is on; floats over the page so turning the tool on doesn't move it */}
+        {isManualSelectionActive && (
+          <div
+            role="status"
+            className="absolute top-3 left-1/2 -translate-x-1/2 z-30 max-w-[calc(100%-1.5rem)] flex items-center gap-2 px-3 py-2 rounded-full bg-ink/90 text-paper text-xs shadow-lg pointer-events-none"
+          >
+            <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span className="sm:hidden">{t('documentViewer.dragGuideMobile')}</span>
+            <span className="hidden sm:inline">{t('documentViewer.dragGuideDesktop')}</span>
+          </div>
+        )}
 
-          {/* Entity Highlights Overlay */}
-          {!isLoading && currentPageData && (
-            <div
-              className="absolute top-0 left-0"
-              style={{
-                width: currentPageData.dimensions.width * scale,
-                height: currentPageData.dimensions.height * scale,
-                pointerEvents: isManualSelectionActive ? 'none' : 'auto',
-              }}
-            >
-              {currentPageData.entities
-                .map((entity) => (
-                  <EntityHighlight
-                    key={entity.id}
-                    entity={entity}
-                    scale={scale}
-                    isSelected={entity.id === selectedEntityId}
-                    onClick={() => onEntityClick?.(entity)}
-                    pageHeight={currentPageData.dimensions.height}
-                  />
-                ))}
-            </div>
-          )}
+        {/* Canvas Container */}
+        <div
+          ref={containerRef}
+          className="flex-1 overflow-auto bg-gray-100 p-6"
+          // Reserve the scrollbar's space so fitting can't toggle it and trigger another refit
+          style={{ scrollbarGutter: 'stable' }}
+        >
+          <div className="relative inline-block bg-white shadow-lg">
+            <canvas ref={canvasRef} className="block" style={{ pointerEvents: isManualSelectionActive ? 'none' : 'auto' }} />
 
-          {/* Manual Selection Overlay - Using simplified component without its own button */}
-          {!isLoading && isManualSelectionActive && canvasRef.current && currentPageData && (
-            <ManualSelector
-              canvasRef={canvasRef as React.RefObject<HTMLCanvasElement>}
-              scale={scale}
-              pageHeight={currentPageData.dimensions.height}
-              onEntityCreate={handleManualEntityCreate}
-              isActive={isManualSelectionActive}
-              onActivate={() => {}}
-              onDeactivate={() => setIsManualSelectionActive(false)}
-              pageTextItems={currentPageData.textItems}
-              formFields={currentPageData.formFields}
-            />
-          )}
+            {/* Entity Highlights Overlay */}
+            {!isLoading && currentPageData && (
+              <div
+                className="absolute top-0 left-0"
+                style={{
+                  width: currentPageData.dimensions.width * scale,
+                  height: currentPageData.dimensions.height * scale,
+                  pointerEvents: isManualSelectionActive ? 'none' : 'auto',
+                }}
+              >
+                {currentPageData.entities
+                  .map((entity) => (
+                    <EntityHighlight
+                      key={entity.id}
+                      entity={entity}
+                      scale={scale}
+                      isSelected={entity.id === selectedEntityId}
+                      onClick={() => onEntityClick?.(entity)}
+                      onDelete={onEntityDelete && entity.detectionMethod === 'manual' ? () => onEntityDelete(entity.id) : undefined}
+                      pageHeight={currentPageData.dimensions.height}
+                    />
+                  ))}
+              </div>
+            )}
 
-          {isLoading && (
-            <div className="absolute inset-0 flex items-center justify-center bg-white/75 dark:bg-gray-900/75">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-ink dark:border-paper" />
-            </div>
-          )}
+            {/* Manual Selection Overlay */}
+            {!isLoading && isManualSelectionActive && canvasRef.current && currentPageData && onManualEntityCreate && (
+              <ManualSelector
+                key={currentPage}
+                canvasRef={canvasRef as React.RefObject<HTMLCanvasElement>}
+                scale={scale}
+                pageNumber={currentPage}
+                pageHeight={currentPageData.dimensions.height}
+                pdfPage={currentPageData.imageBlob ? undefined : currentPageData.pdfPageObject}
+                onEntityCreate={onManualEntityCreate}
+                onCountOccurrences={onCountOccurrences}
+                onDeactivate={() => setIsManualSelectionActive(false)}
+                pageTextItems={currentPageData.textItems}
+                formFields={currentPageData.formFields}
+              />
+            )}
+
+            {isLoading && (
+              <div className="absolute inset-0 flex items-center justify-center bg-white/75 dark:bg-gray-900/75">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-ink dark:border-paper" />
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
