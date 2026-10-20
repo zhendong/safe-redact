@@ -1353,6 +1353,14 @@ function App() {
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
                   {t(fileType === 'image' ? 'complete.imageDownloaded' : fileType === 'docx' ? 'complete.docxDownloaded' : 'complete.downloaded')}
                 </p>
+                <p className={`text-sm mt-3 ${fileType !== 'image' && !detectionConfig.sanitizeDocument
+                  ? 'px-4 py-3 rounded-lg bg-[#f6ece4] dark:bg-[#8a5233]/20 text-[#8a5233] dark:text-[#e8c9b4]'
+                  : 'text-gray-500 dark:text-gray-400'}`}
+                >
+                  {t(fileType === 'image'
+                    ? 'complete.imageMetadataRemoved'
+                    : detectionConfig.sanitizeDocument ? 'complete.metadataRemoved' : 'complete.metadataKept')}
+                </p>
               </div>
               <div className="flex flex-col gap-3">
                 <button
@@ -1400,7 +1408,22 @@ function App() {
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+                <div className="flex flex-wrap items-center gap-2 sm:gap-3 flex-shrink-0">
+                  {/* Images are always exported without metadata, so the toggle only applies to PDF and DOCX */}
+                  {fileType !== 'image' && (
+                    <label
+                      className="inline-flex items-center gap-1.5 text-xs sm:text-sm text-gray-700 dark:text-gray-300 cursor-pointer whitespace-nowrap"
+                      title={t('settings.stripMetadataDesc')}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={detectionConfig.sanitizeDocument}
+                        onChange={(e) => handleConfigChange({ ...detectionConfig, sanitizeDocument: e.target.checked })}
+                        className="rounded border-gray-300 dark:border-gray-600"
+                      />
+                      {t('review.stripMetadata')}
+                    </label>
+                  )}
                   {/* Inline beside the buttons so the review area doesn't shift when it appears */}
                   {hiddenConfirmedCount > 0 && (
                     <span
