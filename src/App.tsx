@@ -1402,6 +1402,17 @@ function App() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+                  {/* Inline beside the buttons so the review area doesn't shift when it appears */}
+                  {hiddenConfirmedCount > 0 && (
+                    <span
+                      role="status"
+                      title={t('review.hiddenSelected', { count: hiddenConfirmedCount })}
+                      aria-label={t('review.hiddenSelected', { count: hiddenConfirmedCount })}
+                      className="px-2.5 py-1 rounded-full bg-[#f6ece4] dark:bg-[#8a5233]/20 text-xs text-[#8a5233] dark:text-[#e8c9b4] whitespace-nowrap"
+                    >
+                      {t('review.hiddenSelectedShort', { count: hiddenConfirmedCount })}
+                    </span>
+                  )}
                   <button
                     onClick={() => setIsMetadataModalOpen(true)}
                     className="btn-ghost h-10 px-3 sm:px-4 text-xs sm:text-sm gap-1.5 sm:gap-2 whitespace-nowrap"
@@ -1422,12 +1433,6 @@ function App() {
                   </button>
                 </div>
               </div>
-
-              {hiddenConfirmedCount > 0 && (
-                <p role="status" className="px-4 py-2 rounded-lg bg-[#f6ece4] dark:bg-[#8a5233]/20 text-sm text-[#8a5233] dark:text-[#e8c9b4]">
-                  {t('review.hiddenSelected', { count: hiddenConfirmedCount })}
-                </p>
-              )}
 
               {/* Filters Section - Desktop only (mobile filters are in EntityList) */}
               <div className="hidden lg:block surface rounded-xl p-4">
