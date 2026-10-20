@@ -151,10 +151,6 @@ export function FileUpload({ onFileSelect }: FileUploadProps) {
         </div>
       </div>
 
-      <p role="note" className="mt-4 px-4 py-3 rounded-lg bg-[#f6ece4] dark:bg-[#8a5233]/20 text-sm text-[#8a5233] dark:text-[#e8c9b4]">
-        {t('common.imageOcrNotice')}
-      </p>
-
       {error && (
         <div
           className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg"

@@ -1269,12 +1269,6 @@ function App() {
           </div>
         )}
 
-        {stage === 'preview' && fileType === 'image' && (
-          <p role="note" className="max-w-2xl mx-auto mt-3 px-4 py-3 rounded-lg bg-[#f6ece4] dark:bg-[#8a5233]/20 text-sm text-[#8a5233] dark:text-[#e8c9b4]">
-            {t('common.imageOcrNotice')}
-          </p>
-        )}
-
         {stage === 'upload' && (
           <FileUpload onFileSelect={handleFileSelect} />
         )}
