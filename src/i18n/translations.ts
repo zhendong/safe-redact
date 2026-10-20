@@ -273,7 +273,8 @@ export const translations = {
     },
     docxViewer: {
       documentPreview: 'Document Preview',
-      clickToReview: 'Click on highlighted text to review',
+      clickToReview: 'Click a highlight to review it · Select text to redact it',
+      redactSelection: 'Redact selection',
     },
     hiddenContentWarning: {
       title: 'Hidden Content Detected',
@@ -657,7 +658,8 @@ export const translations = {
     },
     docxViewer: {
       documentPreview: '文档预览',
-      clickToReview: '点击高亮文本进行审核',
+      clickToReview: '点击高亮内容进行审核 · 选中文本即可遮盖',
+      redactSelection: '遮盖所选内容',
     },
     hiddenContentWarning: {
       title: '检测到隐藏内容',

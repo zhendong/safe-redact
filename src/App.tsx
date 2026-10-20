@@ -358,6 +358,42 @@ function App() {
     setSelectedEntityId(newEntity.id);
   };
 
+  // DOCX: redact every occurrence of text the user selected in the preview
+  const handleDocxTextRedact = (selectedText: string) => {
+    if (!processedDocx) return;
+    const chars = Array.from(selectedText.replace(/\s+/g, ''));
+    if (chars.length === 0) return;
+
+    // fullText joins XML text runs with spaces, so allow whitespace between any characters
+    const pattern = new RegExp(chars.map(c => c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('\\s*'), 'gi');
+    const manualEntities: DetectedEntity[] = [];
+    for (const match of processedDocx.fullText.matchAll(pattern)) {
+      manualEntities.push({
+        id: generateId(),
+        text: match[0],
+        entityType: EntityTypeEnum.CUSTOM,
+        confidence: 1.0,
+        position: {
+          pageNumber: 1,
+          textIndex: match.index,
+          boundingBox: { x: 0, y: 0, width: 0, height: 0 },
+        },
+        detectionMethod: 'manual',
+        status: 'confirmed',
+        contextText: 'Manually selected text',
+      });
+    }
+    if (manualEntities.length === 0) {
+      log.warn('Selected text not found in document text', { chars: chars.length });
+      return;
+    }
+
+    // Merge with existing detections so overlapping ranges become one checked entity
+    const allEntities = new EntityAggregator().deduplicateEntities([...processedDocx.allEntities, ...manualEntities]);
+    log.info('Manual DOCX selection added', { occurrences: manualEntities.length });
+    setProcessedDocx({ ...processedDocx, allEntities });
+  };
+
   /**
    * Normalize MuPDF search hits to handle inconsistent nesting
    */
@@ -1026,16 +1062,15 @@ function App() {
           message: t('progress.detectingWithLLM'),
         });
 
-        const llmEntities = await llmDetector.detectEntitiesInChunks(docx.fullText, (progress) => {
+        const llmEntities = await llmDetector.detectEntitiesInText(docx.fullText, (progress) => {
           setProcessingStage({
             stage: 'detecting',
             progress: 85 + (progress * 0.10), // 85-95%
             message: t('progress.detectingWithLLMProgress', { progress }),
           });
         });
-        // TODO: Convert simplified entities to DetectedEntity format
-        // allEntities.push(...llmEntities);
-        log.info('ML entities detected (not yet used for DOCX)', { count: llmEntities.length });
+        log.info('ML entities detected', { count: llmEntities.length });
+        allEntities.push(...llmEntities);
         await llmDetector.dispose();
       } catch (error) {
         log.error('ML detection failed, continuing with regex only', error);
@@ -1519,6 +1554,7 @@ function App() {
                     entities={filteredEntities}
                     selectedEntityId={selectedEntityId}
                     onEntityClick={handleEntitySelect}
+                    onTextSelectionRedact={handleDocxTextRedact}
                   />
                 )}
               </div>

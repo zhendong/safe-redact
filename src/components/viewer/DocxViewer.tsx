@@ -9,6 +9,7 @@ interface DocxViewerProps {
   entities: DetectedEntity[];
   selectedEntityId?: string;
   onEntityClick?: (entity: DetectedEntity) => void;
+  onTextSelectionRedact?: (text: string) => void;
 }
 
 /**
@@ -20,10 +21,39 @@ export function DocxViewer({
   entities,
   selectedEntityId,
   onEntityClick,
+  onTextSelectionRedact,
 }: DocxViewerProps) {
   const { language, t } = useLanguage();
   const containerRef = useRef<HTMLDivElement>(null);
   const [highlightedHtml, setHighlightedHtml] = useState('');
+  const [selection, setSelection] = useState<{ text: string; top: number; left: number } | null>(null);
+
+  // Offer a "Redact selection" button when the user selects text in the preview
+  useEffect(() => {
+    if (!onTextSelectionRedact) return;
+
+    const handleSelectionChange = () => {
+      const current = window.getSelection();
+      const container = containerRef.current;
+      const text = current?.toString().trim() ?? '';
+      if (!current || current.isCollapsed || !text || !container || !container.contains(current.anchorNode)) {
+        setSelection(null);
+        return;
+      }
+      const rect = current.getRangeAt(0).getBoundingClientRect();
+      setSelection({ text, top: rect.bottom + 8, left: rect.left + rect.width / 2 });
+    };
+
+    document.addEventListener('selectionchange', handleSelectionChange);
+    return () => document.removeEventListener('selectionchange', handleSelectionChange);
+  }, [onTextSelectionRedact]);
+
+  const handleRedactSelection = () => {
+    if (!selection || !onTextSelectionRedact) return;
+    onTextSelectionRedact(selection.text);
+    window.getSelection()?.removeAllRanges();
+    setSelection(null);
+  };
 
   useEffect(() => {
     // Inject entity highlights into HTML
@@ -67,13 +97,25 @@ export function DocxViewer({
       </div>
 
       {/* Document Content */}
-      <div className="flex-1 overflow-auto p-8 bg-gray-100 dark:bg-gray-900">
+      <div className="flex-1 overflow-auto p-8 bg-gray-100 dark:bg-gray-900" onScroll={() => setSelection(null)}>
         <div
           ref={containerRef}
           className="max-w-4xl mx-auto bg-white dark:bg-gray-800 shadow-lg p-12 docx-content dark:text-gray-200"
           dangerouslySetInnerHTML={{ __html: highlightedHtml }}
         />
       </div>
+
+      {selection && (
+        <button
+          // Keep the text selection alive while clicking
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={handleRedactSelection}
+          className="btn-primary fixed z-50 -translate-x-1/2 px-4 py-2 text-sm shadow-lg"
+          style={{ top: selection.top, left: selection.left }}
+        >
+          {t('docxViewer.redactSelection')}
+        </button>
+      )}
     </div>
   );
 }
