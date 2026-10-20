@@ -147,16 +147,16 @@ export function MetadataReviewModal({
   return (
     <>
     <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+      className="fixed inset-0 bg-ink/40 backdrop-blur-sm flex items-center justify-center z-50 p-4"
       onClick={onClose}
     >
       <div
-        className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-4xl w-full max-h-[80vh] overflow-hidden flex flex-col"
+        className="surface rounded-2xl shadow-[0_24px_60px_-28px_rgba(28,27,25,0.35)] max-w-4xl w-full max-h-[80vh] overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+          <h2 className="font-serif text-3xl font-normal tracking-tight text-gray-900 dark:text-white">
             {t(fileType === 'image' ? 'metadataModal.imageTitle' : 'metadataModal.title')}
           </h2>
           <button
@@ -482,7 +482,7 @@ export function MetadataReviewModal({
         <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200 dark:border-gray-700">
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-medium rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+            className="btn-ghost px-4 py-2"
           >
             {t('metadataModal.close')}
           </button>

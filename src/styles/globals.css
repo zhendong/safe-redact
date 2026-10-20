@@ -1,3 +1,83 @@
+@import "@fontsource-variable/inter";
+@import "@fontsource/instrument-serif/400.css";
+@import "@fontsource/instrument-serif/400-italic.css";
 @import "tailwindcss";
 
 @variant dark (&:where(.dark, .dark *));
+
+/* Warm, paper-like palette shared with almostmagic.app. The stock gray and blue
+   scales are remapped so every existing utility picks up the new look. */
+@theme {
+  --font-sans: "Inter Variable", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-serif: "Instrument Serif", "Iowan Old Style", Georgia, "Songti SC", serif;
+
+  --color-paper: #faf9f6;
+  --color-ink: #1c1b19;
+  --color-accent: #c9a96e;
+
+  --color-gray-50: #faf9f6;
+  --color-gray-100: #f3f1ec;
+  --color-gray-200: #e8e5de;
+  --color-gray-300: #d9d4c9;
+  --color-gray-400: #a8a297;
+  --color-gray-500: #6b675f;
+  --color-gray-600: #57534c;
+  --color-gray-700: #3a3732;
+  --color-gray-800: #262421;
+  --color-gray-900: #1c1b19;
+  --color-gray-950: #121110;
+
+  --color-blue-50: #f0f3f7;
+  --color-blue-100: #e3e9f1;
+  --color-blue-200: #c9d4e2;
+  --color-blue-300: #a3b5cb;
+  --color-blue-400: #7891ae;
+  --color-blue-500: #56718f;
+  --color-blue-600: #3d5875;
+  --color-blue-700: #324a63;
+  --color-blue-800: #2a3d52;
+  --color-blue-900: #223244;
+  --color-blue-950: #16212e;
+
+  --radius-md: 0.625rem;
+  --radius-lg: 0.875rem;
+  --radius-xl: 1.125rem;
+  --radius-2xl: 1.75rem;
+}
+
+@layer base {
+  body {
+    @apply bg-paper text-ink antialiased dark:bg-gray-900 dark:text-gray-100;
+  }
+
+  :root {
+    accent-color: var(--color-ink);
+  }
+
+  .dark {
+    accent-color: var(--color-gray-300);
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--color-accent) 35%, transparent);
+  }
+}
+
+/* Primary call to action: solid ink pill that inverts in dark mode */
+@utility btn-primary {
+  @apply inline-flex items-center justify-center gap-1.5 rounded-full bg-ink text-paper font-medium transition-all duration-200 hover:-translate-y-px hover:bg-black disabled:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-paper dark:text-ink dark:hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink dark:focus-visible:outline-paper;
+}
+
+/* Secondary action: hairline pill on the surface color */
+@utility btn-ghost {
+  @apply inline-flex items-center justify-center gap-1.5 rounded-full border border-gray-200 bg-white text-ink font-medium transition-colors duration-200 hover:border-ink disabled:opacity-50 disabled:cursor-not-allowed dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:hover:border-gray-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink dark:focus-visible:outline-paper;
+}
+
+/* Bordered surface card, used instead of drop shadows */
+@utility surface {
+  @apply bg-white border border-gray-200 dark:bg-gray-800 dark:border-gray-700;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; }
+}

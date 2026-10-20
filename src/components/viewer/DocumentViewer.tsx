@@ -14,6 +14,7 @@ interface DocumentViewerProps {
   selectedEntityId?: string;
   onEntityClick?: (entity: DetectedEntity) => void;
   onManualEntityCreate?: (boundingBox: BoundingBox, entityType: EntityType, pageNumber: number, selectedText?: string, searchOccurrences?: boolean, formFieldName?: string) => void;
+  onPageChange?: (page: number) => void;
 }
 
 export function DocumentViewer({
@@ -22,6 +23,7 @@ export function DocumentViewer({
   selectedEntityId,
   onEntityClick,
   onManualEntityCreate,
+  onPageChange,
 }: DocumentViewerProps) {
   const { t } = useLanguage();
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -167,16 +169,40 @@ export function DocumentViewer({
       {/* Toolbar */}
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-3 sm:p-3 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-0">
         <div className="flex items-center justify-between sm:justify-start gap-3">
-          <span className="text-sm sm:text-sm text-gray-700 dark:text-gray-300 font-medium">
-            {t('documentViewer.pageOf', { current: currentPage, total: document.pageCount })}
-          </span>
+          <div className="flex items-center gap-1.5">
+            {onPageChange && (
+              <button
+                onClick={() => onPageChange(Math.max(1, currentPage - 1))}
+                disabled={currentPage === 1}
+                className="btn-ghost w-11 h-11 sm:w-8 sm:h-8 text-sm active:scale-95"
+                aria-label={t('documentViewer.previousPage')}
+                title={t('documentViewer.previousPage')}
+              >
+                ←
+              </button>
+            )}
+            <span className="text-sm text-gray-700 dark:text-gray-300 font-medium whitespace-nowrap tabular-nums px-1">
+              {t('documentViewer.pageOf', { current: currentPage, total: document.pageCount })}
+            </span>
+            {onPageChange && (
+              <button
+                onClick={() => onPageChange(Math.min(document.pageCount, currentPage + 1))}
+                disabled={currentPage === document.pageCount}
+                className="btn-ghost w-11 h-11 sm:w-8 sm:h-8 text-sm active:scale-95"
+                aria-label={t('documentViewer.nextPage')}
+                title={t('documentViewer.nextPage')}
+              >
+                →
+              </button>
+            )}
+          </div>
 
           {/* Zoom controls on mobile - improved touch targets */}
           <div className="flex sm:hidden items-center gap-2">
             <button
               onClick={handleZoomOut}
               disabled={scale <= 0.5}
-              className="min-w-[44px] min-h-[44px] flex items-center justify-center text-lg font-bold bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors active:scale-95"
+              className="btn-ghost min-w-[44px] min-h-[44px] text-lg font-bold active:scale-95"
               aria-label={t('documentViewer.zoomOut')}
             >
               −
@@ -187,7 +213,7 @@ export function DocumentViewer({
             <button
               onClick={handleZoomIn}
               disabled={scale >= 2.0}
-              className="min-w-[44px] min-h-[44px] flex items-center justify-center text-lg font-bold bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors active:scale-95"
+              className="btn-ghost min-w-[44px] min-h-[44px] text-lg font-bold active:scale-95"
               aria-label={t('documentViewer.zoomIn')}
             >
               +
@@ -201,7 +227,7 @@ export function DocumentViewer({
             <button
               onClick={handleZoomOut}
               disabled={scale <= 0.5}
-              className="px-3 py-1.5 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed rounded transition-colors"
+              className="btn-ghost px-3 py-1.5 text-sm"
               aria-label={t('documentViewer.zoomOut')}
             >
               −
@@ -212,14 +238,14 @@ export function DocumentViewer({
             <button
               onClick={handleZoomIn}
               disabled={scale >= 2.0}
-              className="px-3 py-1.5 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed rounded transition-colors"
+              className="btn-ghost px-3 py-1.5 text-sm"
               aria-label={t('documentViewer.zoomIn')}
             >
               +
             </button>
             <button
               onClick={handleFitWidth}
-              className="px-3 py-1.5 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
+              className="btn-ghost px-3 py-1.5 text-sm"
             >
               {t('documentViewer.fitWidth')}
             </button>
@@ -237,10 +263,10 @@ export function DocumentViewer({
                   setTimeout(() => setShowManualGuide(false), 4000);
                 }
               }}
-              className={`w-full sm:w-auto min-h-[44px] px-4 sm:px-4 py-2.5 sm:py-1.5 text-sm sm:text-sm font-medium rounded-lg transition-all active:scale-95 flex items-center justify-center gap-2 ${
+              className={`w-full sm:w-auto min-h-[44px] px-4 sm:px-4 py-2.5 sm:py-1.5 text-sm sm:text-sm rounded-full transition-all active:scale-95 flex items-center justify-center gap-2 ${
                 isManualSelectionActive
-                  ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-md'
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  ? 'btn-primary'
+                  : 'btn-ghost'
               }`}
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -252,7 +278,7 @@ export function DocumentViewer({
 
             {/* Tooltip guide - shows on first activation */}
             {showManualGuide && isManualSelectionActive && (
-              <div className="absolute top-full mt-2 right-0 z-50 bg-blue-600 text-white text-xs rounded-lg px-3 py-2 shadow-lg max-w-[280px] sm:max-w-none">
+              <div className="absolute top-full mt-2 right-0 z-50 bg-ink text-paper text-xs rounded-lg px-3 py-2 shadow-lg max-w-[280px] sm:max-w-none">
                 <div className="flex items-start gap-2">
                   <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -262,7 +288,7 @@ export function DocumentViewer({
                     <span className="hidden sm:inline">{t('documentViewer.dragGuideDesktop')}</span>
                   </div>
                 </div>
-                <div className="absolute top-0 right-4 transform -translate-y-1/2 rotate-45 w-2 h-2 bg-blue-600" />
+                <div className="absolute top-0 right-4 transform -translate-y-1/2 rotate-45 w-2 h-2 bg-ink" />
               </div>
             )}
           </div>
@@ -318,7 +344,7 @@ export function DocumentViewer({
           )}
 
           {isLoading && (
-            <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-75">
+            <div className="absolute inset-0 flex items-center justify-center bg-white/75 dark:bg-gray-900/75">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
             </div>
           )}

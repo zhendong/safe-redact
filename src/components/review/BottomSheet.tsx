@@ -59,7 +59,7 @@ export function BottomSheet({ isOpen, onClose, children, title }: BottomSheetPro
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/50 z-40 lg:hidden transition-opacity"
+        className="fixed inset-0 bg-ink/40 backdrop-blur-sm z-40 lg:hidden transition-opacity"
         onClick={onClose}
       />
 

@@ -228,11 +228,11 @@ export function SettingsPanel({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-ink/40 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="surface rounded-2xl shadow-[0_24px_60px_-28px_rgba(28,27,25,0.35)] max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">{t('settings.title')}</h2>
+          <h2 className="font-serif text-3xl font-normal tracking-tight text-gray-900 dark:text-white">{t('settings.title')}</h2>
           <button
             onClick={onClose}
             className="text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-300 transition-colors"
@@ -317,7 +317,7 @@ export function SettingsPanel({
 
                 <button
                   onClick={handleAddWord}
-                  className="w-full px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                  className="btn-primary w-full px-4 py-2 text-sm"
                 >
                   {t('settings.addWord')}
                 </button>
@@ -582,7 +582,7 @@ export function SettingsPanel({
               <div className="grid grid-cols-2 gap-3">
                 <button
                   onClick={handleExportSettings}
-                  className="px-4 py-2 text-sm text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors flex items-center justify-center gap-2"
+                  className="btn-primary px-4 py-2 text-sm gap-2"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -631,14 +631,14 @@ export function SettingsPanel({
               <div className={`grid gap-3 ${isDesktop ? 'grid-cols-2' : 'grid-cols-1'}`}>
                 <button
                   onClick={() => void handleSaveDiagnosticLog()}
-                  className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                  className="btn-ghost px-4 py-2 text-sm"
                 >
                   {t('settings.saveDiagnosticLog')}
                 </button>
                 {isDesktop && (
                   <button
                     onClick={() => void revealDesktopLogs().catch(error => log.error('Failed to show log files', error))}
-                    className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                    className="btn-ghost px-4 py-2 text-sm"
                   >
                     {t('settings.showLogFiles')}
                   </button>
@@ -664,7 +664,7 @@ export function SettingsPanel({
                   localStorage.removeItem(STORAGE_KEYS.SETTINGS);
                   handleReset();
                 }}
-                className="w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                className="btn-ghost w-full px-4 py-2 text-sm"
               >
                 {t('settings.clearAllSettings')}
               </button>
@@ -686,13 +686,13 @@ export function SettingsPanel({
           <div className="flex gap-3">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+              className="btn-ghost px-4 py-2 text-sm"
             >
               {t('settings.cancel')}
             </button>
             <button
               onClick={handleSave}
-              className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="btn-primary px-4 py-2 text-sm"
             >
               {t('settings.saveChanges')}
             </button>

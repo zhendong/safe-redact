@@ -264,7 +264,7 @@ export function ManualSelector({
           {/* Current selection box */}
           {currentBox && (
             <div
-              className="absolute border-2 border-blue-500 bg-blue-500 bg-opacity-20"
+              className="absolute border-2 border-blue-500 bg-blue-500/20"
               style={{
                 left: `${currentBox.x * scale}px`,
                 top: `${currentBox.y * scale}px`,
