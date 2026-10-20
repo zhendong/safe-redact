@@ -3,6 +3,7 @@ import type { HiddenContentReport, ExtractedImage } from '@/lib/types';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { translateHiddenContentWarning, translateHiddenContentSummary } from '@/utils/hidden-content-i18n';
 import { saveFile } from '@/platform';
+import { useDialog } from '@/hooks/useDialog';
 
 interface DocumentMetadata {
   title?: string;
@@ -47,6 +48,9 @@ export function MetadataReviewModal({
   const { language, t } = useLanguage();
   const [imagePreviews, setImagePreviews] = useState<Map<string, string>>(new Map());
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
+  const dialogRef = useDialog<HTMLDivElement>(isOpen, onClose);
+  // The lightbox opens on top of the modal, so it takes over Escape and Tab while open
+  const previewDialogRef = useDialog<HTMLDivElement>(isOpen && previewIndex !== null, () => setPreviewIndex(null));
 
   // Separate images from other metadata
   const images = metadata.images;
@@ -101,14 +105,12 @@ export function MetadataReviewModal({
     });
   };
 
-  // Keyboard navigation while the image preview lightbox is open
+  // Arrow keys move between images while the preview lightbox is open (Escape is handled by useDialog)
   useEffect(() => {
     if (previewIndex === null) return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setPreviewIndex(null);
-      } else if (event.key === 'ArrowLeft') {
+      if (event.key === 'ArrowLeft') {
         showPreviousImage();
       } else if (event.key === 'ArrowRight') {
         showNextImage();
@@ -151,12 +153,17 @@ export function MetadataReviewModal({
       onClick={onClose}
     >
       <div
-        className="surface rounded-2xl shadow-[0_24px_60px_-28px_rgba(28,27,25,0.35)] max-w-4xl w-full max-h-[80vh] overflow-hidden flex flex-col"
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="metadata-dialog-title"
+        tabIndex={-1}
+        className="surface rounded-2xl shadow-[0_24px_60px_-28px_rgba(28,27,25,0.35)] max-w-4xl w-full max-h-[80vh] overflow-hidden flex flex-col focus:outline-none"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="font-serif text-3xl font-normal tracking-tight text-gray-900 dark:text-white">
+          <h2 id="metadata-dialog-title" className="font-serif text-3xl font-normal tracking-tight text-gray-900 dark:text-white">
             {t(fileType === 'image' ? 'metadataModal.imageTitle' : 'metadataModal.title')}
           </h2>
           <button
@@ -496,7 +503,15 @@ export function MetadataReviewModal({
         className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60] p-4"
         onClick={() => setPreviewIndex(null)}
       >
-        <div className="relative w-full h-full max-w-5xl flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div
+          ref={previewDialogRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label={currentPreviewImage.filename}
+          tabIndex={-1}
+          className="relative w-full h-full max-w-5xl flex flex-col focus:outline-none"
+          onClick={(e) => e.stopPropagation()}
+        >
           {/* Top bar */}
           <div className="flex items-center justify-between text-white mb-3 flex-shrink-0">
             <div className="text-sm min-w-0">
@@ -516,6 +531,7 @@ export function MetadataReviewModal({
               <button
                 onClick={() => currentPreviewImage && downloadImage(currentPreviewImage)}
                 className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                aria-label={t('metadataModal.downloadImage')}
                 title={t('metadataModal.downloadImage')}
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

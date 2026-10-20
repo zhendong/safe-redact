@@ -3,6 +3,8 @@ import type { DetectedEntity } from '@/lib/types';
 import { getEntityColor, getEntityDisplayName } from '@/utils/entity-types';
 import { useLanguage } from '@/contexts/LanguageContext';
 
+const FOCUS = 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink dark:focus-visible:outline-paper';
+
 interface EntityCardProps {
   entity: DetectedEntity;
   isSelected: boolean;
@@ -30,6 +32,7 @@ export function EntityCard({
   const displayName = getEntityDisplayName(entity.entityType, language);
   const confidencePercent = Math.round(entity.confidence * 100);
   const isChecked = entity.status === 'confirmed';
+  const showConfirmAll = !!onConfirmAll && similarCount !== undefined && similarCount > 1 && entity.status === 'rejected';
 
   const getConfidenceColor = (confidence: number) => {
     if (confidence >= 0.9) return 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30';
@@ -72,53 +75,62 @@ export function EntityCard({
             onChange={handleCheckboxChange}
             className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 cursor-pointer flex-shrink-0"
             title={isChecked ? t('entityCard.uncheckToSkip') : t('entityCard.checkToRedact')}
+            aria-label={`${displayName}: ${entity.text}`}
             onClick={(e) => e.stopPropagation()}
           />
 
-          {/* Type indicator dot */}
-          <div
-            className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-            style={{ backgroundColor: color }}
-          />
-
-          {/* Entity value */}
-          <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate flex-1 min-w-0">
-            {entity.text}
-          </p>
-
-          {/* Compact badges */}
-          <div className="flex items-center gap-1.5 flex-shrink-0">
+          {/* The rest of the row is a button so keyboard users can select and expand the item; clicks bubble to the card */}
+          <button
+            type="button"
+            aria-expanded={entity.contextText ? isExpanded : undefined}
+            aria-pressed={isSelected}
+            className={`flex items-center gap-2 flex-1 min-w-0 text-left rounded ${FOCUS}`}
+          >
+            {/* Type indicator dot */}
             <span
-              className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${getConfidenceColor(entity.confidence)}`}
-            >
-              {confidencePercent}%
-            </span>
-            <span className="text-xs text-gray-500 dark:text-gray-400">
-              {t('entityCard.pageShort', { page: entity.position.pageNumber })}
-            </span>
-          </div>
+              className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+              style={{ backgroundColor: color }}
+              aria-hidden="true"
+            />
 
-          {/* Expand indicator */}
-          {entity.contextText && (
-            <svg
-              className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          )}
+            {/* Entity value */}
+            <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate flex-1 min-w-0">
+              {entity.text}
+            </span>
+
+            {/* Compact badges; the type name means the colour isn't the only cue */}
+            <span className="flex items-center gap-1.5 flex-shrink-0">
+              <span className="text-xs text-gray-500 dark:text-gray-400 max-w-[6rem] truncate">
+                {displayName}
+              </span>
+              <span
+                className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${getConfidenceColor(entity.confidence)}`}
+              >
+                {confidencePercent}%
+              </span>
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                {t('entityCard.pageShort', { page: entity.position.pageNumber })}
+              </span>
+            </span>
+
+            {/* Expand indicator */}
+            {entity.contextText && (
+              <svg
+                className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            )}
+          </button>
         </div>
 
         {/* Expanded context and actions */}
-        {isExpanded && (
+        {isExpanded && (entity.contextText || showConfirmAll) && (
           <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700 space-y-2">
-            {/* Type name */}
-            <div className="text-xs font-medium text-gray-600 dark:text-gray-400">
-              {displayName}
-            </div>
-
             {/* Context text */}
             {entity.contextText && (
               <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -127,7 +139,7 @@ export function EntityCard({
             )}
 
             {/* Confirm All Button */}
-            {onConfirmAll && similarCount !== undefined && similarCount > 1 && entity.status === 'rejected' && (
+            {showConfirmAll && (
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -162,15 +174,21 @@ export function EntityCard({
           onChange={handleCheckboxChange}
           className="w-5 h-5 mt-0.5 rounded border-gray-300 dark:border-gray-600 cursor-pointer flex-shrink-0"
           title={isChecked ? t('entityCard.uncheckToSkip') : t('entityCard.checkToRedact')}
+          aria-label={`${displayName}: ${entity.text}`}
           onClick={(e) => e.stopPropagation()}
         />
 
-        {/* Entity Info */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1 flex-wrap">
-            <div
+        {/* Entity Info: a button so keyboard users can select the item; clicks bubble to the card */}
+        <button
+          type="button"
+          aria-pressed={isSelected}
+          className={`flex-1 min-w-0 text-left rounded ${FOCUS}`}
+        >
+          <span className="flex items-center gap-2 mb-1 flex-wrap">
+            <span
               className="w-3 h-3 rounded-full flex-shrink-0"
               style={{ backgroundColor: color }}
+              aria-hidden="true"
             />
             <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
               {displayName}
@@ -183,11 +201,11 @@ export function EntityCard({
             <span className="text-xs text-gray-500 dark:text-gray-400 ml-auto">
               {t('entityCard.page', { page: entity.position.pageNumber })}
             </span>
-          </div>
-          <p className="text-sm font-medium text-gray-900 dark:text-gray-100 break-all">
+          </span>
+          <span className="block text-sm font-medium text-gray-900 dark:text-gray-100 break-all">
             {entity.text}
-          </p>
-        </div>
+          </span>
+        </button>
       </div>
 
       {entity.contextText && (
@@ -197,7 +215,7 @@ export function EntityCard({
       )}
 
       {/* Confirm All Button for similar entities */}
-      {onConfirmAll && similarCount !== undefined && similarCount > 1 && entity.status === 'rejected' && (
+      {showConfirmAll && (
         <div className="ml-8">
           <button
             onClick={(e) => {

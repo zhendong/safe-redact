@@ -46,6 +46,18 @@ export class NerModel {
     [this.clsId, this.sepId] = tokenizer.encode('');
   }
 
+  /** Browser only: whether transformers.js has already cached this model's weights */
+  static async isCached(name: string): Promise<boolean> {
+    try {
+      const cache = await caches.open('transformers-cache');
+      const keys = await cache.keys();
+      return keys.some(request => request.url.includes(`/${name}/`) && request.url.endsWith('.onnx'));
+    } catch {
+      // No Cache API (e.g. an insecure context), so the model can't have been cached
+      return false;
+    }
+  }
+
   static async load(name: string, onProgress?: ProgressCallback): Promise<NerModel> {
     const progress_callback = (data: { status: string; progress?: number }) => {
       if (data.status === 'progress' && data.progress) onProgress?.(data.progress);

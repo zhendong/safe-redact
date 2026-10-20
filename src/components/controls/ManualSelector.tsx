@@ -4,6 +4,7 @@ import { EntityType as EntityTypeEnum } from '@/lib/types';
 import { getEntityDisplayName } from '@/utils/entity-types';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { createLogger } from '@/utils/logger';
+import { useDialog } from '@/hooks/useDialog';
 
 const log = createLogger('ManualSelector');
 
@@ -41,6 +42,7 @@ export function ManualSelector({
   const [searchOccurrences, setSearchOccurrences] = useState(true);
 
   const overlayRef = useRef<HTMLDivElement>(null);
+  const typeDialogRef = useDialog<HTMLDivElement>(showTypeSelector && pendingBox !== null, () => handleCancel());
 
   useEffect(() => {
     if (!isActive || !canvasRef.current || !overlayRef.current) return;
@@ -279,8 +281,16 @@ export function ManualSelector({
       {/* Type Selector Modal */}
       {showTypeSelector && pendingBox && (
         <div className="fixed inset-0 bg-ink/40 backdrop-blur-sm flex items-center justify-center z-[100]" onClick={handleCancel}>
-          <div className="surface rounded-2xl shadow-[0_24px_60px_-28px_rgba(28,27,25,0.35)] p-7 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
-            <h3 className="font-serif text-3xl font-normal tracking-tight text-gray-900 dark:text-white mb-5">
+          <div
+            ref={typeDialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="manual-type-dialog-title"
+            tabIndex={-1}
+            className="surface rounded-2xl shadow-[0_24px_60px_-28px_rgba(28,27,25,0.35)] p-7 max-w-md w-full mx-4 focus:outline-none"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 id="manual-type-dialog-title" className="font-serif text-3xl font-normal tracking-tight text-gray-900 dark:text-white mb-5">
               {t('manualSelector.selectEntityType')}
             </h3>
             {selectedText && (
