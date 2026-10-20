@@ -287,7 +287,7 @@ export const translations = {
     },
     manualSelector: {
       title: 'New selection',
-      selectedText: 'Text in the box (edit it to change what else gets found):',
+      selectedText: 'Text in the box:',
       noText: 'No text found in the box',
       type: 'Type',
       searching: 'Looking for other matches…',
@@ -718,7 +718,7 @@ export const translations = {
     },
     manualSelector: {
       title: '新选择',
-      selectedText: '框内文本（可编辑，用于查找其他相同内容）：',
+      selectedText: '框内文本：',
       noText: '框内未找到文本',
       type: '类型',
       searching: '正在查找其他匹配项…',

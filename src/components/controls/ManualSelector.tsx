@@ -27,7 +27,7 @@ interface ManualSelectorProps {
   formFields?: FormFieldData[];
 }
 
-/** A drawn box waiting for the user to confirm its text, type, and whether to redact matches */
+/** A drawn box waiting for the user to confirm its type and whether to redact matches */
 interface PendingBox {
   cssBox: BoundingBox;  // page units, top-left origin, for drawing
   pdfBox: BoundingBox;  // page units, bottom-left origin, as stored on entities
@@ -79,7 +79,7 @@ export function ManualSelector({
   const [matchCount, setMatchCount] = useState<number | null>(null);
 
   const overlayRef = useRef<HTMLDivElement>(null);
-  const textInputRef = useRef<HTMLInputElement>(null);
+  const submitRef = useRef<HTMLButtonElement>(null);
   const pageCharsRef = useRef<PageChar[] | null>(null);
   // The type the user last picked by hand, used when the text doesn't reveal one
   const lastTypeRef = useRef<EntityType>(EntityTypeEnum.CUSTOM);
@@ -238,9 +238,9 @@ export function ManualSelector({
         entityType: guessEntityType(text) ?? lastTypeRef.current,
         formFieldName,
       });
-      // Focus the text for keyboard users; on touch it would only pop up the keyboard
+      // Focus the popover so Enter accepts it; not on touch, where focus rings only get in the way
       if (!('touches' in e) && !('changedTouches' in e)) {
-        requestAnimationFrame(() => textInputRef.current?.focus());
+        requestAnimationFrame(() => submitRef.current?.focus());
       }
     };
 
@@ -273,15 +273,14 @@ export function ManualSelector({
     return () => window.removeEventListener('keydown', handleKeyDown);
   });
 
-  // Count matches as the text is edited; searching every page is slow enough to wait for typing to pause
-  const pendingText = pending?.text;
+  // Count matches once per box; the search blocks, so let the box and popover paint first
   useEffect(() => {
     if (!pending || !onCountOccurrences) return;
     setMatchCount(null);
-    const timer = setTimeout(() => setMatchCount(onCountOccurrences(pending.text, pending.pageNumber, pending.pdfBox)), 250);
+    const timer = setTimeout(() => setMatchCount(onCountOccurrences(pending.text, pending.pageNumber, pending.pdfBox)));
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingText, pending?.pdfBox]);
+  }, [pending?.pdfBox]);
 
   const canvas = canvasRef.current;
   const canvasWidth = canvas?.width ?? 0;
@@ -324,17 +323,14 @@ export function ManualSelector({
           resolvePending(true);
         }}
       >
-        <label className="block">
-          <span className="block text-xs text-gray-600 dark:text-gray-400 mb-1">{t('manualSelector.selectedText')}</span>
-          <input
-            ref={textInputRef}
-            type="text"
-            value={box.text}
-            onChange={(e) => setPending({ ...box, text: e.target.value })}
-            placeholder={t('manualSelector.noText')}
-            className="w-full px-2.5 py-1.5 text-sm font-mono rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-          />
-        </label>
+        <div>
+          <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">{t('manualSelector.selectedText')}</p>
+          {box.text ? (
+            <p className="text-sm font-mono text-gray-900 dark:text-gray-100 break-words">{box.text}</p>
+          ) : (
+            <p className="text-sm text-gray-500 dark:text-gray-400">{t('manualSelector.noText')}</p>
+          )}
+        </div>
         <label className="flex items-center gap-2">
           <span className="text-xs text-gray-600 dark:text-gray-400">{t('manualSelector.type')}</span>
           <select
@@ -361,7 +357,7 @@ export function ManualSelector({
           </p>
         )}
         <div className="flex items-center gap-2 pt-0.5">
-          <button type="submit" className="btn-primary flex-1 min-h-[36px] px-3 text-xs">
+          <button ref={submitRef} type="submit" className="btn-primary flex-1 min-h-[36px] px-3 text-xs">
             {hasMatches ? t('manualSelector.redactAllMatches', { count: (matchCount ?? 0) + 1 }) : t('manualSelector.done')}
           </button>
           {hasMatches && (
