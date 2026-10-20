@@ -41,7 +41,7 @@
 
 | Feature | What you can do |
 | :--- | :--- |
-| **Find sensitive details** | Combine pattern matching, optional local machine learning, predefined words, and custom detection rules. |
+| **Find sensitive details** | Combine pattern matching, optional local machine learning, predefined words, and rule packs with custom detection rules ([format](docs/rule-packs.md)). |
 | **Review with context** | Inspect detected entities beside the document, filter results, and confirm or reject them in bulk. |
 | **Select manually** | Drag over sensitive areas that automatic detection missed. |
 | **Look beyond visible text** | Review metadata and hidden content; inspect extracted document images in a full-size lightbox. |
@@ -111,6 +111,7 @@ Safe Redact detects the following types of sensitive information in PDF, DOCX, a
   - URLs (HTTP/HTTPS)
 - **Cryptocurrency**: Bitcoin addresses
 - **Custom Predefined Words**: User-defined sensitive terms
+- **Rule Packs**: Anything else, from your own regex rules and validators ([format](docs/rule-packs.md))
 
 </details>
 
@@ -216,6 +217,8 @@ Run the test suite:
 ```bash
 npm test
 ```
+
+The rule pack sandbox is checked in a real browser: start `npm run dev`, then run `node test/browser-rule-sandbox.mjs` with Playwright installed (`TEST_BASE_URL` sets the dev server address).
 
 ## macOS App
 

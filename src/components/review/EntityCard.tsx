@@ -106,8 +106,12 @@ export function EntityCard({
 
             {/* Compact badges; the type name means the colour isn't the only cue */}
             <span className="flex items-center gap-1.5 flex-shrink-0">
-              <span className="text-xs text-gray-500 dark:text-gray-400 max-w-[6rem] truncate">
-                {displayName}
+              {/* User rule packs name their rules; built-in rule names aren't translated, so they show the type */}
+              <span
+                className="text-xs text-gray-500 dark:text-gray-400 max-w-[6rem] truncate"
+                title={entity.detectionMethod === 'custom' && entity.ruleName ? `${displayName} · ${entity.ruleName}` : undefined}
+              >
+                {entity.detectionMethod === 'custom' && entity.ruleName ? entity.ruleName : displayName}
               </span>
               <span
                 className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${getConfidenceColor(entity.confidence)}`}

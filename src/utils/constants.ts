@@ -82,7 +82,7 @@ export const MODEL_CACHE_KEY = 'transformers-cache';
 export const STORAGE_KEYS = {
   SETTINGS: 'safe-redact-settings',
   FEEDBACK: 'safe-redact-feedback',
-  CUSTOM_PATTERNS: 'safe-redact-custom-patterns',
+  RULE_PACKS: 'safe-redact-rule-packs',
 } as const;
 
 // Redaction defaults
