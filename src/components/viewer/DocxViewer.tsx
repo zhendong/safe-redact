@@ -400,6 +400,9 @@ function highlightEntities(
 ): string {
   const body = new DOMParser().parseFromString(html, 'text/html').body;
 
+  // Links in the document (mailto:, tel:, web pages) must not navigate away from the review
+  for (const link of body.querySelectorAll('a[href]')) link.removeAttribute('href');
+
   // Map every text node to its offset in the preview's text
   const textNodes: Array<{ node: Text; start: number }> = [];
   let previewText = '';
