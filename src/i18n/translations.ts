@@ -277,7 +277,7 @@ export const translations = {
       dragGuideMobile: 'Tap and drag on the document to select an area',
     },
     docxViewer: {
-      documentPreview: 'Document Preview',
+      documentPreview: 'Content Preview',
       clickToReview: 'Click a highlight to review it · Select text to redact it',
       clickToReviewTouch: 'Tap a highlight to review it · Long-press text to redact it',
       redactSelection: 'Redact',
@@ -672,7 +672,7 @@ export const translations = {
       dragGuideMobile: '在文档上轻触并拖动以选择一个区域',
     },
     docxViewer: {
-      documentPreview: '文档预览',
+      documentPreview: '内容预览',
       clickToReview: '点击高亮内容进行审核 · 选中文本即可遮盖',
       clickToReviewTouch: '轻点高亮内容进行审核 · 长按文本即可遮盖',
       redactSelection: '遮盖',
