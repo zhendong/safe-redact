@@ -7,6 +7,7 @@
 
 use std::sync::Mutex;
 
+use ort::environment::Environment;
 use ort::session::{builder::GraphOptimizationLevel, Session};
 use ort::value::Tensor;
 use serde::Deserialize;
@@ -42,13 +43,25 @@ fn load_session(app: &AppHandle) -> Result<Session, String> {
     session_from_bytes(&model_bytes(app)?)
 }
 
+/// ONNX Runtime allows one environment per process, so it's kept for later
+/// loads (e.g. a retry after the model failed to parse).
+fn environment() -> Result<Environment, String> {
+    static ENVIRONMENT: Mutex<Option<Environment>> = Mutex::new(None);
+    let mut environment = ENVIRONMENT.lock().unwrap();
+    if environment.is_none() {
+        *environment = Some(
+            ort::init()
+                .with_name("SafeRedact")
+                .with_telemetry(false)
+                .build()
+                .map_err(|e| e.to_string())?,
+        );
+    }
+    Ok(environment.clone().unwrap())
+}
+
 fn session_from_bytes(bytes: &[u8]) -> Result<Session, String> {
-    let environment = ort::init()
-        .with_name("SafeRedact")
-        .with_telemetry(false)
-        .build()
-        .map_err(|e| e.to_string())?;
-    Session::builder(&environment)
+    Session::builder(&environment()?)
         .map_err(|e| e.to_string())?
         .with_optimization_level(GraphOptimizationLevel::Level3)
         .map_err(|e| e.to_string())?
@@ -133,5 +146,13 @@ mod tests {
         // 3 tokens x 9 labels
         assert_eq!(logits.len(), 3 * 9);
         assert!(logits.iter().all(|v| v.is_finite()));
+    }
+
+    /// A failed load must not stop a later one from creating a session.
+    #[test]
+    fn loads_after_failure() {
+        assert!(session_from_bytes(b"not a model").is_err());
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/../desktop-assets").to_string() + MODEL_PATH;
+        session_from_bytes(&std::fs::read(&path).unwrap()).unwrap();
     }
 }
