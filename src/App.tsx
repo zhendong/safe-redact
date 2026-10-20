@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import packageJson from '../package.json';
 import { FileUpload } from '@/components/upload/FileUpload';
-import { FilePreview } from '@/components/upload/FilePreview';
+import { ChooseEntities } from '@/components/review/ChooseEntities';
 import { ProgressIndicator } from '@/components/common/ProgressIndicator';
 import { DocumentViewer } from '@/components/viewer/DocumentViewer';
 import { FilterBar } from '@/components/review/FilterBar';
@@ -33,13 +33,15 @@ import { enableNewEntityTypes } from '@/utils/entity-types';
 import { useMemo } from 'react';
 import { useDialog } from '@/hooks/useDialog';
 import { nextPaint } from '@/utils/yield';
+import { applyDefaultSelection } from '@/utils/entity-groups';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { createLogger, describeFile, timed } from '@/utils/logger';
 
 const log = createLogger('App');
 
-type AppStage = 'upload' | 'preview' | 'processing' | 'review' | 'redacting' | 'complete';
+// choose: pick what to redact without the document; review: check the redacted document
+type AppStage = 'upload' | 'processing' | 'choose' | 'review' | 'redacting' | 'complete';
 type FileType = 'pdf' | 'docx' | 'image';
 type ReviewSnapshot = { document: ProcessedDocument | null; docx: ParsedDocx | null };
 
@@ -202,17 +204,9 @@ function App() {
       : file.name.toLowerCase().endsWith('.docx') ? 'docx' : 'pdf';
     log.info('File selected', { type, ...describeFile(file) });
     setFileType(type);
-    setStage('preview');
     setError(null);
-  };
-
-  const handleRemoveFile = () => {
-    setSelectedFile(null);
-    setFileType(null);
-    setProcessedDocument(null);
-    setProcessedDocx(null);
-    setStage('upload');
-    setError(null);
+    // Analysis starts right away; the processing page has Cancel for a wrong file
+    void handleStartAnalysis(file, type);
   };
 
   const handleBackToUpload = () => {
@@ -667,7 +661,7 @@ function App() {
       return;
     }
     if (
-      stage === 'review' &&
+      (stage === 'choose' || stage === 'review') &&
       !(await confirmAction(t('common.discardReview', { name: file.name }), {
         title: t('common.discardReviewTitle'),
         okLabel: t('common.discardReviewConfirm'),
@@ -702,7 +696,7 @@ function App() {
     undoRef.current = handleUndo;
   });
   useEffect(() => {
-    if (stage !== 'review') return;
+    if (stage !== 'choose' && stage !== 'review') return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (!(event.metaKey || event.ctrlKey) || event.shiftKey || event.altKey || event.key.toLowerCase() !== 'z') return;
       const target = event.target as HTMLElement | null;
@@ -870,19 +864,18 @@ function App() {
   // Bumped on every start and cancel, so a run can tell whether it is still current
   const analysisRunRef = useRef(0);
 
-  const handleStartAnalysis = async () => {
-    if (!selectedFile || !fileType) return;
-
+  const handleStartAnalysis = async (file: File, type: FileType) => {
     // Browser only: the model downloads on first use, so ask before starting
     if (
       detectionConfig.useMLModel &&
       (await LLMDetector.needsDownload()) &&
-      !(await confirmAction(t('filePreview.modelDownload'), {
-        title: t('filePreview.modelDownloadTitle'),
-        okLabel: t('filePreview.modelDownloadConfirm'),
+      !(await confirmAction(t('analysis.modelDownload'), {
+        title: t('analysis.modelDownloadTitle'),
+        okLabel: t('analysis.modelDownloadConfirm'),
         cancelLabel: t('common.cancel'),
       }))
     ) {
+      handleBackToUpload();
       return;
     }
 
@@ -907,52 +900,50 @@ function App() {
       await nextPaint();
       run.check();
       await timed(log, 'Analysis', async () => {
-        if (fileType === 'pdf') {
-          await processPdf(run);
-        } else if (fileType === 'docx') {
-          await processDocx(run);
+        if (type === 'pdf') {
+          await processPdf(run, file);
+        } else if (type === 'docx') {
+          await processDocx(run, file);
         } else {
-          await processImage(run);
+          await processImage(run, file);
         }
       }, {
-        type: fileType,
+        type,
         regex: detectionConfig.useRegexPatterns,
         ml: detectionConfig.useMLModel,
         aggressiveness: detectionConfig.aggressiveness,
       });
     } catch (err) {
       if (err instanceof AnalysisCancelled || !isCurrent()) return;
+      handleBackToUpload();
       setError(err instanceof Error ? err.message : t('errors.processingError'));
-      setStage('preview');
     }
   };
 
   const handleCancelAnalysis = () => {
     analysisRunRef.current++;
     log.info('Analysis cancelled');
-    setStage('preview');
+    handleBackToUpload();
   };
 
-  const processImage = async (run: AnalysisRun) => {
-    if (!selectedFile) return;
+  const processImage = async (run: AnalysisRun, file: File) => {
     run.progress({ stage: 'parsing', progress: 0, message: t('progress.recognizingImage') });
-    const document = await processUploadedImage(selectedFile, progress => {
+    const document = await processUploadedImage(file, progress => {
       run.progress({ stage: 'parsing', progress, message: t('progress.recognizingImage') });
     });
-    const entities = detectionConfig.useRegexPatterns
+    const entities = applyDefaultSelection(detectionConfig.useRegexPatterns
       ? filterEntitiesByConfig(document.allEntities)
-      : [];
+      : []);
     log.info('Entities detected', { ocr: document.allEntities.length, filtered: entities.length });
     document.allEntities = entities;
     document.pages[0].entities = entities;
     run.check();
     setProcessedDocument(document);
     setCurrentPage(1);
-    setStage('review');
+    setStage('choose');
   };
 
-  const processPdf = async (run: AnalysisRun) => {
-    if (!selectedFile) return;
+  const processPdf = async (run: AnalysisRun, file: File) => {
 
     // Parse PDF
     const parser = new PdfParser((progress: ParseProgress) => {
@@ -963,7 +954,7 @@ function App() {
       });
     });
 
-    const document = await timed(log, 'PDF parsing', () => parser.parsePdf(selectedFile));
+    const document = await timed(log, 'PDF parsing', () => parser.parsePdf(file));
     log.info('PDF parsed', {
       pages: document.pages.length,
       scannedPages: document.pages.filter(page => page.imageBlob).length,
@@ -1044,7 +1035,7 @@ function App() {
     let entities = aggregator.deduplicateEntities(allEntities);
     const deduplicatedCount = entities.length;
     // Filter entities based on detection config
-    entities = filterEntitiesByConfig(entities);
+    entities = applyDefaultSelection(filterEntitiesByConfig(entities));
     log.info('Entities aggregated', { detected: allEntities.length, deduplicated: deduplicatedCount, filtered: entities.length });
     // Update document with detected entities
     document.allEntities = entities;
@@ -1065,11 +1056,10 @@ function App() {
 
     run.check();
     setProcessedDocument(document);
-    setStage('review');
+    setStage('choose');
   };
 
-  const processDocx = async (run: AnalysisRun) => {
-    if (!selectedFile) return;
+  const processDocx = async (run: AnalysisRun, file: File) => {
 
     // Parse DOCX
     const parser = new DocxParser((progress) => {
@@ -1080,7 +1070,7 @@ function App() {
       });
     });
 
-    const docx = await timed(log, 'DOCX parsing', () => parser.parseDocx(selectedFile));
+    const docx = await timed(log, 'DOCX parsing', () => parser.parseDocx(file));
     log.info('DOCX parsed', { textChars: docx.fullText.length });
 
     const allEntities: DetectedEntity[] = [];
@@ -1148,7 +1138,7 @@ function App() {
     let entities = aggregator.deduplicateEntities(allEntities);
     const deduplicatedCount = entities.length;
     // Filter entities based on detection config
-    entities = filterEntitiesByConfig(entities);
+    entities = applyDefaultSelection(filterEntitiesByConfig(entities));
     log.info('Entities aggregated', { detected: allEntities.length, deduplicated: deduplicatedCount, filtered: entities.length });
     // Update DOCX with detected entities
     docx.allEntities = entities;
@@ -1161,7 +1151,7 @@ function App() {
 
     run.check();
     setProcessedDocx(docx);
-    setStage('review');
+    setStage('choose');
   };
 
   const filterEntitiesByConfig = (entities: DetectedEntity[]): DetectedEntity[] => {
@@ -1381,11 +1371,15 @@ function App() {
           <FileUpload onFileSelect={handleFileSelect} />
         )}
 
-        {stage === 'preview' && selectedFile && (
-          <FilePreview
-            file={selectedFile}
-            onRemove={handleRemoveFile}
-            onStartAnalysis={handleStartAnalysis}
+        {stage === 'choose' && (processedDocument || processedDocx) && (
+          <ChooseEntities
+            fileName={selectedFile?.name ?? ''}
+            entities={processedDocument?.allEntities ?? processedDocx?.allEntities ?? []}
+            onSetStatus={setEntityStatus}
+            onBack={() => void handleLeaveReview()}
+            onUndo={handleUndo}
+            canUndo={undoStack.length > 0}
+            onContinue={() => setStage('review')}
           />
         )}
 
@@ -1459,10 +1453,10 @@ function App() {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-6">
                 <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
                   <button
-                    onClick={() => void handleLeaveReview()}
+                    onClick={() => setStage('choose')}
                     className="btn-ghost h-10 px-3 sm:px-4 text-sm flex-shrink-0 whitespace-nowrap"
                   >
-                    {t('review.backButton')}
+                    {t('review.backToChoose')}
                   </button>
                   <button
                     onClick={handleUndo}
@@ -1531,6 +1525,8 @@ function App() {
                   </button>
                 </div>
               </div>
+
+              <p className="text-sm text-gray-600 dark:text-gray-300">{t('review.checkHint')}</p>
 
               {/* Filters Section - Desktop only (mobile filters are in EntityList) */}
               <div className="hidden lg:block surface rounded-xl p-4">

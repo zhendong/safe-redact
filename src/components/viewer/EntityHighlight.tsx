@@ -2,6 +2,8 @@ import type { DetectedEntity } from '@/lib/types';
 import { getEntityColor, getEntityDisplayName } from '@/utils/entity-types';
 import { useLanguage } from '@/contexts/LanguageContext';
 
+const REDACTION_COLOR = '#1c1b19';
+
 interface EntityHighlightProps {
   entity: DetectedEntity;
   scale: number;
@@ -42,10 +44,11 @@ export function EntityHighlight({
         top: `${top}px`,
         width: `${width}px`,
         height: `${height}px`,
-        backgroundColor: isChecked ? `${color}30` : 'transparent', // 30 is hex for ~19% opacity
-        border: `2px ${isChecked ? 'solid' : 'dashed'} ${color}`,
+        // Checked items look as they will after export: a solid bar
+        backgroundColor: isChecked ? REDACTION_COLOR : 'transparent',
+        border: `2px ${isChecked ? 'solid' : 'dashed'} ${isChecked ? REDACTION_COLOR : color}`,
         borderWidth: isSelected ? '3px' : '2px',
-        boxShadow: isSelected ? `0 0 0 2px ${color}40` : 'none',
+        boxShadow: isSelected ? `0 0 0 3px ${color}` : 'none',
       }}
       onClick={onClick}
       title={label}
