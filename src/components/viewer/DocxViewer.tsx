@@ -458,8 +458,10 @@ function highlightEntities(
         span.setAttribute('aria-pressed', String(isSelected));
         span.setAttribute('aria-label', `${displayName}: ${entity.text} (${Math.round(entity.confidence * 100)}%)`);
       }
-      span.style.backgroundColor = isChecked ? `${color}66` : 'transparent';
-      span.style.borderBottom = `2px ${isChecked ? 'solid' : 'dashed'} ${color}`;
+      // Checked items look as they will after export: a solid bar over the text
+      span.style.backgroundColor = isChecked ? '#1c1b19' : 'transparent';
+      if (isChecked) span.style.color = '#1c1b19';
+      else span.style.borderBottom = `2px dashed ${color}`;
       span.style.cursor = 'pointer';
       span.style.padding = '2px 0';
       if (isSelected) span.style.boxShadow = `0 0 0 3px ${color}40`;

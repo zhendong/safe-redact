@@ -7,6 +7,11 @@
 /** Resolves after the browser has painted the current state */
 export function nextPaint(): Promise<void> {
   return new Promise(resolve => {
+    // No rendering outside the browser (e.g. tests), so just yield
+    if (typeof requestAnimationFrame === 'undefined') {
+      setTimeout(resolve, 0);
+      return;
+    }
     // rAF runs just before a paint; the timeout runs after it
     requestAnimationFrame(() => setTimeout(resolve, 0));
     // Hidden tabs don't run rAF, so don't wait on it forever

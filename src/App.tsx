@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import packageJson from '../package.json';
 import { FileUpload } from '@/components/upload/FileUpload';
-import { FilePreview } from '@/components/upload/FilePreview';
+import { ChooseEntities } from '@/components/review/ChooseEntities';
 import { ProgressIndicator } from '@/components/common/ProgressIndicator';
 import { DocumentViewer } from '@/components/viewer/DocumentViewer';
 import { FilterBar } from '@/components/review/FilterBar';
@@ -33,13 +33,16 @@ import { enableNewEntityTypes } from '@/utils/entity-types';
 import { useMemo } from 'react';
 import { useDialog } from '@/hooks/useDialog';
 import { nextPaint } from '@/utils/yield';
+import { applyDefaultSelection } from '@/utils/entity-groups';
+import { getConfidenceLevel, getMinimumConfidence } from '@/utils/confidence';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { createLogger, describeFile, timed } from '@/utils/logger';
 
 const log = createLogger('App');
 
-type AppStage = 'upload' | 'preview' | 'processing' | 'review' | 'redacting' | 'complete';
+// choose: pick what to redact without the document; review: check the redacted document
+type AppStage = 'upload' | 'processing' | 'choose' | 'review' | 'redacting' | 'complete';
 type FileType = 'pdf' | 'docx' | 'image';
 type ReviewSnapshot = { document: ProcessedDocument | null; docx: ParsedDocx | null };
 
@@ -131,17 +134,11 @@ function App() {
 
   const confidenceCounts = useMemo(() => {
     const allEntities = processedDocument?.allEntities || processedDocx?.allEntities;
-    if (!allEntities) return { high: 0, medium: 0, low: 0 };
-    const highThreshold = detectionConfig?.confidenceThresholds.high ?? DEFAULT_CONFIDENCE_THRESHOLDS.high;
-    const mediumThreshold = detectionConfig?.confidenceThresholds.medium ?? DEFAULT_CONFIDENCE_THRESHOLDS.medium;
-    const lowThreshold = detectionConfig?.confidenceThresholds.low ?? DEFAULT_CONFIDENCE_THRESHOLDS.low;
-
-    return {
-      high: allEntities.filter((e) => e.confidence >= highThreshold).length,
-      medium: allEntities.filter((e) => e.confidence >= mediumThreshold && e.confidence < highThreshold).length,
-      low: allEntities.filter((e) => e.confidence >= lowThreshold && e.confidence < mediumThreshold).length,
-    };
-  }, [processedDocument, processedDocx, detectionConfig]);
+    const counts = { high: 0, medium: 0, low: 0 };
+    if (!allEntities) return counts;
+    for (const e of allEntities) counts[getConfidenceLevel(e.confidence, detectionConfig.confidenceThresholds)]++;
+    return counts;
+  }, [processedDocument, processedDocx, detectionConfig.confidenceThresholds]);
 
   const filteredEntities = useMemo(() => {
     const allEntities = processedDocument?.allEntities || processedDocx?.allEntities;
@@ -150,18 +147,14 @@ function App() {
       // Filter by type
       if (!enabledTypes.has(entity.entityType)) return false;
 
-      // Filter by confidence
-      const highThreshold = detectionConfig?.confidenceThresholds.high ?? DEFAULT_CONFIDENCE_THRESHOLDS.high;
-      const mediumThreshold = detectionConfig?.confidenceThresholds.medium ?? DEFAULT_CONFIDENCE_THRESHOLDS.medium;
-      const lowThreshold = detectionConfig?.confidenceThresholds.low ?? DEFAULT_CONFIDENCE_THRESHOLDS.low;
-
-      if (entity.confidence >= highThreshold && !showHighConfidence) return false;
-      if (entity.confidence >= mediumThreshold && entity.confidence < highThreshold && !showMediumConfidence) return false;
-      if (entity.confidence >= lowThreshold && entity.confidence < mediumThreshold && !showLowConfidence) return false;
-
-      return true;
+      // Confidence filters only exist while advanced options are shown, so they can't hide items invisibly
+      if (!detectionConfig.showAdvancedOptions) return true;
+      const level = getConfidenceLevel(entity.confidence, detectionConfig.confidenceThresholds);
+      if (level === 'high') return showHighConfidence;
+      if (level === 'medium') return showMediumConfidence;
+      return showLowConfidence;
     });
-  }, [processedDocument, processedDocx, enabledTypes, showHighConfidence, showMediumConfidence, showLowConfidence, detectionConfig]);
+  }, [processedDocument, processedDocx, enabledTypes, showHighConfidence, showMediumConfidence, showLowConfidence, detectionConfig.showAdvancedOptions, detectionConfig.confidenceThresholds]);
 
   // Confirmed items in the filtered list, for the list stats
   const visibleConfirmedCount = useMemo(() => {
@@ -202,17 +195,9 @@ function App() {
       : file.name.toLowerCase().endsWith('.docx') ? 'docx' : 'pdf';
     log.info('File selected', { type, ...describeFile(file) });
     setFileType(type);
-    setStage('preview');
     setError(null);
-  };
-
-  const handleRemoveFile = () => {
-    setSelectedFile(null);
-    setFileType(null);
-    setProcessedDocument(null);
-    setProcessedDocx(null);
-    setStage('upload');
-    setError(null);
+    // Analysis starts right away; the processing page has Cancel for a wrong file
+    void handleStartAnalysis(file, type);
   };
 
   const handleBackToUpload = () => {
@@ -303,16 +288,7 @@ function App() {
 
     // If text was extracted and search is enabled, search for similar occurrences
     if (selectedText && selectedText.length > 0 && searchOccurrences) {
-      const allFoundEntities = searchForTextOccurrences(selectedText, entityType, pageNumber, boundingBox);
-
-      // Filter out the manual selection itself from search results by comparing positions
-      const similarEntities = allFoundEntities.filter(entity => {
-        // Skip if it's on the same page and overlaps with the manual selection
-        if (entity.position.pageNumber === pageNumber) {
-          return !boundingBoxesOverlap(entity.position.boundingBox, boundingBox);
-        }
-        return true;
-      });
+      const similarEntities = findOtherOccurrences(selectedText, entityType, pageNumber, boundingBox);
 
       // Update document with new entity and similar occurrences
       const updatedEntities = [...processedDocument.allEntities, newEntity, ...similarEntities];
@@ -359,6 +335,28 @@ function App() {
 
     // Select the new entity
     setSelectedEntityId(newEntity.id);
+  };
+
+  // Matches of a manual selection's text elsewhere in the document, excluding the selection itself
+  const findOtherOccurrences = (text: string, entityType: EntityType, pageNumber: number, boundingBox: BoundingBox) =>
+    searchForTextOccurrences(text, entityType, pageNumber, boundingBox).filter(entity =>
+      entity.position.pageNumber !== pageNumber || !boundingBoxesOverlap(entity.position.boundingBox, boundingBox)
+    );
+
+  const countOtherOccurrences = (text: string, pageNumber: number, boundingBox: BoundingBox) =>
+    text ? findOtherOccurrences(text, EntityTypeEnum.CUSTOM, pageNumber, boundingBox).length : 0;
+
+  // Only manual boxes can be deleted; detected items are unchecked instead
+  const handleEntityDelete = (entityId: string) => {
+    if (!processedDocument) return;
+    if (!processedDocument.allEntities.some(e => e.id === entityId && e.detectionMethod === 'manual')) return;
+    recordUndo();
+    setProcessedDocument({
+      ...processedDocument,
+      allEntities: processedDocument.allEntities.filter(e => e.id !== entityId),
+      pages: processedDocument.pages.map(page => ({ ...page, entities: page.entities.filter(e => e.id !== entityId) })),
+    });
+    if (selectedEntityId === entityId) setSelectedEntityId(undefined);
   };
 
   // DOCX: redact every occurrence of text the user selected in the preview
@@ -595,18 +593,13 @@ function App() {
     return foundEntities;
   };
 
-  // Check if two bounding boxes overlap
-  const boundingBoxesOverlap = (box1: BoundingBox, box2: BoundingBox): boolean => {
-    // Use a small threshold to account for floating point precision
-    const threshold = 2;
-
-    // Check if boxes are essentially the same or overlap significantly
-    const xOverlap = Math.abs(box1.x - box2.x) < threshold;
-    const yOverlap = Math.abs(box1.y - box2.y) < threshold;
-    const widthSimilar = Math.abs(box1.width - box2.width) < threshold;
-    const heightSimilar = Math.abs(box1.height - box2.height) < threshold;
-
-    return xOverlap && yOverlap && widthSimilar && heightSimilar;
+  // Whether a search hit is the manual selection itself: most of the hit lies inside the drawn box.
+  // A hand-drawn box never lines up exactly with the text, so comparing edges would miss it.
+  const boundingBoxesOverlap = (hit: BoundingBox, selection: BoundingBox): boolean => {
+    const width = Math.min(hit.x + hit.width, selection.x + selection.width) - Math.max(hit.x, selection.x);
+    const height = Math.min(hit.y + hit.height, selection.y + selection.height) - Math.max(hit.y, selection.y);
+    if (width <= 0 || height <= 0) return false;
+    return width * height >= 0.5 * hit.width * hit.height;
   };
 
   // Convert MuPDF Quad array to EntityPosition
@@ -667,7 +660,7 @@ function App() {
       return;
     }
     if (
-      stage === 'review' &&
+      (stage === 'choose' || stage === 'review') &&
       !(await confirmAction(t('common.discardReview', { name: file.name }), {
         title: t('common.discardReviewTitle'),
         okLabel: t('common.discardReviewConfirm'),
@@ -702,7 +695,7 @@ function App() {
     undoRef.current = handleUndo;
   });
   useEffect(() => {
-    if (stage !== 'review') return;
+    if (stage !== 'choose' && stage !== 'review') return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (!(event.metaKey || event.ctrlKey) || event.shiftKey || event.altKey || event.key.toLowerCase() !== 'z') return;
       const target = event.target as HTMLElement | null;
@@ -870,19 +863,18 @@ function App() {
   // Bumped on every start and cancel, so a run can tell whether it is still current
   const analysisRunRef = useRef(0);
 
-  const handleStartAnalysis = async () => {
-    if (!selectedFile || !fileType) return;
-
+  const handleStartAnalysis = async (file: File, type: FileType) => {
     // Browser only: the model downloads on first use, so ask before starting
     if (
       detectionConfig.useMLModel &&
       (await LLMDetector.needsDownload()) &&
-      !(await confirmAction(t('filePreview.modelDownload'), {
-        title: t('filePreview.modelDownloadTitle'),
-        okLabel: t('filePreview.modelDownloadConfirm'),
+      !(await confirmAction(t('analysis.modelDownload'), {
+        title: t('analysis.modelDownloadTitle'),
+        okLabel: t('analysis.modelDownloadConfirm'),
         cancelLabel: t('common.cancel'),
       }))
     ) {
+      handleBackToUpload();
       return;
     }
 
@@ -898,7 +890,7 @@ function App() {
     };
 
     setUndoStack([]);
-    setProcessingStage({ stage: 'parsing', progress: 0, message: '' });
+    setProcessingStage({ stage: 'parsing', progress: 0, message: t('progress.parsingText') });
     setStage('processing');
     setError(null);
 
@@ -907,63 +899,64 @@ function App() {
       await nextPaint();
       run.check();
       await timed(log, 'Analysis', async () => {
-        if (fileType === 'pdf') {
-          await processPdf(run);
-        } else if (fileType === 'docx') {
-          await processDocx(run);
+        if (type === 'pdf') {
+          await processPdf(run, file);
+        } else if (type === 'docx') {
+          await processDocx(run, file);
         } else {
-          await processImage(run);
+          await processImage(run, file);
         }
       }, {
-        type: fileType,
+        type,
         regex: detectionConfig.useRegexPatterns,
         ml: detectionConfig.useMLModel,
         aggressiveness: detectionConfig.aggressiveness,
       });
     } catch (err) {
       if (err instanceof AnalysisCancelled || !isCurrent()) return;
+      handleBackToUpload();
       setError(err instanceof Error ? err.message : t('errors.processingError'));
-      setStage('preview');
     }
   };
 
   const handleCancelAnalysis = () => {
     analysisRunRef.current++;
     log.info('Analysis cancelled');
-    setStage('preview');
+    handleBackToUpload();
   };
 
-  const processImage = async (run: AnalysisRun) => {
-    if (!selectedFile) return;
+  const processImage = async (run: AnalysisRun, file: File) => {
     run.progress({ stage: 'parsing', progress: 0, message: t('progress.recognizingImage') });
-    const document = await processUploadedImage(selectedFile, progress => {
+    const document = await processUploadedImage(file, progress => {
       run.progress({ stage: 'parsing', progress, message: t('progress.recognizingImage') });
     });
-    const entities = detectionConfig.useRegexPatterns
+    const entities = applyDefaultSelection(detectionConfig.useRegexPatterns
       ? filterEntitiesByConfig(document.allEntities)
-      : [];
+      : []);
     log.info('Entities detected', { ocr: document.allEntities.length, filtered: entities.length });
     document.allEntities = entities;
     document.pages[0].entities = entities;
     run.check();
     setProcessedDocument(document);
     setCurrentPage(1);
-    setStage('review');
+    setStage('choose');
   };
 
-  const processPdf = async (run: AnalysisRun) => {
-    if (!selectedFile) return;
+  const processPdf = async (run: AnalysisRun, file: File) => {
 
     // Parse PDF
+    // Parsing takes the first half of the bar; detection the rest
     const parser = new PdfParser((progress: ParseProgress) => {
       run.progress({
-        stage: progress.stage === 'loading' ? 'parsing' : progress.stage,
-        progress: progress.progress,
-        message: progress.message,
+        stage: 'parsing',
+        progress: progress.progress * 0.5,
+        message: progress.currentPage && progress.totalPages
+          ? t('progress.parsingPage', { current: progress.currentPage, total: progress.totalPages })
+          : t('progress.parsingText'),
       });
     });
 
-    const document = await timed(log, 'PDF parsing', () => parser.parsePdf(selectedFile));
+    const document = await timed(log, 'PDF parsing', () => parser.parsePdf(file));
     log.info('PDF parsed', {
       pages: document.pages.length,
       scannedPages: document.pages.filter(page => page.imageBlob).length,
@@ -979,9 +972,15 @@ function App() {
         progress: 50,
         message: t('progress.detectingSensitiveInfo'),
       });
+      // Detection is synchronous, so let the progress paint first
+      await nextPaint();
 
+      // Without AI, pattern matching is most of the remaining work
+      const end = detectionConfig.useMLModel ? 60 : 88;
       const detector = new RegexDetector();
-      const regexEntities = await timed(log, 'Regex detection', () => detector.detectEntities(document.pages));
+      const regexEntities = await timed(log, 'Regex detection', () => detector.detectEntities(document.pages, fraction => {
+        run.progress({ stage: 'detecting', progress: 50 + fraction * (end - 50), message: t('progress.detectingSensitiveInfo') });
+      }));
       log.info('Regex entities detected', { count: regexEntities.length });
       allEntities.push(...regexEntities);
     }
@@ -1039,12 +1038,13 @@ function App() {
       progress: 90,
       message: t('progress.removingDuplicates'),
     });
+    await nextPaint();
 
     const aggregator = new EntityAggregator();
     let entities = aggregator.deduplicateEntities(allEntities);
     const deduplicatedCount = entities.length;
     // Filter entities based on detection config
-    entities = filterEntitiesByConfig(entities);
+    entities = applyDefaultSelection(filterEntitiesByConfig(entities));
     log.info('Entities aggregated', { detected: allEntities.length, deduplicated: deduplicatedCount, filtered: entities.length });
     // Update document with detected entities
     document.allEntities = entities;
@@ -1065,22 +1065,22 @@ function App() {
 
     run.check();
     setProcessedDocument(document);
-    setStage('review');
+    setStage('choose');
   };
 
-  const processDocx = async (run: AnalysisRun) => {
-    if (!selectedFile) return;
+  const processDocx = async (run: AnalysisRun, file: File) => {
 
     // Parse DOCX
+    // Parsing takes the bar up to 60%; detection the rest
     const parser = new DocxParser((progress) => {
       run.progress({
-        stage: progress.stage as any,
-        progress: progress.progress,
-        message: progress.message,
+        stage: 'parsing',
+        progress: progress.progress * 0.6,
+        message: t('progress.parsingText'),
       });
     });
 
-    const docx = await timed(log, 'DOCX parsing', () => parser.parseDocx(selectedFile));
+    const docx = await timed(log, 'DOCX parsing', () => parser.parseDocx(file));
     log.info('DOCX parsed', { textChars: docx.fullText.length });
 
     const allEntities: DetectedEntity[] = [];
@@ -1092,9 +1092,15 @@ function App() {
         progress: 60,
         message: t('progress.detectingSensitiveInfo'),
       });
+      // Detection is synchronous, so let the progress paint first
+      await nextPaint();
 
+      // Without AI, pattern matching is most of the remaining work
+      const end = detectionConfig.useMLModel ? 70 : 92;
       const detector = new RegexDetector();
-      const regexEntities = await timed(log, 'Regex detection', () => detector.detectEntities(docx.fullText));
+      const regexEntities = await timed(log, 'Regex detection', () => detector.detectEntities(docx.fullText, fraction => {
+        run.progress({ stage: 'detecting', progress: 60 + fraction * (end - 60), message: t('progress.detectingSensitiveInfo') });
+      }));
       log.info('Regex entities detected', { count: regexEntities.length });
       allEntities.push(...regexEntities);
     }
@@ -1148,7 +1154,7 @@ function App() {
     let entities = aggregator.deduplicateEntities(allEntities);
     const deduplicatedCount = entities.length;
     // Filter entities based on detection config
-    entities = filterEntitiesByConfig(entities);
+    entities = applyDefaultSelection(filterEntitiesByConfig(entities));
     log.info('Entities aggregated', { detected: allEntities.length, deduplicated: deduplicatedCount, filtered: entities.length });
     // Update DOCX with detected entities
     docx.allEntities = entities;
@@ -1161,7 +1167,7 @@ function App() {
 
     run.check();
     setProcessedDocx(docx);
-    setStage('review');
+    setStage('choose');
   };
 
   const filterEntitiesByConfig = (entities: DetectedEntity[]): DetectedEntity[] => {
@@ -1171,15 +1177,7 @@ function App() {
         return false;
       }
 
-      // Filter by confidence based on aggressiveness
-      if (detectionConfig.aggressiveness === 'conservative') {
-        return entity.confidence >= detectionConfig.confidenceThresholds.high;
-      } else if (detectionConfig.aggressiveness === 'balanced') {
-        return entity.confidence >= detectionConfig.confidenceThresholds.medium;
-      } else {
-        // aggressive
-        return entity.confidence >= detectionConfig.confidenceThresholds.low;
-      }
+      return entity.confidence >= getMinimumConfidence(detectionConfig.aggressiveness, detectionConfig.confidenceThresholds);
     });
   };
 
@@ -1381,11 +1379,15 @@ function App() {
           <FileUpload onFileSelect={handleFileSelect} />
         )}
 
-        {stage === 'preview' && selectedFile && (
-          <FilePreview
-            file={selectedFile}
-            onRemove={handleRemoveFile}
-            onStartAnalysis={handleStartAnalysis}
+        {stage === 'choose' && (processedDocument || processedDocx) && (
+          <ChooseEntities
+            fileName={selectedFile?.name ?? ''}
+            entities={processedDocument?.allEntities ?? processedDocx?.allEntities ?? []}
+            onSetStatus={setEntityStatus}
+            onBack={() => void handleLeaveReview()}
+            onUndo={handleUndo}
+            canUndo={undoStack.length > 0}
+            onContinue={() => setStage('review')}
           />
         )}
 
@@ -1459,10 +1461,10 @@ function App() {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-6">
                 <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
                   <button
-                    onClick={() => void handleLeaveReview()}
+                    onClick={() => setStage('choose')}
                     className="btn-ghost h-10 px-3 sm:px-4 text-sm flex-shrink-0 whitespace-nowrap"
                   >
-                    {t('review.backButton')}
+                    {t('review.backToChoose')}
                   </button>
                   <button
                     onClick={handleUndo}
@@ -1531,6 +1533,8 @@ function App() {
                   </button>
                 </div>
               </div>
+
+              <p className="text-sm text-gray-600 dark:text-gray-300">{t('review.checkHint')}</p>
 
               {/* Filters Section - Desktop only (mobile filters are in EntityList) */}
               <div className="hidden lg:block surface rounded-xl p-4">
@@ -1622,6 +1626,8 @@ function App() {
                         selectedEntityId={selectedEntityId}
                         onEntityClick={handleEntitySelect}
                         onManualEntityCreate={handleManualEntityCreate}
+                        onCountOccurrences={countOtherOccurrences}
+                        onEntityDelete={handleEntityDelete}
                         onPageChange={setCurrentPage}
                       />
                     </div>

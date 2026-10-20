@@ -11,6 +11,7 @@ interface FilterPanelProps {
   showLowConfidence: boolean;
   onToggleConfidence: (level: 'high' | 'medium' | 'low') => void;
   confidenceCounts: { high: number; medium: number; low: number };
+  showConfidence?: boolean;
 }
 
 export function FilterPanel({
@@ -22,6 +23,7 @@ export function FilterPanel({
   showLowConfidence,
   onToggleConfidence,
   confidenceCounts,
+  showConfidence = true,
 }: FilterPanelProps) {
   const { language, t } = useLanguage();
   const allEntityTypes = Object.values(EntityType);
@@ -70,50 +72,54 @@ export function FilterPanel({
         </div>
       </div>
 
-      {/* Divider */}
-      <div className="hidden sm:block h-6 w-px bg-gray-300 dark:bg-gray-600" />
+      {showConfidence && (
+        <>
+          {/* Divider */}
+          <div className="hidden sm:block h-6 w-px bg-gray-300 dark:bg-gray-600" />
 
-      {/* Confidence Levels - Horizontal Pills */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('filterPanel.confidence')}</span>
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() => onToggleConfidence('high')}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs sm:text-sm transition-all ${
-              showHighConfidence
-                ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-2 border-green-500 dark:border-green-400'
-                : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border-2 border-transparent opacity-50'
-            }`}
-          >
-            <span className="font-medium">{t('common.high')}</span>
-            <span className="text-xs opacity-75">{confidenceCounts.high}</span>
-          </button>
+          {/* Confidence Levels - Horizontal Pills */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('filterPanel.confidence')}</span>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => onToggleConfidence('high')}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs sm:text-sm transition-all ${
+                  showHighConfidence
+                    ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 border-2 border-green-500 dark:border-green-400'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border-2 border-transparent opacity-50'
+                }`}
+              >
+                <span className="font-medium">{t('common.high')}</span>
+                <span className="text-xs opacity-75">{confidenceCounts.high}</span>
+              </button>
 
-          <button
-            onClick={() => onToggleConfidence('medium')}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs sm:text-sm transition-all ${
-              showMediumConfidence
-                ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 border-2 border-yellow-500 dark:border-yellow-400'
-                : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border-2 border-transparent opacity-50'
-            }`}
-          >
-            <span className="font-medium">{t('common.medium')}</span>
-            <span className="text-xs opacity-75">{confidenceCounts.medium}</span>
-          </button>
+              <button
+                onClick={() => onToggleConfidence('medium')}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs sm:text-sm transition-all ${
+                  showMediumConfidence
+                    ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 border-2 border-yellow-500 dark:border-yellow-400'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border-2 border-transparent opacity-50'
+                }`}
+              >
+                <span className="font-medium">{t('common.medium')}</span>
+                <span className="text-xs opacity-75">{confidenceCounts.medium}</span>
+              </button>
 
-          <button
-            onClick={() => onToggleConfidence('low')}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs sm:text-sm transition-all ${
-              showLowConfidence
-                ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border-2 border-orange-500 dark:border-orange-400'
-                : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border-2 border-transparent opacity-50'
-            }`}
-          >
-            <span className="font-medium">{t('common.low')}</span>
-            <span className="text-xs opacity-75">{confidenceCounts.low}</span>
-          </button>
-        </div>
-      </div>
+              <button
+                onClick={() => onToggleConfidence('low')}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs sm:text-sm transition-all ${
+                  showLowConfidence
+                    ? 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border-2 border-orange-500 dark:border-orange-400'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 border-2 border-transparent opacity-50'
+                }`}
+              >
+                <span className="font-medium">{t('common.low')}</span>
+                <span className="text-xs opacity-75">{confidenceCounts.low}</span>
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

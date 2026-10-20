@@ -5,21 +5,27 @@ import { generateId } from '@/utils/validation';
 import { extractContext } from '@/utils/text-utils';
 import { DEFAULT_SEARCH_CONTEXT_WINDOW, DEFAULT_CONFIDENCE_BOOST } from '@/utils/constants';
 import { createLogger } from '@/utils/logger';
+import { createYielder } from '@/utils/yield';
 
 const log = createLogger('RegexDetector');
 
 export class RegexDetector {
   /**
-   * Detect entities using regex patterns
+   * Detect entities using regex patterns. Matching is synchronous, so it
+   * yields to the browser between pages (or patterns, for DOCX text) and
+   * reports the fraction done through `onProgress`.
    */
-  async detectEntities(content: string | ProcessedPage[]): Promise<DetectedEntity[]> {
+  async detectEntities(content: string | ProcessedPage[], onProgress?: (fraction: number) => void): Promise<DetectedEntity[]> {
     const allEntities: DetectedEntity[] = [];
+    const yieldToBrowser = createYielder();
 
     if (typeof content === 'string') {
       // Use language-aware pattern selection for DOCX content
       const selectedPatterns = getPatternsForText(content);
 
-      for (const pattern of selectedPatterns) {
+      for (const [index, pattern] of selectedPatterns.entries()) {
+        await yieldToBrowser();
+        onProgress?.(index / selectedPatterns.length);
         const matches = this.findMatches(content, pattern.pattern, pattern.entityType, pattern.name);
 
         allEntities.push(...matches.map(match => {
@@ -55,7 +61,9 @@ export class RegexDetector {
         }));
       }
     } else {
-      for (const page of content) {
+      for (const [index, page] of content.entries()) {
+        await yieldToBrowser();
+        onProgress?.(index / content.length);
         const pageEntities = this.detectInPage(page);
         allEntities.push(...pageEntities);
       }
