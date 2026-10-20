@@ -2,7 +2,14 @@
  * Comprehensive test suite for predefined-words.ts
  * Tests multi-language pattern matching across different scripts
  */
-import { createPatternFromWord, PredefinedWord } from '../src/utils/predefined-words';
+import { createPatternFromWord, PredefinedWord, addPredefinedWord, getPredefinedWords } from '../src/utils/predefined-words';
+
+// Minimal localStorage for addPredefinedWord in Node
+const store: Record<string, string> = {};
+(globalThis as unknown as { localStorage: Pick<Storage, 'getItem' | 'setItem'> }).localStorage = {
+  getItem: (key: string) => store[key] ?? null,
+  setItem: (key: string, value: string) => { store[key] = value; },
+};
 
 interface TestCase {
   text: string;
@@ -484,6 +491,27 @@ testPattern('Edge Case - Empty spaces around', {
   { text: '  test  ', shouldMatch: true, description: 'Multiple spaces around' },
   { text: '\ntest\n', shouldMatch: true, description: 'Newlines around' },
   { text: '\t test \t', shouldMatch: true, description: 'Tabs around' },
+]);
+
+
+// =============================================================================
+// DEFAULTS: new words match anywhere, in any case, in every language
+// =============================================================================
+
+for (const word of ['Secret', '机密', 'пароль']) addPredefinedWord(word);
+const [secret, jimi, parol] = getPredefinedWords();
+
+testPattern('Default settings - English', secret, [
+  { text: 'TOPSECRETS', shouldMatch: true, description: 'Inside a longer word, upper case' },
+  { text: 'secret', shouldMatch: true, description: 'Lower case' },
+]);
+
+testPattern('Default settings - Chinese', jimi, [
+  { text: '这是机密文件', shouldMatch: true, description: 'Inside a sentence without spaces' },
+]);
+
+testPattern('Default settings - Russian', parol, [
+  { text: 'ПАРОЛЬНЫЙ', shouldMatch: true, description: 'Inside a longer word, upper case' },
 ]);
 
 // =============================================================================
