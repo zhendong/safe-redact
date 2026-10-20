@@ -34,6 +34,7 @@ import { useMemo } from 'react';
 import { useDialog } from '@/hooks/useDialog';
 import { nextPaint } from '@/utils/yield';
 import { applyDefaultSelection } from '@/utils/entity-groups';
+import { getConfidenceLevel, getMinimumConfidence } from '@/utils/confidence';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { createLogger, describeFile, timed } from '@/utils/logger';
@@ -133,17 +134,11 @@ function App() {
 
   const confidenceCounts = useMemo(() => {
     const allEntities = processedDocument?.allEntities || processedDocx?.allEntities;
-    if (!allEntities) return { high: 0, medium: 0, low: 0 };
-    const highThreshold = detectionConfig?.confidenceThresholds.high ?? DEFAULT_CONFIDENCE_THRESHOLDS.high;
-    const mediumThreshold = detectionConfig?.confidenceThresholds.medium ?? DEFAULT_CONFIDENCE_THRESHOLDS.medium;
-    const lowThreshold = detectionConfig?.confidenceThresholds.low ?? DEFAULT_CONFIDENCE_THRESHOLDS.low;
-
-    return {
-      high: allEntities.filter((e) => e.confidence >= highThreshold).length,
-      medium: allEntities.filter((e) => e.confidence >= mediumThreshold && e.confidence < highThreshold).length,
-      low: allEntities.filter((e) => e.confidence >= lowThreshold && e.confidence < mediumThreshold).length,
-    };
-  }, [processedDocument, processedDocx, detectionConfig]);
+    const counts = { high: 0, medium: 0, low: 0 };
+    if (!allEntities) return counts;
+    for (const e of allEntities) counts[getConfidenceLevel(e.confidence, detectionConfig.confidenceThresholds)]++;
+    return counts;
+  }, [processedDocument, processedDocx, detectionConfig.confidenceThresholds]);
 
   const filteredEntities = useMemo(() => {
     const allEntities = processedDocument?.allEntities || processedDocx?.allEntities;
@@ -152,18 +147,14 @@ function App() {
       // Filter by type
       if (!enabledTypes.has(entity.entityType)) return false;
 
-      // Filter by confidence
-      const highThreshold = detectionConfig?.confidenceThresholds.high ?? DEFAULT_CONFIDENCE_THRESHOLDS.high;
-      const mediumThreshold = detectionConfig?.confidenceThresholds.medium ?? DEFAULT_CONFIDENCE_THRESHOLDS.medium;
-      const lowThreshold = detectionConfig?.confidenceThresholds.low ?? DEFAULT_CONFIDENCE_THRESHOLDS.low;
-
-      if (entity.confidence >= highThreshold && !showHighConfidence) return false;
-      if (entity.confidence >= mediumThreshold && entity.confidence < highThreshold && !showMediumConfidence) return false;
-      if (entity.confidence >= lowThreshold && entity.confidence < mediumThreshold && !showLowConfidence) return false;
-
-      return true;
+      // Confidence filters only exist while advanced options are shown, so they can't hide items invisibly
+      if (!detectionConfig.showAdvancedOptions) return true;
+      const level = getConfidenceLevel(entity.confidence, detectionConfig.confidenceThresholds);
+      if (level === 'high') return showHighConfidence;
+      if (level === 'medium') return showMediumConfidence;
+      return showLowConfidence;
     });
-  }, [processedDocument, processedDocx, enabledTypes, showHighConfidence, showMediumConfidence, showLowConfidence, detectionConfig]);
+  }, [processedDocument, processedDocx, enabledTypes, showHighConfidence, showMediumConfidence, showLowConfidence, detectionConfig.showAdvancedOptions, detectionConfig.confidenceThresholds]);
 
   // Confirmed items in the filtered list, for the list stats
   const visibleConfirmedCount = useMemo(() => {
@@ -1178,15 +1169,7 @@ function App() {
         return false;
       }
 
-      // Filter by confidence based on aggressiveness
-      if (detectionConfig.aggressiveness === 'conservative') {
-        return entity.confidence >= detectionConfig.confidenceThresholds.high;
-      } else if (detectionConfig.aggressiveness === 'balanced') {
-        return entity.confidence >= detectionConfig.confidenceThresholds.medium;
-      } else {
-        // aggressive
-        return entity.confidence >= detectionConfig.confidenceThresholds.low;
-      }
+      return entity.confidence >= getMinimumConfidence(detectionConfig.aggressiveness, detectionConfig.confidenceThresholds);
     });
   };
 

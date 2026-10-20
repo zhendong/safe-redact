@@ -29,6 +29,7 @@ export function FilterBar({
   setShowMediumConfidence,
   showLowConfidence,
   setShowLowConfidence,
+  detectionConfig,
   entityCounts,
   confidenceCounts,
   filteredCount,
@@ -94,6 +95,7 @@ export function FilterBar({
               showLowConfidence={showLowConfidence}
               onToggleConfidence={handleToggleConfidence}
               confidenceCounts={confidenceCounts}
+              showConfidence={!!detectionConfig?.showAdvancedOptions}
             />
           </div>
         )}
@@ -110,6 +112,7 @@ export function FilterBar({
           showLowConfidence={showLowConfidence}
           onToggleConfidence={handleToggleConfidence}
           confidenceCounts={confidenceCounts}
+          showConfidence={!!detectionConfig?.showAdvancedOptions}
         />
         <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400 flex-shrink-0">
           <div className="flex items-center gap-2">

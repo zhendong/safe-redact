@@ -375,93 +375,6 @@ export function SettingsPanel({
             )}
           </div>
 
-          {/* Confidence Thresholds */}
-          <div>
-            <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">{t('settings.confidenceThresholds')}</h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-              {t('settings.confidenceThresholdsDesc')}
-            </p>
-            <div className="space-y-4">
-              <div>
-                <label className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-gray-700 dark:text-gray-300">{t('settings.highConfidence')}</span>
-                  <span className="text-sm font-medium text-gray-900 dark:text-white">
-                    {Math.round(config.confidenceThresholds.high * 100)}%
-                  </span>
-                </label>
-                <input
-                  type="range"
-                  min="0.8"
-                  max="1.0"
-                  step="0.05"
-                  value={config.confidenceThresholds.high}
-                  onChange={(e) =>
-                    onConfigChange({
-                      ...config,
-                      confidenceThresholds: {
-                        ...config.confidenceThresholds,
-                        high: parseFloat(e.target.value),
-                      },
-                    })
-                  }
-                  className="w-full"
-                />
-              </div>
-
-              <div>
-                <label className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-gray-700 dark:text-gray-300">{t('settings.mediumConfidence')}</span>
-                  <span className="text-sm font-medium text-gray-900 dark:text-white">
-                    {Math.round(config.confidenceThresholds.medium * 100)}%
-                  </span>
-                </label>
-                <input
-                  type="range"
-                  min="0.6"
-                  max="0.9"
-                  step="0.05"
-                  value={config.confidenceThresholds.medium}
-                  onChange={(e) =>
-                    onConfigChange({
-                      ...config,
-                      confidenceThresholds: {
-                        ...config.confidenceThresholds,
-                        medium: parseFloat(e.target.value),
-                      },
-                    })
-                  }
-                  className="w-full"
-                />
-              </div>
-
-              <div>
-                <label className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-gray-700 dark:text-gray-300">{t('settings.lowConfidence')}</span>
-                  <span className="text-sm font-medium text-gray-900 dark:text-white">
-                    {Math.round(config.confidenceThresholds.low * 100)}%
-                  </span>
-                </label>
-                <input
-                  type="range"
-                  min="0.4"
-                  max="0.7"
-                  step="0.05"
-                  value={config.confidenceThresholds.low}
-                  onChange={(e) =>
-                    onConfigChange({
-                      ...config,
-                      confidenceThresholds: {
-                        ...config.confidenceThresholds,
-                        low: parseFloat(e.target.value),
-                      },
-                    })
-                  }
-                  className="w-full"
-                />
-              </div>
-            </div>
-          </div>
-
           {/* Detection Options */}
           <div>
             <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">{t('settings.detectionOptions')}</h3>
@@ -527,35 +440,6 @@ export function SettingsPanel({
             </div>
           </div>
 
-          {/* Aggressiveness */}
-          <div>
-            <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">{t('settings.detectionAggressiveness')}</h3>
-            <div className="space-y-2">
-              {(['conservative', 'balanced', 'aggressive'] as const).map((level) => (
-                <label
-                  key={level}
-                  className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer transition-colors"
-                >
-                  <input
-                    type="radio"
-                    name="aggressiveness"
-                    checked={config.aggressiveness === level}
-                    onChange={() => onConfigChange({ ...config, aggressiveness: level })}
-                    className="border-gray-300 dark:border-gray-600"
-                  />
-                  <div>
-                    <div className="text-sm font-medium text-gray-700 dark:text-gray-300 capitalize">{t(`settings.${level}`)}</div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
-                      {level === 'conservative' && t('settings.conservativeDesc')}
-                      {level === 'balanced' && t('settings.balancedDesc')}
-                      {level === 'aggressive' && t('settings.aggressiveDesc')}
-                    </div>
-                  </div>
-                </label>
-              ))}
-            </div>
-          </div>
-
           {/* Document Sanitization */}
           <div>
             <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">{t('settings.documentSanitization')}</h3>
@@ -575,6 +459,145 @@ export function SettingsPanel({
                 </div>
               </div>
             </label>
+          </div>
+
+          {/* Advanced: confidence tuning most people never need */}
+          <div>
+            <label className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg cursor-pointer">
+              <input
+                type="checkbox"
+                checked={!!config.showAdvancedOptions}
+                onChange={(e) =>
+                  onConfigChange({ ...config, showAdvancedOptions: e.target.checked })
+                }
+                className="mt-0.5 rounded border-gray-300 dark:border-gray-600"
+              />
+              <div>
+                <div className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('settings.showAdvancedOptions')}</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  {t('settings.showAdvancedOptionsDesc')}
+                </div>
+              </div>
+            </label>
+            {config.showAdvancedOptions && (
+              <div className="mt-6 space-y-6">
+                {/* Aggressiveness */}
+                <div>
+                  <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">{t('settings.detectionAggressiveness')}</h3>
+                  <div className="space-y-2">
+                    {(['conservative', 'balanced', 'aggressive'] as const).map((level) => (
+                      <label
+                        key={level}
+                        className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer transition-colors"
+                      >
+                        <input
+                          type="radio"
+                          name="aggressiveness"
+                          checked={config.aggressiveness === level}
+                          onChange={() => onConfigChange({ ...config, aggressiveness: level })}
+                          className="border-gray-300 dark:border-gray-600"
+                        />
+                        <div>
+                          <div className="text-sm font-medium text-gray-700 dark:text-gray-300 capitalize">{t(`settings.${level}`)}</div>
+                          <div className="text-xs text-gray-500 dark:text-gray-400">
+                            {level === 'conservative' && t('settings.conservativeDesc')}
+                            {level === 'balanced' && t('settings.balancedDesc')}
+                            {level === 'aggressive' && t('settings.aggressiveDesc')}
+                          </div>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Confidence Thresholds */}
+                <div>
+                  <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">{t('settings.confidenceThresholds')}</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                    {t('settings.confidenceThresholdsDesc')}
+                  </p>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="flex items-center justify-between mb-2">
+                        <span className="text-sm text-gray-700 dark:text-gray-300">{t('settings.highConfidence')}</span>
+                        <span className="text-sm font-medium text-gray-900 dark:text-white">
+                          {Math.round(config.confidenceThresholds.high * 100)}%
+                        </span>
+                      </label>
+                      <input
+                        type="range"
+                        min={Math.max(0.8, config.confidenceThresholds.medium)}
+                        max="1.0"
+                        step="0.05"
+                        value={config.confidenceThresholds.high}
+                        onChange={(e) =>
+                          onConfigChange({
+                            ...config,
+                            confidenceThresholds: {
+                              ...config.confidenceThresholds,
+                              high: parseFloat(e.target.value),
+                            },
+                          })
+                        }
+                        className="w-full"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="flex items-center justify-between mb-2">
+                        <span className="text-sm text-gray-700 dark:text-gray-300">{t('settings.mediumConfidence')}</span>
+                        <span className="text-sm font-medium text-gray-900 dark:text-white">
+                          {Math.round(config.confidenceThresholds.medium * 100)}%
+                        </span>
+                      </label>
+                      <input
+                        type="range"
+                        min={Math.max(0.6, config.confidenceThresholds.low)}
+                        max={Math.min(0.9, config.confidenceThresholds.high)}
+                        step="0.05"
+                        value={config.confidenceThresholds.medium}
+                        onChange={(e) =>
+                          onConfigChange({
+                            ...config,
+                            confidenceThresholds: {
+                              ...config.confidenceThresholds,
+                              medium: parseFloat(e.target.value),
+                            },
+                          })
+                        }
+                        className="w-full"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="flex items-center justify-between mb-2">
+                        <span className="text-sm text-gray-700 dark:text-gray-300">{t('settings.lowConfidence')}</span>
+                        <span className="text-sm font-medium text-gray-900 dark:text-white">
+                          {Math.round(config.confidenceThresholds.low * 100)}%
+                        </span>
+                      </label>
+                      <input
+                        type="range"
+                        min="0.4"
+                        max={Math.min(0.7, config.confidenceThresholds.medium)}
+                        step="0.05"
+                        value={config.confidenceThresholds.low}
+                        onChange={(e) =>
+                          onConfigChange({
+                            ...config,
+                            confidenceThresholds: {
+                              ...config.confidenceThresholds,
+                              low: parseFloat(e.target.value),
+                            },
+                          })
+                        }
+                        className="w-full"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Privacy Settings */}

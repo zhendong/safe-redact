@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { DetectedEntity, DetectionConfig, EntityType } from '@/lib/types';
 import { EntityCard } from './EntityCard';
 import { DEFAULT_CONFIDENCE_THRESHOLDS } from '@/utils/constants';
+import { getConfidenceLevel } from '@/utils/confidence';
 import { FilterPanel } from './FilterPanel';
 import { useLanguage } from '@/contexts/LanguageContext';
 
@@ -64,6 +65,18 @@ export function EntityList({
   const handleConfirmAll = (entity: DetectedEntity) => {
     const similarEntities = getSimilarEntities(entity);
     const idsToConfirm = similarEntities.map((e) => e.id);
+    if (idsToConfirm.length > 0) {
+      onEntityConfirm(idsToConfirm);
+    }
+  };
+
+  const showAdvanced = !!detectionConfig?.showAdvancedOptions;
+  const thresholds = detectionConfig?.confidenceThresholds ?? DEFAULT_CONFIDENCE_THRESHOLDS;
+
+  const confirmHighConfidence = () => {
+    const idsToConfirm = entities
+      .filter((e) => e.status !== 'confirmed' && getConfidenceLevel(e.confidence, thresholds) === 'high')
+      .map((e) => e.id);
     if (idsToConfirm.length > 0) {
       onEntityConfirm(idsToConfirm);
     }
@@ -138,6 +151,7 @@ export function EntityList({
                 showLowConfidence={showLowConfidence || false}
                 onToggleConfidence={handleToggleConfidence}
                 confidenceCounts={confidenceCounts}
+                showConfidence={showAdvanced}
               />
             </div>
           )}
@@ -152,21 +166,14 @@ export function EntityList({
           {/* Bulk Actions */}
           <div className="flex gap-1.5">
             {/* Select All High Confidence */}
-            <button
-              onClick={() => {
-                const highThreshold = detectionConfig?.confidenceThresholds.high ?? DEFAULT_CONFIDENCE_THRESHOLDS.high;
-                const idsToConfirm = entities
-                  .filter((e) => e.status !== 'confirmed' && e.confidence >= highThreshold)
-                  .map((e) => e.id);
-
-                if (idsToConfirm.length > 0) {
-                  onEntityConfirm(idsToConfirm);
-                }
-              }}
-              className="btn-primary px-2.5 py-1 text-xs"
-            >
-              {t('entityList.selectAllHighConfidence')}
-            </button>
+            {showAdvanced && (
+              <button
+                onClick={confirmHighConfidence}
+                className="btn-primary px-2.5 py-1 text-xs"
+              >
+                {t('entityList.selectAllHighConfidence')}
+              </button>
+            )}
 
             {/* Context-aware Select/Unselect All */}
             {(() => {
@@ -213,22 +220,15 @@ export function EntityList({
       <div className="lg:hidden bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-2.5 sm:p-3 flex-shrink-0">
         <div className="flex gap-2">
           {/* Select All High Confidence */}
-          <button
-            onClick={() => {
-              const highThreshold = detectionConfig?.confidenceThresholds.high ?? DEFAULT_CONFIDENCE_THRESHOLDS.high;
-              const idsToConfirm = entities
-                .filter((e) => e.status !== 'confirmed' && e.confidence >= highThreshold)
-                .map((e) => e.id);
-
-              if (idsToConfirm.length > 0) {
-                onEntityConfirm(idsToConfirm);
-              }
-            }}
-            className="btn-primary flex-1 px-3 py-2 text-xs"
-          >
-            <span className="hidden sm:inline">{t('entityList.selectAllHighConfidence')}</span>
-            <span className="sm:hidden">{t('entityList.selectAllHighConfidenceShort')}</span>
-          </button>
+          {showAdvanced && (
+            <button
+              onClick={confirmHighConfidence}
+              className="btn-primary flex-1 px-3 py-2 text-xs"
+            >
+              <span className="hidden sm:inline">{t('entityList.selectAllHighConfidence')}</span>
+              <span className="sm:hidden">{t('entityList.selectAllHighConfidenceShort')}</span>
+            </button>
+          )}
 
           {/* Context-aware Select/Unselect All */}
           {(() => {
@@ -292,6 +292,7 @@ export function EntityList({
                   onReject={() => onEntityReject(entity.id)}
                   onConfirmAll={() => handleConfirmAll(entity)}
                   similarCount={similarEntities.length}
+                  confidenceThresholds={thresholds}
                   compact={compactCards}
                 />
               );

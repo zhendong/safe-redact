@@ -251,6 +251,7 @@ export interface DetectionConfig {
   aggressiveness: 'conservative' | 'balanced' | 'aggressive';
   sanitizeDocument: boolean;               // Strip metadata and hidden content
   knownEntityTypes?: EntityType[];         // Types that existed when saved; newer ones get enabled on load
+  showAdvancedOptions?: boolean;           // Show confidence settings and filters
 }
 
 /**

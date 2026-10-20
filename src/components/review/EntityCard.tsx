@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import type { DetectedEntity } from '@/lib/types';
+import type { DetectedEntity, DetectionConfig } from '@/lib/types';
 import { getEntityColor, getEntityDisplayName } from '@/utils/entity-types';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { getConfidenceLevel } from '@/utils/confidence';
 
 const FOCUS = 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink dark:focus-visible:outline-paper';
 
@@ -14,6 +15,7 @@ interface EntityCardProps {
   onConfirmAll?: () => void;
   similarCount?: number;
   compact?: boolean;
+  confidenceThresholds?: DetectionConfig['confidenceThresholds'];
 }
 
 export function EntityCard({
@@ -25,6 +27,7 @@ export function EntityCard({
   onConfirmAll,
   similarCount,
   compact = false,
+  confidenceThresholds,
 }: EntityCardProps) {
   const { language, t } = useLanguage();
   const [isExpanded, setIsExpanded] = useState(false);
@@ -35,9 +38,11 @@ export function EntityCard({
   const isChecked = entity.status === 'confirmed';
   const showConfirmAll = !!onConfirmAll && similarCount !== undefined && similarCount > 1 && entity.status === 'rejected';
 
+  // Same levels as the confidence filters
   const getConfidenceColor = (confidence: number) => {
-    if (confidence >= 0.9) return 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30';
-    if (confidence >= 0.7) return 'text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/30';
+    const level = getConfidenceLevel(confidence, confidenceThresholds);
+    if (level === 'high') return 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30';
+    if (level === 'medium') return 'text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/30';
     return 'text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/30';
   };
 
