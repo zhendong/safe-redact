@@ -28,6 +28,7 @@ import { generateId, validateFile } from '@/utils/validation';
 import { isDesktop, onDesktopFileOpened, onDesktopExportRequested, setDesktopExportEnabled, confirmAction } from '@/platform';
 import { STORAGE_KEYS, DEFAULT_CONFIDENCE_THRESHOLDS } from '@/utils/constants';
 import { generateRedactedFilename } from '@/utils/file-utils';
+import { buildWhitespaceTolerantPattern } from '@/utils/text-utils';
 import { enableNewEntityTypes } from '@/utils/entity-types';
 import { useMemo } from 'react';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -361,11 +362,9 @@ function App() {
   // DOCX: redact every occurrence of text the user selected in the preview
   const handleDocxTextRedact = (selectedText: string) => {
     if (!processedDocx) return;
-    const chars = Array.from(selectedText.replace(/\s+/g, ''));
-    if (chars.length === 0) return;
+    const pattern = buildWhitespaceTolerantPattern(selectedText);
+    if (!pattern) return;
 
-    // fullText joins XML text runs with spaces, so allow whitespace between any characters
-    const pattern = new RegExp(chars.map(c => c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('\\s*'), 'gi');
     const manualEntities: DetectedEntity[] = [];
     for (const match of processedDocx.fullText.matchAll(pattern)) {
       manualEntities.push({
@@ -384,7 +383,7 @@ function App() {
       });
     }
     if (manualEntities.length === 0) {
-      log.warn('Selected text not found in document text', { chars: chars.length });
+      log.warn('Selected text not found in document text', { chars: selectedText.length });
       return;
     }
 
@@ -1556,6 +1555,7 @@ function App() {
                 {processedDocx && (
                   <DocxViewer
                     htmlContent={processedDocx.htmlContent}
+                    fullText={processedDocx.fullText}
                     entities={filteredEntities}
                     selectedEntityId={selectedEntityId}
                     onEntityClick={handleEntitySelect}

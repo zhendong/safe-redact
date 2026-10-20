@@ -3,9 +3,11 @@ import type { DetectedEntity } from '@/lib/types';
 import { getEntityColor, getEntityDisplayName } from '@/utils/entity-types';
 import { useLanguage } from '@/contexts/LanguageContext';
 import type { Language } from '@/i18n/translations';
+import { buildWhitespaceTolerantPattern } from '@/utils/text-utils';
 
 interface DocxViewerProps {
   htmlContent: string;
+  fullText: string;
   entities: DetectedEntity[];
   selectedEntityId?: string;
   onEntityClick?: (entity: DetectedEntity) => void;
@@ -18,6 +20,7 @@ interface DocxViewerProps {
  */
 export function DocxViewer({
   htmlContent,
+  fullText,
   entities,
   selectedEntityId,
   onEntityClick,
@@ -57,9 +60,20 @@ export function DocxViewer({
 
   useEffect(() => {
     // Inject entity highlights into HTML
-    const highlighted = highlightEntities(htmlContent, entities, language, selectedEntityId);
+    const highlighted = highlightEntities(htmlContent, fullText, entities, language, selectedEntityId);
     setHighlightedHtml(highlighted);
-  }, [htmlContent, entities, selectedEntityId, language]);
+  }, [htmlContent, fullText, entities, selectedEntityId, language]);
+
+  // Bring the selected entity into view when it changes, e.g. after clicking it in the list
+  const scrolledEntityIdRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (!selectedEntityId || selectedEntityId === scrolledEntityIdRef.current) return;
+    const span = containerRef.current?.querySelector(`[data-entity-id="${CSS.escape(selectedEntityId)}"]`);
+    if (span) {
+      span.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      scrolledEntityIdRef.current = selectedEntityId;
+    }
+  }, [selectedEntityId, highlightedHtml]);
 
   // Handle clicks on highlighted entities
   useEffect(() => {
@@ -120,48 +134,104 @@ export function DocxViewer({
   );
 }
 
+interface HighlightRange {
+  entity: DetectedEntity;
+  start: number;
+  end: number;
+}
+
 /**
- * Highlight entities in HTML content
+ * Find where each entity appears in the preview's text.
+ * An entity at fullText offset N is the k-th match of its text in fullText,
+ * so it is highlighted at the k-th match in the preview. That puts repeated
+ * text on the right occurrence instead of always the first.
+ */
+function locateEntities(previewText: string, fullText: string, entities: DetectedEntity[]): HighlightRange[] {
+  const matchCache = new Map<string, { full: number[]; preview: Array<[number, number]> }>();
+  const ranges: HighlightRange[] = [];
+
+  for (const entity of entities) {
+    const pattern = buildWhitespaceTolerantPattern(entity.text);
+    if (!pattern) continue;
+
+    let matches = matchCache.get(pattern.source);
+    if (!matches) {
+      matches = {
+        full: Array.from(fullText.matchAll(pattern), m => m.index),
+        preview: Array.from(previewText.matchAll(pattern), m => [m.index, m.index + m[0].length] as [number, number]),
+      };
+      matchCache.set(pattern.source, matches);
+    }
+
+    // Fall back to the first match if the offset doesn't line up with a match
+    const occurrence = Math.max(0, matches.full.findIndex(index => index >= entity.position.textIndex));
+    const match = matches.preview[occurrence];
+    if (match) ranges.push({ entity, start: match[0], end: match[1] });
+  }
+
+  // Drop ranges that overlap one already claimed, preferring longer ones
+  ranges.sort((a, b) => (b.end - b.start) - (a.end - a.start));
+  const kept: HighlightRange[] = [];
+  for (const range of ranges) {
+    if (!kept.some(other => range.start < other.end && other.start < range.end)) kept.push(range);
+  }
+  return kept;
+}
+
+/**
+ * Highlight entities in HTML content by wrapping text nodes, so matches can
+ * never land inside tags or attributes
  */
 function highlightEntities(
   html: string,
+  fullText: string,
   entities: DetectedEntity[],
   language: Language,
   selectedEntityId?: string
 ): string {
-  let result = html;
+  const body = new DOMParser().parseFromString(html, 'text/html').body;
 
-  // Sort entities by position (longest first to avoid nested replacements)
-  const sortedEntities = [...entities]
-    .sort((a, b) => b.text.length - a.text.length);
+  // Map every text node to its offset in the preview's text
+  const textNodes: Array<{ node: Text; start: number }> = [];
+  let previewText = '';
+  const walker = body.ownerDocument.createTreeWalker(body, NodeFilter.SHOW_TEXT);
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    textNodes.push({ node: node as Text, start: previewText.length });
+    previewText += (node as Text).data;
+  }
 
-  for (const entity of sortedEntities) {
+  // Wrap from the end so splitting a node never moves an earlier range
+  const ranges = locateEntities(previewText, fullText, entities).sort((a, b) => b.start - a.start);
+  for (const { entity, start, end } of ranges) {
     const color = getEntityColor(entity.entityType);
     const isSelected = entity.id === selectedEntityId;
     // Unchecked detections get a dashed underline and no fill so they read as "not redacted"
     const isChecked = entity.status === 'confirmed';
 
-    // Create highlight span
-    const highlightSpan = `<span
-      data-entity-id="${entity.id}"
-      class="entity-highlight ${isSelected ? 'selected' : ''}"
-      style="
-        background-color: ${isChecked ? `${color}66` : 'transparent'};
-        border-bottom: 2px ${isChecked ? 'solid' : 'dashed'} ${color};
-        cursor: pointer;
-        padding: 2px 0;
-        ${isSelected ? 'box-shadow: 0 0 0 3px ' + color + '40;' : ''}
-      "
-      title="${getEntityDisplayName(entity.entityType, language)} (${Math.round(entity.confidence * 100)}%)"
-    >$&</span>`;
+    for (let i = textNodes.length - 1; i >= 0; i--) {
+      const { node, start: nodeStart } = textNodes[i];
+      const nodeEnd = nodeStart + node.data.length;
+      if (nodeEnd <= start || nodeStart >= end) continue;
 
-    // Escape special regex characters in entity text
-    const escapedText = entity.text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      // Split off the part of this node inside the range
+      let target = node;
+      if (start > nodeStart) target = target.splitText(start - nodeStart);
+      if (end < nodeEnd) target.splitText(end - Math.max(start, nodeStart));
+      if (!target.data) continue;
 
-    // Replace first occurrence only (use a unique marker)
-    const regex = new RegExp(`(${escapedText})`, 'i');
-    result = result.replace(regex, highlightSpan);
+      const span = body.ownerDocument.createElement('span');
+      span.dataset.entityId = entity.id;
+      span.className = `entity-highlight${isSelected ? ' selected' : ''}`;
+      span.title = `${getEntityDisplayName(entity.entityType, language)} (${Math.round(entity.confidence * 100)}%)`;
+      span.style.backgroundColor = isChecked ? `${color}66` : 'transparent';
+      span.style.borderBottom = `2px ${isChecked ? 'solid' : 'dashed'} ${color}`;
+      span.style.cursor = 'pointer';
+      span.style.padding = '2px 0';
+      if (isSelected) span.style.boxShadow = `0 0 0 3px ${color}40`;
+      target.replaceWith(span);
+      span.appendChild(target);
+    }
   }
 
-  return result;
+  return body.innerHTML;
 }
