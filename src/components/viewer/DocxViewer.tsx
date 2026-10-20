@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { DetectedEntity } from '@/lib/types';
 import { getEntityColor, getEntityDisplayName } from '@/utils/entity-types';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -28,41 +28,159 @@ export function DocxViewer({
 }: DocxViewerProps) {
   const { language, t } = useLanguage();
   const containerRef = useRef<HTMLDivElement>(null);
-  const [highlightedHtml, setHighlightedHtml] = useState('');
-  const [selection, setSelection] = useState<{ text: string; top: number; left: number } | null>(null);
+  const [selection, setSelection] = useState<SelectionPopover | null>(null);
+  // Touch selections are drawn by the app: native selection on touch screens opens the
+  // system Copy/Translate bar, which a page can't suppress
+  const [touchRects, setTouchRects] = useState<DOMRect[]>([]);
+  const [isTouchInput, setIsTouchInput] = useState(() => window.matchMedia('(pointer: coarse)').matches);
+  const touchSelectionActiveRef = useRef(false);
 
-  // Offer a "Redact selection" button when the user selects text in the preview
+  // React 19 rewrites innerHTML whenever this object changes identity, which wipes the
+  // user's text selection, so only build a new one when the highlights change
+  const highlightedHtml = useMemo(
+    () => ({ __html: highlightEntities(htmlContent, fullText, entities, language, selectedEntityId) }),
+    [htmlContent, fullText, entities, selectedEntityId, language]
+  );
+
+  const clearSelection = () => {
+    setSelection(null);
+    setTouchRects([]);
+    touchSelectionActiveRef.current = false;
+  };
+
+  // Offer to redact text the user selects in the preview. The popover appears once the
+  // selection is finished, so it never sits under the pointer while dragging.
   useEffect(() => {
-    if (!onTextSelectionRedact) return;
+    const container = containerRef.current;
+    if (!onTextSelectionRedact || !container) return;
 
-    const handleSelectionChange = () => {
+    const describeRange = (range: Range): SelectionPopover | null => {
+      const text = range.toString().trim();
+      if (!text) return null;
+      // Anchor below the end of the selection, kept inside the window
+      const rects = range.getClientRects();
+      const last = rects[rects.length - 1] ?? range.getBoundingClientRect();
+      const pattern = buildWhitespaceTolerantPattern(text);
+      return {
+        text,
+        occurrences: pattern ? Array.from(fullText.matchAll(pattern)).length : 0,
+        top: last.bottom + 8,
+        left: Math.min(Math.max(last.right, 170), window.innerWidth - 170),
+      };
+    };
+
+    // Mouse and keyboard use the browser's own selection
+    const getNativeSelection = () => {
       const current = window.getSelection();
-      const container = containerRef.current;
-      const text = current?.toString().trim() ?? '';
-      if (!current || current.isCollapsed || !text || !container || !container.contains(current.anchorNode)) {
+      if (!current || current.isCollapsed || current.rangeCount === 0 || !container.contains(current.anchorNode)) return null;
+      return current.getRangeAt(0);
+    };
+    const showNativePopover = () => {
+      const range = getNativeSelection();
+      setSelection(range ? describeRange(range) : null);
+    };
+    const handleSelectionChange = () => {
+      if (!touchSelectionActiveRef.current && !getNativeSelection()) setSelection(null);
+    };
+    const handlePointerDown = (e: PointerEvent) => {
+      if ((e.target as Element).closest?.('[data-selection-popover]')) return;
+      setSelection(null);
+      setTouchRects([]);
+      touchSelectionActiveRef.current = false;
+    };
+    const handlePointerUp = (e: PointerEvent) => {
+      if (e.pointerType !== 'touch') showNativePopover();
+    };
+    // Keyboard selection (Shift + arrows) finishes on key release
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.shiftKey || e.key === 'Shift') showNativePopover();
+    };
+
+    // Touch: long-press a word to start, drag to extend, release to show the popover
+    let pressTimer: number | undefined;
+    let pressPoint: { x: number; y: number } | null = null;
+    let anchorWord: Range | null = null;
+    let touchRange: Range | null = null;
+    const cancelPress = () => {
+      window.clearTimeout(pressTimer);
+      pressTimer = undefined;
+    };
+    const handleTouchStart = (e: TouchEvent) => {
+      cancelPress();
+      anchorWord = null;
+      if (e.touches.length !== 1) return;
+      pressPoint = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      pressTimer = window.setTimeout(() => {
+        pressTimer = undefined;
+        const word = pressPoint && wordRangeAt(pressPoint.x, pressPoint.y, container);
+        if (!word) return;
+        anchorWord = touchRange = word;
+        touchSelectionActiveRef.current = true;
         setSelection(null);
+        setTouchRects(visibleRects(word));
+        navigator.vibrate?.(10);
+      }, LONG_PRESS_MS);
+    };
+    const handleTouchMove = (e: TouchEvent) => {
+      const touch = e.touches[0];
+      if (!anchorWord) {
+        // Moving before the long press fires is a scroll
+        if (pressPoint && Math.hypot(touch.clientX - pressPoint.x, touch.clientY - pressPoint.y) > 10) cancelPress();
         return;
       }
-      const rect = current.getRangeAt(0).getBoundingClientRect();
-      setSelection({ text, top: rect.bottom + 8, left: rect.left + rect.width / 2 });
+      // Extending a selection: stop the page from scrolling
+      e.preventDefault();
+      const word = wordRangeAt(touch.clientX, touch.clientY, container);
+      if (!word) return;
+      touchRange = spanRanges(anchorWord, word);
+      setTouchRects(visibleRects(touchRange));
+    };
+    const handleTouchEnd = (e: TouchEvent) => {
+      cancelPress();
+      if (!anchorWord || !touchRange) return;
+      // Don't let the long press also count as a tap on a highlight
+      e.preventDefault();
+      anchorWord = null;
+      setSelection(describeRange(touchRange));
+    };
+    const handleTouchCancel = () => {
+      cancelPress();
+      anchorWord = null;
+    };
+    // Android opens a context menu on long press
+    const handleContextMenu = (e: Event) => {
+      if (touchSelectionActiveRef.current) e.preventDefault();
     };
 
     document.addEventListener('selectionchange', handleSelectionChange);
-    return () => document.removeEventListener('selectionchange', handleSelectionChange);
-  }, [onTextSelectionRedact]);
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('pointerup', handlePointerUp);
+    document.addEventListener('keyup', handleKeyUp);
+    container.addEventListener('touchstart', handleTouchStart, { passive: true });
+    container.addEventListener('touchmove', handleTouchMove, { passive: false });
+    container.addEventListener('touchend', handleTouchEnd);
+    container.addEventListener('touchcancel', handleTouchCancel);
+    container.addEventListener('contextmenu', handleContextMenu);
+    return () => {
+      cancelPress();
+      document.removeEventListener('selectionchange', handleSelectionChange);
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('pointerup', handlePointerUp);
+      document.removeEventListener('keyup', handleKeyUp);
+      container.removeEventListener('touchstart', handleTouchStart);
+      container.removeEventListener('touchmove', handleTouchMove);
+      container.removeEventListener('touchend', handleTouchEnd);
+      container.removeEventListener('touchcancel', handleTouchCancel);
+      container.removeEventListener('contextmenu', handleContextMenu);
+    };
+  }, [onTextSelectionRedact, fullText]);
 
   const handleRedactSelection = () => {
     if (!selection || !onTextSelectionRedact) return;
     onTextSelectionRedact(selection.text);
     window.getSelection()?.removeAllRanges();
-    setSelection(null);
+    clearSelection();
   };
-
-  useEffect(() => {
-    // Inject entity highlights into HTML
-    const highlighted = highlightEntities(htmlContent, fullText, entities, language, selectedEntityId);
-    setHighlightedHtml(highlighted);
-  }, [htmlContent, fullText, entities, selectedEntityId, language]);
 
   // Bring the selected entity into view when it changes, e.g. after clicking it in the list
   const scrolledEntityIdRef = useRef<string | undefined>(undefined);
@@ -82,6 +200,8 @@ export function DocxViewer({
     const handleClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
       const entitySpan = target.closest('[data-entity-id]');
+      // A drag that ends on a highlight is a text selection, not a click on the entity
+      if (!window.getSelection()?.isCollapsed) return;
 
       if (entitySpan) {
         const entityId = entitySpan.getAttribute('data-entity-id');
@@ -106,32 +226,121 @@ export function DocxViewer({
           {t('docxViewer.documentPreview')}
         </div>
         <div className="text-xs text-gray-500 dark:text-gray-400">
-          {t('docxViewer.clickToReview')}
+          {t(isTouchInput ? 'docxViewer.clickToReviewTouch' : 'docxViewer.clickToReview')}
         </div>
       </div>
 
       {/* Document Content */}
-      <div className="flex-1 overflow-auto p-8 bg-gray-100 dark:bg-gray-900" onScroll={() => setSelection(null)}>
+      <div className="flex-1 overflow-auto p-8 bg-gray-100 dark:bg-gray-900" onScroll={clearSelection}>
         <div
           ref={containerRef}
-          className="max-w-4xl mx-auto bg-white dark:bg-gray-800 shadow-lg p-12 docx-content dark:text-gray-200"
-          dangerouslySetInnerHTML={{ __html: highlightedHtml }}
+          // Switch to the app's own selection as soon as a finger touches the preview
+          onPointerDown={(e) => setIsTouchInput(e.pointerType === 'touch')}
+          className={`max-w-4xl mx-auto bg-white dark:bg-gray-800 shadow-lg p-12 docx-content dark:text-gray-200 cursor-text selection:bg-[#c9a96e]/60 dark:selection:bg-[#c9a96e]/45 ${
+            isTouchInput ? 'select-none [-webkit-touch-callout:none]' : ''
+          }`}
+          dangerouslySetInnerHTML={highlightedHtml}
         />
       </div>
 
+      {touchRects.map((rect, i) => (
+        <div
+          key={i}
+          className="fixed z-40 pointer-events-none rounded-sm bg-[#c9a96e]/60 dark:bg-[#c9a96e]/45"
+          style={{ left: rect.left, top: rect.top, width: rect.width, height: rect.height }}
+        />
+      ))}
+
       {selection && (
-        <button
-          // Keep the text selection alive while clicking
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={handleRedactSelection}
-          className="btn-primary fixed z-50 -translate-x-1/2 px-4 py-2 text-sm shadow-lg"
+        <div
+          data-selection-popover
+          role="dialog"
+          aria-label={t('docxViewer.redactSelection')}
+          className="surface fixed z-50 -translate-x-1/2 w-[300px] rounded-xl p-3 shadow-[0_18px_40px_-20px_rgba(28,27,25,0.35)]"
           style={{ top: selection.top, left: selection.left }}
         >
-          {t('docxViewer.redactSelection')}
-        </button>
+          <p className="text-sm font-medium text-gray-900 dark:text-gray-100 break-words line-clamp-2">
+            “{selection.text}”
+          </p>
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            {selection.occurrences === 0
+              ? t('docxViewer.selectionNotFound')
+              : selection.occurrences === 1
+                ? t('docxViewer.selectionFoundOnce')
+                : t('docxViewer.selectionFound', { count: selection.occurrences })}
+          </p>
+          {selection.occurrences > 0 && (
+            <button
+              // Keep the text selection alive while clicking
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={handleRedactSelection}
+              className="btn-primary mt-2.5 w-full px-4 py-2 text-sm"
+            >
+              {selection.occurrences === 1
+                ? t('docxViewer.redactSelection')
+                : t('docxViewer.redactAllOccurrences', { count: selection.occurrences })}
+            </button>
+          )}
+        </div>
       )}
     </div>
   );
+}
+
+interface SelectionPopover {
+  text: string;
+  occurrences: number;
+  top: number;
+  left: number;
+}
+
+const LONG_PRESS_MS = 400;
+
+/**
+ * Range covering the word under a screen point, or null outside the preview's text.
+ * Uses Intl.Segmenter so Chinese text splits into words too.
+ */
+function wordRangeAt(x: number, y: number, container: HTMLElement): Range | null {
+  const doc = document as Document & {
+    caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node; offset: number } | null;
+    caretRangeFromPoint?: (x: number, y: number) => Range | null;
+  };
+  let node: Node | undefined;
+  let offset = 0;
+  if (doc.caretPositionFromPoint) {
+    const position = doc.caretPositionFromPoint(x, y);
+    node = position?.offsetNode;
+    offset = position?.offset ?? 0;
+  } else if (doc.caretRangeFromPoint) {
+    const range = doc.caretRangeFromPoint(x, y);
+    node = range?.startContainer;
+    offset = range?.startOffset ?? 0;
+  }
+  if (!(node instanceof Text) || !container.contains(node) || node.data.length === 0) return null;
+
+  const index = Math.min(offset, node.data.length - 1);
+  for (const segment of new Intl.Segmenter(undefined, { granularity: 'word' }).segment(node.data)) {
+    if (index < segment.index || index >= segment.index + segment.segment.length) continue;
+    if (!segment.segment.trim()) return null;
+    const range = document.createRange();
+    range.setStart(node, segment.index);
+    range.setEnd(node, segment.index + segment.segment.length);
+    return range;
+  }
+  return null;
+}
+
+/** Range from the start of whichever word comes first to the end of the other */
+function spanRanges(a: Range, b: Range): Range {
+  const [first, last] = a.compareBoundaryPoints(Range.START_TO_START, b) <= 0 ? [a, b] : [b, a];
+  const range = document.createRange();
+  range.setStart(first.startContainer, first.startOffset);
+  range.setEnd(last.endContainer, last.endOffset);
+  return range;
+}
+
+function visibleRects(range: Range): DOMRect[] {
+  return Array.from(range.getClientRects()).filter(rect => rect.width > 0 && rect.height > 0);
 }
 
 interface HighlightRange {

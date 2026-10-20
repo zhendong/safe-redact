@@ -279,7 +279,12 @@ export const translations = {
     docxViewer: {
       documentPreview: 'Document Preview',
       clickToReview: 'Click a highlight to review it · Select text to redact it',
-      redactSelection: 'Redact selection',
+      clickToReviewTouch: 'Tap a highlight to review it · Long-press text to redact it',
+      redactSelection: 'Redact',
+      redactAllOccurrences: 'Redact all {{count}}',
+      selectionFound: 'Appears {{count}} times in the document',
+      selectionFoundOnce: 'Appears once in the document',
+      selectionNotFound: "This text can't be matched in the document. Try selecting less.",
     },
     hiddenContentWarning: {
       title: 'Hidden Content Detected',
@@ -669,7 +674,12 @@ export const translations = {
     docxViewer: {
       documentPreview: '文档预览',
       clickToReview: '点击高亮内容进行审核 · 选中文本即可遮盖',
-      redactSelection: '遮盖所选内容',
+      clickToReviewTouch: '轻点高亮内容进行审核 · 长按文本即可遮盖',
+      redactSelection: '遮盖',
+      redactAllOccurrences: '全部遮盖（{{count}} 处）',
+      selectionFound: '文档中出现 {{count}} 次',
+      selectionFoundOnce: '文档中出现 1 次',
+      selectionNotFound: '无法在文档中匹配这段文字，请尝试少选一些。',
     },
     hiddenContentWarning: {
       title: '检测到隐藏内容',
