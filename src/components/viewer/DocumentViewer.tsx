@@ -317,7 +317,6 @@ export function DocumentViewer({
               }}
             >
               {currentPageData.entities
-                .filter((entity) => entity.status !== 'rejected')
                 .map((entity) => (
                   <EntityHighlight
                     key={entity.id}

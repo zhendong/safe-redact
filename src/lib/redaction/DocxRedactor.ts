@@ -108,14 +108,16 @@ export class DocxRedactor {
     for (let i = 0; i < textNodes.length; i++) {
       const node = textNodes[i];
       const text = node.textContent || '';
+      // The parser skips empty runs, so skip them here too or every later offset shifts
+      if (!text) continue;
+      // Add space between text nodes to match parser's join(' ')
+      if (nodeMap.length > 0) {
+        fullText += ' ';
+      }
       const start = fullText.length;
       const end = start + text.length;
       nodeMap.push({ node, start, end, text });
       fullText += text;
-      // Add space between text nodes to match parser's join(' ')
-      if (i < textNodes.length - 1) {
-        fullText += ' ';
-      }
     }
 
     // Sort entities by position (reverse order to avoid offset issues)

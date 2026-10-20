@@ -402,21 +402,33 @@ export class LLMDetector {
    * Detect entities in plain text (for DOCX documents)
    * Returns simplified entities without page/position info
    */
-  async detectEntitiesInChunks(
+  async detectEntitiesInText(
     text: string,
     onProgress?: (progress: number) => void
-  ): Promise<Array<{ text: string; entityType: string; confidence: number }>> {
-    const entities: Array<{ text: string; entityType: string; confidence: number }> = [];
-    const seenEntities = new Set<string>();
+  ): Promise<DetectedEntity[]> {
+    const entities: DetectedEntity[] = [];
 
+    // Keep every occurrence: DOCX redaction removes text by offset, one entity per occurrence
     for (const span of await this.findSpans(text)) {
-      const searchText = text.slice(span.start, span.end).trim();
+      const rawText = text.slice(span.start, span.end);
+      const searchText = rawText.trim();
       if (searchText.length < 2) continue;
+      const textIndex = span.start + (rawText.length - rawText.trimStart().length);
 
-      const entityKey = `${searchText}:${span.type}`;
-      if (seenEntities.has(entityKey)) continue;
-      seenEntities.add(entityKey);
-      entities.push({ text: searchText, entityType: span.type, confidence: span.score });
+      entities.push({
+        id: generateId(),
+        text: searchText,
+        entityType: span.type,
+        confidence: span.score,
+        position: {
+          pageNumber: 1, // DOCX doesn't have pages in XML
+          textIndex,
+          boundingBox: { x: 0, y: 0, width: 0, height: 0 }, // No coordinates needed for DOCX
+        },
+        detectionMethod: 'ml_ner',
+        status: 'rejected',
+        contextText: extractContext(text, textIndex, searchText.length),
+      });
     }
     onProgress?.(100);
 

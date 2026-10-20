@@ -5,6 +5,11 @@ export class EntityAggregator {
    * Deduplicate and merge overlapping entities
    */
   deduplicateEntities(entities: DetectedEntity[]): DetectedEntity[] {
+    // DOCX entities have no coordinates, only a text offset
+    if (entities.length > 0 && entities.every(e => this.isTextOnly(e))) {
+      return this.deduplicateTextEntities(entities);
+    }
+
     // Group entities by page
     const entitiesByPage = new Map<number, DetectedEntity[]>();
     for (const entity of entities) {
@@ -83,6 +88,49 @@ export class EntityAggregator {
 
       result.push(bestMatch);
       used.add(i);
+    }
+
+    return result;
+  }
+
+  private isTextOnly(entity: DetectedEntity): boolean {
+    const box = entity.position.boundingBox;
+    return box.width === 0 && box.height === 0 && entity.position.textIndex >= 0;
+  }
+
+  /**
+   * Deduplicate entities located by text offset. Every occurrence is kept;
+   * overlapping ranges are merged into one entity covering both, because
+   * DOCX redaction edits text by offset and can't apply overlapping edits.
+   */
+  private deduplicateTextEntities(entities: DetectedEntity[]): DetectedEntity[] {
+    const sorted = [...entities].sort((a, b) =>
+      a.position.textIndex - b.position.textIndex || b.text.length - a.text.length
+    );
+
+    const result: DetectedEntity[] = [];
+    for (const entity of sorted) {
+      const last = result[result.length - 1];
+      const lastEnd = last ? last.position.textIndex + last.text.length : -1;
+      if (!last || entity.position.textIndex >= lastEnd) {
+        result.push(entity);
+        continue;
+      }
+
+      // Overlap: extend the previous range to cover this one
+      const end = entity.position.textIndex + entity.text.length;
+      const text = end > lastEnd
+        ? last.text + entity.text.slice(lastEnd - entity.position.textIndex)
+        : last.text;
+      const keep = entity.confidence > last.confidence ? entity : last;
+      result[result.length - 1] = {
+        ...keep,
+        // A checked entity stays checked when merged with an unchecked one
+        status: last.status === 'confirmed' || entity.status === 'confirmed' ? 'confirmed' : keep.status,
+        text,
+        position: last.position,
+        contextText: last.contextText,
+      };
     }
 
     return result;

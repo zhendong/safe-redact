@@ -50,7 +50,7 @@ let found = 0;
 let total = 0;
 const spurious: string[] = [];
 for (const [text, expected] of CASES) {
-  const entities = (await detector.detectEntitiesInChunks(text)).map(e => e.text);
+  const entities = (await detector.detectEntitiesInText(text)).map(e => e.text);
   const missed = expected.filter(g => !entities.some(e => e.includes(g)));
   found += expected.length - missed.length;
   total += expected.length;
@@ -63,14 +63,14 @@ console.log(`Recall: ${found}/${total} (${Math.round((found / total) * 100)}%)`)
 const filler = '本协议的条款适用于双方当事人之间的所有交易，并在法律允许的最大范围内有效。';
 const longText = filler.repeat(40) + '联系人：郑晓燕。' + filler.repeat(40) + '签约方：苏州工业园区星海街9号的何俊辉。';
 start = performance.now();
-const longEntities = (await detector.detectEntitiesInChunks(longText)).map(e => e.text);
+const longEntities = (await detector.detectEntitiesInText(longText)).map(e => e.text);
 const longMs = Math.round(performance.now() - start);
 const longMissed = ['郑晓燕', '何俊辉', '苏州工业园区星海街9号'].filter(g => !longEntities.some(e => e.includes(g)));
 console.log(`Long Chinese text (${longText.length} chars): ${longMs} ms, missed ${JSON.stringify(longMissed)}`);
 
 const englishText = CASES.slice(20).map(([t]) => t).join(' ').repeat(6);
 start = performance.now();
-await detector.detectEntitiesInChunks(englishText);
+await detector.detectEntitiesInText(englishText);
 console.log(`English text (${englishText.length} chars): ${Math.round(performance.now() - start)} ms`);
 
 const failures = [

@@ -28,6 +28,7 @@ import { generateId, validateFile } from '@/utils/validation';
 import { isDesktop, onDesktopFileOpened, onDesktopExportRequested, setDesktopExportEnabled, confirmAction } from '@/platform';
 import { STORAGE_KEYS, DEFAULT_CONFIDENCE_THRESHOLDS } from '@/utils/constants';
 import { generateRedactedFilename } from '@/utils/file-utils';
+import { buildWhitespaceTolerantPattern } from '@/utils/text-utils';
 import { enableNewEntityTypes } from '@/utils/entity-types';
 import { useMemo } from 'react';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -146,9 +147,17 @@ function App() {
     });
   }, [processedDocument, processedDocx, enabledTypes, showHighConfidence, showMediumConfidence, showLowConfidence, detectionConfig]);
 
-  const confirmedCount = useMemo(() => {
+  // Confirmed items in the filtered list, for the list stats
+  const visibleConfirmedCount = useMemo(() => {
     return filteredEntities.filter((e) => e.status === 'confirmed').length;
   }, [filteredEntities]);
+
+  // Every confirmed item is redacted on export, including ones hidden by filters
+  const confirmedCount = useMemo(() => {
+    const allEntities = processedDocument?.allEntities || processedDocx?.allEntities || [];
+    return allEntities.filter((e) => e.status === 'confirmed').length;
+  }, [processedDocument, processedDocx]);
+  const hiddenConfirmedCount = confirmedCount - visibleConfirmedCount;
 
   // Save detection config to localStorage whenever it changes
   const handleConfigChange = (config: DetectionConfig) => {
@@ -350,6 +359,40 @@ function App() {
     setSelectedEntityId(newEntity.id);
   };
 
+  // DOCX: redact every occurrence of text the user selected in the preview
+  const handleDocxTextRedact = (selectedText: string) => {
+    if (!processedDocx) return;
+    const pattern = buildWhitespaceTolerantPattern(selectedText);
+    if (!pattern) return;
+
+    const manualEntities: DetectedEntity[] = [];
+    for (const match of processedDocx.fullText.matchAll(pattern)) {
+      manualEntities.push({
+        id: generateId(),
+        text: match[0],
+        entityType: EntityTypeEnum.CUSTOM,
+        confidence: 1.0,
+        position: {
+          pageNumber: 1,
+          textIndex: match.index,
+          boundingBox: { x: 0, y: 0, width: 0, height: 0 },
+        },
+        detectionMethod: 'manual',
+        status: 'confirmed',
+        contextText: 'Manually selected text',
+      });
+    }
+    if (manualEntities.length === 0) {
+      log.warn('Selected text not found in document text', { chars: selectedText.length });
+      return;
+    }
+
+    // Merge with existing detections so overlapping ranges become one checked entity
+    const allEntities = new EntityAggregator().deduplicateEntities([...processedDocx.allEntities, ...manualEntities]);
+    log.info('Manual DOCX selection added', { occurrences: manualEntities.length });
+    setProcessedDocx({ ...processedDocx, allEntities });
+  };
+
   /**
    * Normalize MuPDF search hits to handle inconsistent nesting
    */
@@ -472,7 +515,8 @@ function App() {
           page.dimensions.height,
           [{ name: 'manual', entityType, pattern: new RegExp(escaped, 'gi'), confidence: 1, examples: [] }]
         );
-        foundEntities.push(...matches.map(entity => ({ ...entity, detectionMethod: 'manual' as const })));
+        // The user asked to redact every occurrence, so matches start checked
+        foundEntities.push(...matches.map(entity => ({ ...entity, detectionMethod: 'manual' as const, status: 'confirmed' as const })));
         continue;
       }
       try {
@@ -533,7 +577,8 @@ function App() {
               confidence: 1.0,
               position,
               detectionMethod: 'manual',
-              status: 'rejected',
+              // The user asked to redact every occurrence, so matches start checked
+              status: 'confirmed',
               contextText: `Found on page ${page.pageNumber}`,
             };
             foundEntities.push(entity);
@@ -1016,16 +1061,15 @@ function App() {
           message: t('progress.detectingWithLLM'),
         });
 
-        const llmEntities = await llmDetector.detectEntitiesInChunks(docx.fullText, (progress) => {
+        const llmEntities = await llmDetector.detectEntitiesInText(docx.fullText, (progress) => {
           setProcessingStage({
             stage: 'detecting',
             progress: 85 + (progress * 0.10), // 85-95%
             message: t('progress.detectingWithLLMProgress', { progress }),
           });
         });
-        // TODO: Convert simplified entities to DetectedEntity format
-        // allEntities.push(...llmEntities);
-        log.info('ML entities detected (not yet used for DOCX)', { count: llmEntities.length });
+        log.info('ML entities detected', { count: llmEntities.length });
+        allEntities.push(...llmEntities);
         await llmDetector.dispose();
       } catch (error) {
         log.error('ML detection failed, continuing with regex only', error);
@@ -1309,6 +1353,14 @@ function App() {
                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
                   {t(fileType === 'image' ? 'complete.imageDownloaded' : fileType === 'docx' ? 'complete.docxDownloaded' : 'complete.downloaded')}
                 </p>
+                <p className={`text-sm mt-3 ${fileType !== 'image' && !detectionConfig.sanitizeDocument
+                  ? 'px-4 py-3 rounded-lg bg-[#f6ece4] dark:bg-[#8a5233]/20 text-[#8a5233] dark:text-[#e8c9b4]'
+                  : 'text-gray-500 dark:text-gray-400'}`}
+                >
+                  {t(fileType === 'image'
+                    ? 'complete.imageMetadataRemoved'
+                    : detectionConfig.sanitizeDocument ? 'complete.metadataRemoved' : 'complete.metadataKept')}
+                </p>
               </div>
               <div className="flex flex-col gap-3">
                 <button
@@ -1356,7 +1408,33 @@ function App() {
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+                <div className="flex flex-wrap items-center gap-2 sm:gap-3 flex-shrink-0">
+                  {/* Images are always exported without metadata, so the toggle only applies to PDF and DOCX */}
+                  {fileType !== 'image' && (
+                    <label
+                      className="inline-flex items-center gap-1.5 text-xs sm:text-sm text-gray-700 dark:text-gray-300 cursor-pointer whitespace-nowrap"
+                      title={t('settings.stripMetadataDesc')}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={detectionConfig.sanitizeDocument}
+                        onChange={(e) => handleConfigChange({ ...detectionConfig, sanitizeDocument: e.target.checked })}
+                        className="rounded border-gray-300 dark:border-gray-600"
+                      />
+                      {t('review.stripMetadata')}
+                    </label>
+                  )}
+                  {/* Inline beside the buttons so the review area doesn't shift when it appears */}
+                  {hiddenConfirmedCount > 0 && (
+                    <span
+                      role="status"
+                      title={t('review.hiddenSelected', { count: hiddenConfirmedCount })}
+                      aria-label={t('review.hiddenSelected', { count: hiddenConfirmedCount })}
+                      className="px-2.5 py-1 rounded-full bg-[#f6ece4] dark:bg-[#8a5233]/20 text-xs text-[#8a5233] dark:text-[#e8c9b4] whitespace-nowrap"
+                    >
+                      {t('review.hiddenSelectedShort', { count: hiddenConfirmedCount })}
+                    </span>
+                  )}
                   <button
                     onClick={() => setIsMetadataModalOpen(true)}
                     className="btn-ghost h-10 px-3 sm:px-4 text-xs sm:text-sm gap-1.5 sm:gap-2 whitespace-nowrap"
@@ -1394,7 +1472,7 @@ function App() {
                   entityCounts={entityCounts}
                   confidenceCounts={confidenceCounts}
                   filteredCount={filteredEntities.length}
-                  confirmedCount={confirmedCount}
+                  confirmedCount={visibleConfirmedCount}
                 />
               </div>
 
@@ -1427,7 +1505,7 @@ function App() {
                     entityCounts={entityCounts}
                     confidenceCounts={confidenceCounts}
                     filteredCount={filteredEntities.length}
-                    confirmedCount={confirmedCount}
+                    confirmedCount={visibleConfirmedCount}
                     />
                 </div>
 
@@ -1451,7 +1529,7 @@ function App() {
                     entityCounts={entityCounts}
                     confidenceCounts={confidenceCounts}
                     filteredCount={filteredEntities.length}
-                    confirmedCount={confirmedCount}
+                    confirmedCount={visibleConfirmedCount}
                       compactCards={true}
                   />
                 </div>
@@ -1500,9 +1578,11 @@ function App() {
                 {processedDocx && (
                   <DocxViewer
                     htmlContent={processedDocx.htmlContent}
+                    fullText={processedDocx.fullText}
                     entities={filteredEntities}
                     selectedEntityId={selectedEntityId}
                     onEntityClick={handleEntitySelect}
+                    onTextSelectionRedact={handleDocxTextRedact}
                   />
                 )}
               </div>

@@ -56,3 +56,15 @@ export function splitTextWithOverlap(
 
   return chunks;
 }
+
+/**
+ * Build a case-insensitive pattern that matches text regardless of whitespace.
+ * DOCX fullText joins XML text runs with spaces, while the HTML preview and a
+ * user's selection don't, so the same words can differ only in spacing.
+ * Returns null for text with no non-whitespace characters.
+ */
+export function buildWhitespaceTolerantPattern(text: string): RegExp | null {
+  const chars = Array.from(text.replace(/\s+/g, ''));
+  if (chars.length === 0) return null;
+  return new RegExp(chars.map(c => c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('\\s*'), 'gi');
+}
