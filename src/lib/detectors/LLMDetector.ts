@@ -41,10 +41,12 @@ export class LLMDetector {
       const start = performance.now();
       log.info('Model loading', { model: NER_MODEL, runtime: isDesktop ? 'native' : 'wasm' });
       try {
-        onProgress?.(0, 'Starting model download...');
+        // The desktop app loads the bundled model instead of downloading it
+        const verb = isDesktop ? 'Loading' : 'Downloading';
+        onProgress?.(0, isDesktop ? 'Loading model...' : 'Starting model download...');
         LLMDetector.model = await NerModel.load(NER_MODEL, progress => {
           const percent = Math.round(progress);
-          onProgress?.(percent, percent < 100 ? `Downloading model: ${percent}%` : 'Initializing model...');
+          onProgress?.(percent, percent < 100 ? `${verb} model: ${percent}%` : 'Initializing model...');
         });
         log.info('Model ready', { ms: Math.round(performance.now() - start) });
         onProgress?.(100, 'Model ready');
@@ -63,6 +65,16 @@ export class LLMDetector {
    */
   static isModelLoaded(): boolean {
     return LLMDetector.model !== null;
+  }
+
+  /**
+   * Whether loading the model will start a new download. False on desktop, where
+   * the model is bundled with the app, and while a download (e.g. one started from
+   * Settings) is already running, since loading waits for it instead.
+   */
+  static async needsDownload(): Promise<boolean> {
+    if (isDesktop || LLMDetector.model || LLMDetector.initializationPromise) return false;
+    return !(await NerModel.isCached(NER_MODEL));
   }
 
   /**

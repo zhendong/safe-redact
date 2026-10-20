@@ -31,6 +31,7 @@ import { generateRedactedFilename } from '@/utils/file-utils';
 import { buildWhitespaceTolerantPattern } from '@/utils/text-utils';
 import { enableNewEntityTypes } from '@/utils/entity-types';
 import { useMemo } from 'react';
+import { useDialog } from '@/hooks/useDialog';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { createLogger, describeFile, timed } from '@/utils/logger';
@@ -39,6 +40,19 @@ const log = createLogger('App');
 
 type AppStage = 'upload' | 'preview' | 'processing' | 'review' | 'redacting' | 'complete';
 type FileType = 'pdf' | 'docx' | 'image';
+type ReviewSnapshot = { document: ProcessedDocument | null; docx: ParsedDocx | null };
+
+const UNDO_LIMIT = 50;
+
+/** Thrown inside an analysis run once the user has cancelled it */
+class AnalysisCancelled extends Error {}
+
+/** Progress and results from a cancelled run are dropped; the work itself runs to the end in the background */
+interface AnalysisRun {
+  progress: (stage: ProcessingStage) => void;
+  /** Throws AnalysisCancelled if the user cancelled this run */
+  check: () => void;
+}
 
 function App() {
   const { theme, toggleTheme } = useTheme();
@@ -58,6 +72,7 @@ function App() {
   const [selectedEntityId, setSelectedEntityId] = useState<string | undefined>();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
+  const aboutDialogRef = useDialog<HTMLDivElement>(isAboutOpen, () => setIsAboutOpen(false));
   const [isMetadataModalOpen, setIsMetadataModalOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'document' | 'entities'>('document');
@@ -159,6 +174,19 @@ function App() {
   }, [processedDocument, processedDocx]);
   const hiddenConfirmedCount = confirmedCount - visibleConfirmedCount;
 
+  // Review states before each edit, newest last, so edits can be undone
+  const [undoStack, setUndoStack] = useState<ReviewSnapshot[]>([]);
+  const recordUndo = () => {
+    setUndoStack(stack => [...stack.slice(-(UNDO_LIMIT - 1)), { document: processedDocument, docx: processedDocx }]);
+  };
+  const handleUndo = () => {
+    const previous = undoStack[undoStack.length - 1];
+    if (!previous) return;
+    setUndoStack(stack => stack.slice(0, -1));
+    setProcessedDocument(previous.document);
+    setProcessedDocx(previous.docx);
+  };
+
   // Save detection config to localStorage whenever it changes
   const handleConfigChange = (config: DetectionConfig) => {
     setDetectionConfig(config);
@@ -191,8 +219,23 @@ function App() {
     setFileType(null);
     setProcessedDocument(null);
     setProcessedDocx(null);
+    setUndoStack([]);
     setStage('upload');
     setError(null);
+  };
+
+  // Leaving the review discards it, so ask first, as opening a file from the menu does
+  const handleLeaveReview = async () => {
+    if (
+      !(await confirmAction(t('review.discardReview', { name: selectedFile?.name ?? '' }), {
+        title: t('review.discardReviewTitle'),
+        okLabel: t('review.discardReviewConfirm'),
+        cancelLabel: t('common.cancel'),
+      }))
+    ) {
+      return;
+    }
+    handleBackToUpload();
   };
 
   const handleEntitySelect = (entity: DetectedEntity) => {
@@ -204,69 +247,26 @@ function App() {
     }
   };
 
-  const handleEntityConfirm = (entityId: string | string[]) => {
-    const entityIds = Array.isArray(entityId) ? entityId : [entityId];
+  const setEntityStatus = (entityId: string | string[], status: 'confirmed' | 'rejected') => {
+    const entityIds = new Set(Array.isArray(entityId) ? entityId : [entityId]);
+    const allEntities = processedDocument?.allEntities ?? processedDocx?.allEntities ?? [];
+    // Skip no-op clicks so they don't fill the undo history
+    if (!allEntities.some(e => entityIds.has(e.id) && e.status !== status)) return;
+    recordUndo();
+    const update = (e: DetectedEntity) => (entityIds.has(e.id) ? { ...e, status } : e);
 
     if (processedDocument) {
-      const updatedEntities = processedDocument.allEntities.map(e =>
-        entityIds.includes(e.id) ? { ...e, status: 'confirmed' as const } : e
-      );
-
-      const updatedPages = processedDocument.pages.map(page => ({
-        ...page,
-        entities: page.entities.map(e =>
-          entityIds.includes(e.id) ? { ...e, status: 'confirmed' as const } : e
-        ),
-      }));
-
       setProcessedDocument({
         ...processedDocument,
-        allEntities: updatedEntities,
-        pages: updatedPages,
+        allEntities: processedDocument.allEntities.map(update),
+        pages: processedDocument.pages.map(page => ({ ...page, entities: page.entities.map(update) })),
       });
     } else if (processedDocx) {
-      const updatedEntities = processedDocx.allEntities.map(e =>
-        entityIds.includes(e.id) ? { ...e, status: 'confirmed' as const } : e
-      );
-
-      setProcessedDocx({
-        ...processedDocx,
-        allEntities: updatedEntities,
-      });
+      setProcessedDocx({ ...processedDocx, allEntities: processedDocx.allEntities.map(update) });
     }
   };
-
-  const handleEntityReject = (entityId: string | string[]) => {
-    const entityIds = Array.isArray(entityId) ? entityId : [entityId];
-
-    if (processedDocument) {
-      const updatedEntities = processedDocument.allEntities.map(e =>
-        entityIds.includes(e.id) ? { ...e, status: 'rejected' as const } : e
-      );
-
-      const updatedPages = processedDocument.pages.map(page => ({
-        ...page,
-        entities: page.entities.map(e =>
-          entityIds.includes(e.id) ? { ...e, status: 'rejected' as const } : e
-        ),
-      }));
-
-      setProcessedDocument({
-        ...processedDocument,
-        allEntities: updatedEntities,
-        pages: updatedPages,
-      });
-    } else if (processedDocx) {
-      const updatedEntities = processedDocx.allEntities.map(e =>
-        entityIds.includes(e.id) ? { ...e, status: 'rejected' as const } : e
-      );
-
-      setProcessedDocx({
-        ...processedDocx,
-        allEntities: updatedEntities,
-      });
-    }
-  };
+  const handleEntityConfirm = (entityId: string | string[]) => setEntityStatus(entityId, 'confirmed');
+  const handleEntityReject = (entityId: string | string[]) => setEntityStatus(entityId, 'rejected');
 
 
   const handleManualEntityCreate = (
@@ -282,6 +282,7 @@ function App() {
     // Find the page viewport to create proper position data
     const page = processedDocument.pages.find(p => p.pageNumber === pageNumber);
     if (!page) return;
+    recordUndo();
 
     const newEntity: DetectedEntity = {
       id: generateId(),
@@ -390,6 +391,7 @@ function App() {
     // Merge with existing detections so overlapping ranges become one checked entity
     const allEntities = new EntityAggregator().deduplicateEntities([...processedDocx.allEntities, ...manualEntities]);
     log.info('Manual DOCX selection added', { occurrences: manualEntities.length });
+    recordUndo();
     setProcessedDocx({ ...processedDocx, allEntities });
   };
 
@@ -693,6 +695,24 @@ function App() {
   }, []);
   useEffect(() => setDesktopExportEnabled(stage === 'review'), [stage]);
 
+  // Cmd/Ctrl+Z undoes review edits; text fields keep their own undo
+  const undoRef = useRef(handleUndo);
+  useEffect(() => {
+    undoRef.current = handleUndo;
+  });
+  useEffect(() => {
+    if (stage !== 'review') return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!(event.metaKey || event.ctrlKey) || event.shiftKey || event.altKey || event.key.toLowerCase() !== 'z') return;
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
+      event.preventDefault();
+      undoRef.current();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [stage]);
+
   const handleApplyRedactionsImage = async () => {
     const image = processedDocument?.pages[0]?.imageBlob;
     if (!selectedFile || !processedDocument || !image) return;
@@ -846,20 +866,49 @@ function App() {
     }
   };
 
+  // Bumped on every start and cancel, so a run can tell whether it is still current
+  const analysisRunRef = useRef(0);
+
   const handleStartAnalysis = async () => {
     if (!selectedFile || !fileType) return;
 
+    // Browser only: the model downloads on first use, so ask before starting
+    if (
+      detectionConfig.useMLModel &&
+      (await LLMDetector.needsDownload()) &&
+      !(await confirmAction(t('filePreview.modelDownload'), {
+        title: t('filePreview.modelDownloadTitle'),
+        okLabel: t('filePreview.modelDownloadConfirm'),
+        cancelLabel: t('common.cancel'),
+      }))
+    ) {
+      return;
+    }
+
+    const runId = ++analysisRunRef.current;
+    const isCurrent = () => analysisRunRef.current === runId;
+    const run: AnalysisRun = {
+      progress: next => {
+        if (isCurrent()) setProcessingStage(next);
+      },
+      check: () => {
+        if (!isCurrent()) throw new AnalysisCancelled();
+      },
+    };
+
+    setUndoStack([]);
+    setProcessingStage({ stage: 'parsing', progress: 0, message: '' });
     setStage('processing');
     setError(null);
 
     try {
       await timed(log, 'Analysis', async () => {
         if (fileType === 'pdf') {
-          await processPdf();
+          await processPdf(run);
         } else if (fileType === 'docx') {
-          await processDocx();
+          await processDocx(run);
         } else {
-          await processImage();
+          await processImage(run);
         }
       }, {
         type: fileType,
@@ -868,16 +917,23 @@ function App() {
         aggressiveness: detectionConfig.aggressiveness,
       });
     } catch (err) {
+      if (err instanceof AnalysisCancelled || !isCurrent()) return;
       setError(err instanceof Error ? err.message : t('errors.processingError'));
       setStage('preview');
     }
   };
 
-  const processImage = async () => {
+  const handleCancelAnalysis = () => {
+    analysisRunRef.current++;
+    log.info('Analysis cancelled');
+    setStage('preview');
+  };
+
+  const processImage = async (run: AnalysisRun) => {
     if (!selectedFile) return;
-    setProcessingStage({ stage: 'parsing', progress: 0, message: t('progress.recognizingImage') });
+    run.progress({ stage: 'parsing', progress: 0, message: t('progress.recognizingImage') });
     const document = await processUploadedImage(selectedFile, progress => {
-      setProcessingStage({ stage: 'parsing', progress, message: t('progress.recognizingImage') });
+      run.progress({ stage: 'parsing', progress, message: t('progress.recognizingImage') });
     });
     const entities = detectionConfig.useRegexPatterns
       ? filterEntitiesByConfig(document.allEntities)
@@ -885,17 +941,18 @@ function App() {
     log.info('Entities detected', { ocr: document.allEntities.length, filtered: entities.length });
     document.allEntities = entities;
     document.pages[0].entities = entities;
+    run.check();
     setProcessedDocument(document);
     setCurrentPage(1);
     setStage('review');
   };
 
-  const processPdf = async () => {
+  const processPdf = async (run: AnalysisRun) => {
     if (!selectedFile) return;
 
     // Parse PDF
     const parser = new PdfParser((progress: ParseProgress) => {
-      setProcessingStage({
+      run.progress({
         stage: progress.stage === 'loading' ? 'parsing' : progress.stage,
         progress: progress.progress,
         message: progress.message,
@@ -913,7 +970,7 @@ function App() {
 
     // Detect entities using regex (includes predefined words)
     if (detectionConfig.useRegexPatterns) {
-      setProcessingStage({
+      run.progress({
         stage: 'detecting',
         progress: 50,
         message: t('progress.detectingSensitiveInfo'),
@@ -928,7 +985,7 @@ function App() {
     // Detect entities using LLM if enabled
     if (detectionConfig.useMLModel) {
       try {
-        setProcessingStage({
+        run.progress({
           stage: 'loading_model',
           progress: 60,
           message: t('progress.loadingLLMModel'),
@@ -936,14 +993,14 @@ function App() {
 
         const llmDetector = new LLMDetector();
         await llmDetector.initialize((progress, message) => {
-          setProcessingStage({
+          run.progress({
             stage: 'loading_model',
             progress: 60 + (progress * 0.15), // 60-75%
             message,
           });
         });
 
-        setProcessingStage({
+        run.progress({
           stage: 'detecting',
           progress: 75,
           message: t('progress.detectingWithLLM'),
@@ -951,7 +1008,7 @@ function App() {
 
         // Use page-based detection for PDFs with mupdf positioning
         const llmEntities = await timed(log, 'ML detection', () => llmDetector.detectEntities(document.pages, (progress) => {
-          setProcessingStage({
+          run.progress({
             stage: 'detecting',
             progress: 75 + (progress * 0.10), // 75-85%
             message: t('progress.detectingWithLLMProgress', { progress }),
@@ -964,7 +1021,7 @@ function App() {
         await llmDetector.dispose();
       } catch (error) {
         log.error('ML detection failed, continuing with regex only', error);
-        setProcessingStage({
+        run.progress({
           stage: 'detecting',
           progress: 85,
           message: t('progress.llmDetectionFailedFallback'),
@@ -973,7 +1030,7 @@ function App() {
     }
 
     // Deduplicate entities
-    setProcessingStage({
+    run.progress({
       stage: 'aggregating',
       progress: 90,
       message: t('progress.removingDuplicates'),
@@ -996,22 +1053,23 @@ function App() {
       }
     }
 
-    setProcessingStage({
+    run.progress({
       stage: 'complete',
       progress: 100,
       message: t('progress.foundEntities', { count: entities.length }),
     });
 
+    run.check();
     setProcessedDocument(document);
     setStage('review');
   };
 
-  const processDocx = async () => {
+  const processDocx = async (run: AnalysisRun) => {
     if (!selectedFile) return;
 
     // Parse DOCX
     const parser = new DocxParser((progress) => {
-      setProcessingStage({
+      run.progress({
         stage: progress.stage as any,
         progress: progress.progress,
         message: progress.message,
@@ -1025,7 +1083,7 @@ function App() {
 
     // Detect entities using regex (includes predefined words)
     if (detectionConfig.useRegexPatterns) {
-      setProcessingStage({
+      run.progress({
         stage: 'detecting',
         progress: 60,
         message: t('progress.detectingSensitiveInfo'),
@@ -1040,7 +1098,7 @@ function App() {
     // Detect entities using LLM if enabled
     if (detectionConfig.useMLModel) {
       try {
-        setProcessingStage({
+        run.progress({
           stage: 'loading_model',
           progress: 70,
           message: t('progress.loadingLLMModel'),
@@ -1048,21 +1106,21 @@ function App() {
 
         const llmDetector = new LLMDetector();
         await llmDetector.initialize((progress, message) => {
-          setProcessingStage({
+          run.progress({
             stage: 'loading_model',
             progress: 70 + (progress * 0.15), // 70-85%
             message,
           });
         });
 
-        setProcessingStage({
+        run.progress({
           stage: 'detecting',
           progress: 85,
           message: t('progress.detectingWithLLM'),
         });
 
         const llmEntities = await llmDetector.detectEntitiesInText(docx.fullText, (progress) => {
-          setProcessingStage({
+          run.progress({
             stage: 'detecting',
             progress: 85 + (progress * 0.10), // 85-95%
             message: t('progress.detectingWithLLMProgress', { progress }),
@@ -1073,7 +1131,7 @@ function App() {
         await llmDetector.dispose();
       } catch (error) {
         log.error('ML detection failed, continuing with regex only', error);
-        setProcessingStage({
+        run.progress({
           stage: 'detecting',
           progress: 95,
           message: t('progress.llmDetectionFailedFallback'),
@@ -1091,12 +1149,13 @@ function App() {
     // Update DOCX with detected entities
     docx.allEntities = entities;
 
-    setProcessingStage({
+    run.progress({
       stage: 'complete',
       progress: 100,
       message: t('progress.foundEntities', { count: entities.length }),
     });
 
+    run.check();
     setProcessedDocx(docx);
     setStage('review');
   };
@@ -1332,6 +1391,11 @@ function App() {
               {stage === 'processing' ? t('progress.processing') : t('progress.redacting')} {selectedFile?.name}
             </h2>
             <ProgressIndicator stage={processingStage} />
+            {stage === 'processing' && (
+              <button onClick={handleCancelAnalysis} className="btn-ghost mt-8 px-6 py-2 text-sm">
+                {t('progress.cancel')}
+              </button>
+            )}
           </div>
         )}
 
@@ -1391,10 +1455,18 @@ function App() {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-6">
                 <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
                   <button
-                    onClick={handleBackToUpload}
+                    onClick={() => void handleLeaveReview()}
                     className="btn-ghost h-10 px-3 sm:px-4 text-sm flex-shrink-0 whitespace-nowrap"
                   >
                     {t('review.backButton')}
+                  </button>
+                  <button
+                    onClick={handleUndo}
+                    disabled={undoStack.length === 0}
+                    title={t('review.undoTitle')}
+                    className="btn-ghost h-10 px-3 sm:px-4 text-sm flex-shrink-0 whitespace-nowrap disabled:opacity-40"
+                  >
+                    {t('review.undo')}
                   </button>
                   <div className="min-w-0">
                     <h2 className="font-serif text-xl sm:text-3xl font-normal tracking-tight text-gray-900 dark:text-white truncate">
@@ -1602,11 +1674,20 @@ function App() {
       {/* About Dialog */}
       {isAboutOpen && (
         <div className="fixed inset-0 bg-ink/40 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setIsAboutOpen(false)}>
-          <div className="surface rounded-2xl shadow-[0_24px_60px_-28px_rgba(28,27,25,0.35)] p-7 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
+          <div
+            ref={aboutDialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="about-dialog-title"
+            tabIndex={-1}
+            className="surface rounded-2xl shadow-[0_24px_60px_-28px_rgba(28,27,25,0.35)] p-7 max-w-md w-full mx-4 focus:outline-none"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex justify-between items-start mb-4">
-              <h2 className="font-serif text-3xl font-normal tracking-tight text-gray-900 dark:text-white">{t('about.title')}</h2>
+              <h2 id="about-dialog-title" className="font-serif text-3xl font-normal tracking-tight text-gray-900 dark:text-white">{t('about.title')}</h2>
               <button
                 onClick={() => setIsAboutOpen(false)}
+                aria-label={t('common.close')}
                 className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">

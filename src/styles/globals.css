@@ -78,6 +78,33 @@
   @apply bg-white border border-gray-200 dark:bg-gray-800 dark:border-gray-700;
 }
 
+/* Word preview highlights: name the type on hover, focus, and selection, so colour isn't the only cue */
+.entity-highlight {
+  position: relative;
+}
+.entity-highlight:focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 2px;
+}
+.entity-highlight[tabindex]:is(.selected, :hover, :focus-visible)::after {
+  content: attr(data-type);
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  margin-bottom: 2px;
+  padding: 0 4px;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  background: white;
+  color: #111827;
+  font-size: 10px;
+  line-height: 16px;
+  font-weight: 500;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 10;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; }
 }

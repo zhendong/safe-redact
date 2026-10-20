@@ -195,7 +195,8 @@ export function DocxViewer({
 
   // Handle clicks on highlighted entities
   useEffect(() => {
-    if (!containerRef.current || !onEntityClick) return;
+    const container = containerRef.current;
+    if (!container || !onEntityClick) return;
 
     const handleClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
@@ -212,9 +213,21 @@ export function DocxViewer({
       }
     };
 
-    containerRef.current.addEventListener('click', handleClick);
+    // Highlights are focusable spans, so Enter and Space act like a click
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      const entityId = (e.target as HTMLElement).closest('[data-entity-id]')?.getAttribute('data-entity-id');
+      const entity = entities.find(e => e.id === entityId);
+      if (!entity) return;
+      e.preventDefault();
+      onEntityClick(entity);
+    };
+
+    container.addEventListener('click', handleClick);
+    container.addEventListener('keydown', handleKeyDown);
     return () => {
-      containerRef.current?.removeEventListener('click', handleClick);
+      container.removeEventListener('click', handleClick);
+      container.removeEventListener('keydown', handleKeyDown);
     };
   }, [entities, onEntityClick]);
 
@@ -434,7 +447,17 @@ function highlightEntities(
       const span = body.ownerDocument.createElement('span');
       span.dataset.entityId = entity.id;
       span.className = `entity-highlight${isSelected ? ' selected' : ''}`;
-      span.title = `${getEntityDisplayName(entity.entityType, language)} (${Math.round(entity.confidence * 100)}%)`;
+      const displayName = getEntityDisplayName(entity.entityType, language);
+      span.title = `${displayName} (${Math.round(entity.confidence * 100)}%)`;
+      // Shown by CSS on hover, focus, and selection, so colour isn't the only cue
+      span.dataset.type = displayName;
+      // Only the first piece of an entity is a tab stop, so a split entity is reached once
+      if (nodeStart <= start) {
+        span.tabIndex = 0;
+        span.setAttribute('role', 'button');
+        span.setAttribute('aria-pressed', String(isSelected));
+        span.setAttribute('aria-label', `${displayName}: ${entity.text} (${Math.round(entity.confidence * 100)}%)`);
+      }
       span.style.backgroundColor = isChecked ? `${color}66` : 'transparent';
       span.style.borderBottom = `2px ${isChecked ? 'solid' : 'dashed'} ${color}`;
       span.style.cursor = 'pointer';

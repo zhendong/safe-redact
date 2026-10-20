@@ -1,13 +1,14 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useId } from 'react';
 import type { DetectionConfig } from '@/lib/types';
 import { EntityType } from '@/lib/types';
 import { STORAGE_KEYS, DEFAULT_CONFIDENCE_THRESHOLDS } from '@/utils/constants';
 import { LLMDetector } from '@/lib/detectors/LLMDetector';
 import { getEntityDisplayName } from '@/utils/entity-types';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { isDesktop, pickFile, revealDesktopLogs } from '@/platform';
+import { confirmAction, isDesktop, pickFile, revealDesktopLogs } from '@/platform';
 import { saveDiagnosticReport } from '@/utils/diagnostics';
 import { createLogger } from '@/utils/logger';
+import { useDialog } from '@/hooks/useDialog';
 import {
   getPredefinedWords,
   addPredefinedWord,
@@ -36,7 +37,8 @@ export function SettingsPanel({
   onConfigChange,
 }: SettingsPanelProps) {
   const { language, t } = useLanguage();
-  const [localConfig, setLocalConfig] = useState<DetectionConfig>(config);
+  const dialogRef = useDialog<HTMLDivElement>(isOpen, onClose);
+  const titleId = useId();
   const [modelDownloadProgress, setModelDownloadProgress] = useState<number>(0);
   const [modelDownloadMessage, setModelDownloadMessage] = useState<string>('');
   const [isDownloadingModel, setIsDownloadingModel] = useState(false);
@@ -53,15 +55,6 @@ export function SettingsPanel({
   const [importMessage, setImportMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [diagnosticsMessage, setDiagnosticsMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  // Update local config when prop changes
-  useEffect(() => {
-    // Ensure all boolean fields have default values to avoid controlled/uncontrolled warnings
-    setLocalConfig({
-      ...config,
-      sanitizeDocument: config.sanitizeDocument ?? false,
-    });
-  }, [config]);
-
   // Load predefined words when panel opens
   useEffect(() => {
     if (isOpen) {
@@ -69,41 +62,47 @@ export function SettingsPanel({
     }
   }, [isOpen]);
 
-  const handleSave = () => {
-    onConfigChange(localConfig);
-    onClose();
-  };
+  const defaultConfig = (): DetectionConfig => ({
+    enabledEntityTypes: Object.values(EntityType),
+    knownEntityTypes: Object.values(EntityType),
+    confidenceThresholds: DEFAULT_CONFIDENCE_THRESHOLDS,
+    useMLModel: false,
+    useRegexPatterns: true,
+    useCustomPatterns: false,
+    aggressiveness: 'balanced',
+    sanitizeDocument: false,
+  });
 
-  const handleReset = () => {
-    const defaultConfig: DetectionConfig = {
-      enabledEntityTypes: Object.values(EntityType),
-      knownEntityTypes: Object.values(EntityType),
-      confidenceThresholds: DEFAULT_CONFIDENCE_THRESHOLDS,
-      useMLModel: false,
-      useRegexPatterns: true,
-      useCustomPatterns: false,
-      aggressiveness: 'balanced',
-      sanitizeDocument: false,
-    };
-    setLocalConfig(defaultConfig);
+  // Settings apply as soon as they change, so there is no Cancel to fall back on; ask first
+  const handleReset = async () => {
+    if (
+      !(await confirmAction(t('settings.resetConfirm'), {
+        title: t('settings.resetConfirmTitle'),
+        okLabel: t('settings.resetConfirmOk'),
+        cancelLabel: t('settings.cancel'),
+      }))
+    ) {
+      return;
+    }
+    onConfigChange(defaultConfig());
   };
 
   const toggleEntityType = (type: EntityType) => {
-    const newTypes = localConfig.enabledEntityTypes.includes(type)
-      ? localConfig.enabledEntityTypes.filter(t => t !== type)
-      : [...localConfig.enabledEntityTypes, type];
+    const newTypes = config.enabledEntityTypes.includes(type)
+      ? config.enabledEntityTypes.filter(t => t !== type)
+      : [...config.enabledEntityTypes, type];
 
-    setLocalConfig({ ...localConfig, enabledEntityTypes: newTypes });
+    onConfigChange({ ...config, enabledEntityTypes: newTypes });
   };
 
   const handleMLModelToggle = async (enabled: boolean) => {
-    setLocalConfig({ ...localConfig, useMLModel: enabled });
+    onConfigChange({ ...config, useMLModel: enabled });
 
     // If enabling ML model, preload it in the background
     if (enabled && !LLMDetector.isModelLoaded()) {
       setIsDownloadingModel(true);
       setModelDownloadProgress(0);
-      setModelDownloadMessage(t('settings.startingDownload'));
+      setModelDownloadMessage(t(isDesktop ? 'settings.loadingModel' : 'settings.startingDownload'));
 
       try {
         await LLMDetector.preloadModel((progress, message) => {
@@ -112,7 +111,7 @@ export function SettingsPanel({
         });
       } catch (error) {
         log.error('Failed to preload model', error);
-        setModelDownloadMessage(t('settings.downloadFailed'));
+        setModelDownloadMessage(t(isDesktop ? 'settings.loadFailed' : 'settings.downloadFailed'));
       } finally {
         setIsDownloadingModel(false);
       }
@@ -197,8 +196,7 @@ export function SettingsPanel({
         // Reload settings and predefined words
         const settingsStr = localStorage.getItem(STORAGE_KEYS.SETTINGS);
         if (settingsStr) {
-          const newConfig = JSON.parse(settingsStr);
-          setLocalConfig(newConfig);
+          onConfigChange(JSON.parse(settingsStr));
         }
         setPredefinedWords(getPredefinedWords());
       } else {
@@ -229,12 +227,20 @@ export function SettingsPanel({
 
   return (
     <div className="fixed inset-0 bg-ink/40 backdrop-blur-sm flex items-center justify-center z-50">
-      <div className="surface rounded-2xl shadow-[0_24px_60px_-28px_rgba(28,27,25,0.35)] max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        className="surface rounded-2xl shadow-[0_24px_60px_-28px_rgba(28,27,25,0.35)] max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto focus:outline-none"
+      >
         {/* Header */}
         <div className="border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
-          <h2 className="font-serif text-3xl font-normal tracking-tight text-gray-900 dark:text-white">{t('settings.title')}</h2>
+          <h2 id={titleId} className="font-serif text-3xl font-normal tracking-tight text-gray-900 dark:text-white">{t('settings.title')}</h2>
           <button
             onClick={onClose}
+            aria-label={t('common.close')}
             className="text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-300 transition-colors"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -259,7 +265,7 @@ export function SettingsPanel({
                 >
                   <input
                     type="checkbox"
-                    checked={localConfig.enabledEntityTypes.includes(type)}
+                    checked={config.enabledEntityTypes.includes(type)}
                     onChange={() => toggleEntityType(type)}
                     className="rounded border-gray-300 dark:border-gray-600"
                   />
@@ -330,7 +336,7 @@ export function SettingsPanel({
                 {predefinedWords.map((word) => (
                   <div
                     key={word.id}
-                    className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg group"
+                    className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg"
                   >
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium text-gray-900 dark:text-white truncate">
@@ -351,8 +357,9 @@ export function SettingsPanel({
                     </div>
                     <button
                       onClick={() => handleDeleteWord(word.id)}
-                      className="ml-3 p-2 text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
-                      aria-label={t('settings.deleteWord')}
+                      className="ml-3 p-2 text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                      aria-label={t('settings.deleteWord', { word: word.word })}
+                      title={t('settings.deleteWord', { word: word.word })}
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -379,7 +386,7 @@ export function SettingsPanel({
                 <label className="flex items-center justify-between mb-2">
                   <span className="text-sm text-gray-700 dark:text-gray-300">{t('settings.highConfidence')}</span>
                   <span className="text-sm font-medium text-gray-900 dark:text-white">
-                    {Math.round(localConfig.confidenceThresholds.high * 100)}%
+                    {Math.round(config.confidenceThresholds.high * 100)}%
                   </span>
                 </label>
                 <input
@@ -387,12 +394,12 @@ export function SettingsPanel({
                   min="0.8"
                   max="1.0"
                   step="0.05"
-                  value={localConfig.confidenceThresholds.high}
+                  value={config.confidenceThresholds.high}
                   onChange={(e) =>
-                    setLocalConfig({
-                      ...localConfig,
+                    onConfigChange({
+                      ...config,
                       confidenceThresholds: {
-                        ...localConfig.confidenceThresholds,
+                        ...config.confidenceThresholds,
                         high: parseFloat(e.target.value),
                       },
                     })
@@ -405,7 +412,7 @@ export function SettingsPanel({
                 <label className="flex items-center justify-between mb-2">
                   <span className="text-sm text-gray-700 dark:text-gray-300">{t('settings.mediumConfidence')}</span>
                   <span className="text-sm font-medium text-gray-900 dark:text-white">
-                    {Math.round(localConfig.confidenceThresholds.medium * 100)}%
+                    {Math.round(config.confidenceThresholds.medium * 100)}%
                   </span>
                 </label>
                 <input
@@ -413,12 +420,12 @@ export function SettingsPanel({
                   min="0.6"
                   max="0.9"
                   step="0.05"
-                  value={localConfig.confidenceThresholds.medium}
+                  value={config.confidenceThresholds.medium}
                   onChange={(e) =>
-                    setLocalConfig({
-                      ...localConfig,
+                    onConfigChange({
+                      ...config,
                       confidenceThresholds: {
-                        ...localConfig.confidenceThresholds,
+                        ...config.confidenceThresholds,
                         medium: parseFloat(e.target.value),
                       },
                     })
@@ -431,7 +438,7 @@ export function SettingsPanel({
                 <label className="flex items-center justify-between mb-2">
                   <span className="text-sm text-gray-700 dark:text-gray-300">{t('settings.lowConfidence')}</span>
                   <span className="text-sm font-medium text-gray-900 dark:text-white">
-                    {Math.round(localConfig.confidenceThresholds.low * 100)}%
+                    {Math.round(config.confidenceThresholds.low * 100)}%
                   </span>
                 </label>
                 <input
@@ -439,12 +446,12 @@ export function SettingsPanel({
                   min="0.4"
                   max="0.7"
                   step="0.05"
-                  value={localConfig.confidenceThresholds.low}
+                  value={config.confidenceThresholds.low}
                   onChange={(e) =>
-                    setLocalConfig({
-                      ...localConfig,
+                    onConfigChange({
+                      ...config,
                       confidenceThresholds: {
-                        ...localConfig.confidenceThresholds,
+                        ...config.confidenceThresholds,
                         low: parseFloat(e.target.value),
                       },
                     })
@@ -466,9 +473,9 @@ export function SettingsPanel({
                 </div>
                 <input
                   type="checkbox"
-                  checked={localConfig.useRegexPatterns}
+                  checked={config.useRegexPatterns}
                   onChange={(e) =>
-                    setLocalConfig({ ...localConfig, useRegexPatterns: e.target.checked })
+                    onConfigChange({ ...config, useRegexPatterns: e.target.checked })
                   }
                   className="rounded border-gray-300 dark:border-gray-600"
                 />
@@ -479,9 +486,10 @@ export function SettingsPanel({
                   <div className="flex-1 mr-3">
                     <div className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('settings.localLLM')}</div>
                     <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      {t('settings.localLLMDesc')}
+                      {t(isDesktop ? 'settings.localLLMDescDesktop' : 'settings.localLLMDesc')}
                     </div>
-                    {!LLMDetector.isModelLoaded() && !isDownloadingModel && (
+                    {/* The desktop app bundles the model, so there is nothing to download */}
+                    {!isDesktop && !LLMDetector.isModelLoaded() && !isDownloadingModel && (
                       <div className="text-xs text-amber-600 mt-1">
                         {t('settings.modelDownloadNote')}
                       </div>
@@ -494,7 +502,7 @@ export function SettingsPanel({
                   </div>
                   <input
                     type="checkbox"
-                    checked={localConfig.useMLModel}
+                    checked={config.useMLModel}
                     onChange={(e) => handleMLModelToggle(e.target.checked)}
                     disabled={isDownloadingModel}
                     className="rounded border-gray-300 dark:border-gray-600 flex-shrink-0 disabled:opacity-50"
@@ -531,8 +539,8 @@ export function SettingsPanel({
                   <input
                     type="radio"
                     name="aggressiveness"
-                    checked={localConfig.aggressiveness === level}
-                    onChange={() => setLocalConfig({ ...localConfig, aggressiveness: level })}
+                    checked={config.aggressiveness === level}
+                    onChange={() => onConfigChange({ ...config, aggressiveness: level })}
                     className="border-gray-300 dark:border-gray-600"
                   />
                   <div>
@@ -554,9 +562,9 @@ export function SettingsPanel({
             <label className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg cursor-pointer">
               <input
                 type="checkbox"
-                checked={localConfig.sanitizeDocument}
+                checked={config.sanitizeDocument ?? false}
                 onChange={(e) =>
-                  setLocalConfig({ ...localConfig, sanitizeDocument: e.target.checked })
+                  onConfigChange({ ...config, sanitizeDocument: e.target.checked })
                 }
                 className="mt-0.5 rounded border-gray-300 dark:border-gray-600"
               />
@@ -657,46 +665,23 @@ export function SettingsPanel({
               )}
             </div>
 
-            {/* Clear All Settings */}
-            <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-              <button
-                onClick={() => {
-                  localStorage.removeItem(STORAGE_KEYS.SETTINGS);
-                  handleReset();
-                }}
-                className="btn-ghost w-full px-4 py-2 text-sm"
-              >
-                {t('settings.clearAllSettings')}
-              </button>
-              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                {t('settings.clearAllSettingsDesc')}
-              </p>
-            </div>
           </div>
         </div>
 
         {/* Footer */}
         <div className="border-t border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
           <button
-            onClick={handleReset}
+            onClick={() => void handleReset()}
             className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
           >
             {t('settings.resetToDefaults')}
           </button>
-          <div className="flex gap-3">
-            <button
-              onClick={onClose}
-              className="btn-ghost px-4 py-2 text-sm"
-            >
-              {t('settings.cancel')}
-            </button>
-            <button
-              onClick={handleSave}
-              className="btn-primary px-4 py-2 text-sm"
-            >
-              {t('settings.saveChanges')}
-            </button>
-          </div>
+          <button
+            onClick={onClose}
+            className="btn-primary px-4 py-2 text-sm"
+          >
+            {t('settings.done')}
+          </button>
         </div>
       </div>
     </div>
