@@ -61,7 +61,7 @@ export function FilePreview({
 
         <button
           onClick={onStartAnalysis}
-          className="w-full mt-4 px-6 py-3 bg-blue-600 dark:bg-blue-500 text-white font-medium rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:ring-offset-2 dark:focus:ring-offset-gray-800"
+          className="btn-primary w-full mt-4 px-6 py-3"
         >
           {t('filePreview.startAnalysis')}
         </button>

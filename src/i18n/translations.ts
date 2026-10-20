@@ -42,6 +42,10 @@ export const translations = {
       reportIssue: 'Report Issue',
     },
     upload: {
+      eyebrow: 'Private by design · Runs on your device',
+      heroTitle: 'Remove sensitive details,',
+      heroTitleEm: 'not just cover them.',
+      heroLede: 'Find names, numbers, and other personal details in PDF, Word, and image files, and remove them for good. Everything runs on your device — nothing is uploaded.',
       dragDrop: 'Drag and Drop PDF, DOCX, or an Image Here',
       orClickBrowse: 'or click to browse',
       maxFileSize: 'Maximum file size: 50MB',
@@ -253,6 +257,8 @@ export const translations = {
       cancel: 'Cancel',
     },
     documentViewer: {
+      previousPage: 'Previous page',
+      nextPage: 'Next page',
       pageOf: 'Page {{current}} of {{total}}',
       zoomOut: 'Zoom out',
       zoomIn: 'Zoom in',
@@ -419,6 +425,10 @@ export const translations = {
       reportIssue: '报告问题',
     },
     upload: {
+      eyebrow: '隐私优先 · 完全在本地运行',
+      heroTitle: '彻底删除敏感信息，',
+      heroTitleEm: '不只是盖住。',
+      heroLede: '找出 PDF、Word 文档和图片中的姓名、号码等个人信息，并将其彻底删除。全程在本机处理，不上传任何内容。',
       dragDrop: '拖放 PDF、DOCX 或图片文件到此处',
       orClickBrowse: '或点击浏览文件',
       maxFileSize: '文件大小上限：50MB',
@@ -630,6 +640,8 @@ export const translations = {
       cancel: '取消',
     },
     documentViewer: {
+      previousPage: '上一页',
+      nextPage: '下一页',
       pageOf: '第 {{current}} 页，共 {{total}} 页',
       zoomOut: '缩小',
       zoomIn: '放大',

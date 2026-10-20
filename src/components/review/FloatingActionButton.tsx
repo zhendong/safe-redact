@@ -11,7 +11,7 @@ export function FloatingActionButton({ entityCount, selectedCount, onClick }: Fl
   return (
     <button
       onClick={onClick}
-      className="fixed bottom-6 right-6 z-30 lg:hidden w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all flex items-center justify-center group"
+      className="fixed bottom-6 right-6 z-30 lg:hidden w-14 h-14 bg-ink hover:bg-black text-paper dark:bg-paper dark:text-ink dark:hover:bg-white rounded-full shadow-lg hover:shadow-xl transition-all flex items-center justify-center group"
       aria-label={t('floatingActionButton.viewEntities')}
     >
       {/* Badge with count */}
@@ -23,7 +23,7 @@ export function FloatingActionButton({ entityCount, selectedCount, onClick }: Fl
 
       {/* Selected count indicator */}
       {selectedCount > 0 && (
-        <div className="absolute -bottom-1 -left-1 bg-green-600 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center border-2 border-white dark:border-gray-900">
+        <div className="absolute -bottom-1 -left-1 bg-accent text-ink text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center border-2 border-white dark:border-gray-900">
           {selectedCount > 99 ? '99+' : selectedCount}
         </div>
       )}

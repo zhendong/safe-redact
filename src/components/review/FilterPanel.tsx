@@ -45,7 +45,7 @@ export function FilterPanel({
                 onClick={() => onToggleType(type)}
                 className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs sm:text-sm transition-all ${
                   isEnabled
-                    ? 'bg-opacity-20 border-2'
+                    ? 'border-2'
                     : 'bg-gray-100 dark:bg-gray-700 opacity-50 border-2 border-transparent'
                 }`}
                 style={{

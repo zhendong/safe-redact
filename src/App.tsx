@@ -1077,19 +1077,19 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-paper dark:bg-gray-900">
       {/* Header */}
       {/* In the macOS app the header doubles as the title bar: it stays on top, leaves room
           for the window buttons, and drags the window */}
       <header
-        className={`bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm ${isDesktop ? 'sticky top-0 z-40 pl-16' : ''}`}
+        className={`sticky top-0 z-40 bg-paper/80 dark:bg-gray-900/80 backdrop-blur-md backdrop-saturate-150 border-b border-gray-200/70 dark:border-gray-800 ${isDesktop ? 'pl-16' : ''}`}
         data-tauri-drag-region
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-4" data-tauri-drag-region>
           <div className="flex items-center justify-between" data-tauri-drag-region>
             <div className="flex items-center gap-2 sm:gap-3" data-tauri-drag-region>
               <svg
-                className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600"
+                className="w-6 h-6 sm:w-7 sm:h-7 text-ink dark:text-paper"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -1101,7 +1101,7 @@ function App() {
                   d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
                 />
               </svg>
-              <h1 className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white">SafeRedact</h1>
+              <h1 className="text-lg sm:text-xl font-semibold tracking-tight text-gray-900 dark:text-white">SafeRedact</h1>
             </div>
             <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
               {/* Desktop buttons */}
@@ -1109,16 +1109,17 @@ function App() {
                 href="https://buymeacoffee.com/zhendong"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-medium rounded-md transition-colors text-xs"
+                className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-2 text-xs font-medium hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-200/60 dark:hover:bg-gray-800 rounded-full transition-colors"
+                title={t('header.buyMeCoffee')}
               >
-                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                <svg className="w-4 h-4 text-accent" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M20.216 6.415l-.132-.666c-.119-.598-.388-1.163-1.001-1.379-.197-.069-.42-.098-.57-.241-.152-.143-.196-.366-.231-.572-.065-.378-.125-.756-.192-1.133-.057-.325-.102-.69-.25-.987-.195-.4-.597-.634-.996-.788a5.723 5.723 0 00-.626-.194c-1-.263-2.05-.36-3.077-.416a25.834 25.834 0 00-3.7.062c-.915.083-1.88.184-2.75.5-.318.116-.646.256-.888.501-.297.302-.393.77-.177 1.146.154.267.415.456.692.58.36.162.737.284 1.123.366 1.075.238 2.189.331 3.287.37 1.218.05 2.437.01 3.65-.118.299-.033.598-.073.896-.119.352-.054.578-.513.474-.834-.124-.383-.457-.531-.834-.473-.466.074-.96.108-1.382.146-1.177.08-2.358.082-3.536.006a22.228 22.228 0 01-1.157-.107c-.086-.01-.18-.025-.258-.036-.243-.036-.484-.08-.724-.13-.111-.027-.111-.185 0-.212h.005c.277-.06.557-.108.838-.147h.002c.131-.009.263-.032.394-.048a25.076 25.076 0 013.426-.12c.674.019 1.347.067 2.017.144l.228.031c.267.04.533.088.798.145.392.085.895.113 1.07.542.055.137.08.288.111.431l.319 1.484a.237.237 0 01-.199.284h-.003c-.037.006-.075.01-.112.015a36.704 36.704 0 01-4.743.295 37.059 37.059 0 01-4.699-.304c-.14-.017-.293-.042-.417-.06-.326-.048-.649-.108-.973-.161-.393-.065-.768-.032-1.123.161-.29.16-.527.404-.675.701-.154.316-.199.66-.267 1-.069.34-.176.707-.135 1.056.087.753.613 1.365 1.37 1.502a39.69 39.69 0 0011.343.376.483.483 0 01.535.53l-.071.697-1.018 9.907c-.041.41-.047.832-.125 1.237-.122.637-.553 1.028-1.182 1.171-.577.131-1.165.2-1.756.205-.656.004-1.31-.025-1.966-.022-.699.004-1.556-.06-2.095-.58-.475-.458-.54-1.174-.605-1.793l-.731-7.013-.322-3.094c-.037-.351-.286-.695-.678-.678-.336.015-.718.3-.678.679l.228 2.185.949 9.112c.147 1.344 1.174 2.068 2.446 2.272.742.12 1.503.144 2.257.156.966.016 1.942.053 2.892-.122 1.408-.258 2.465-1.198 2.616-2.657.34-3.332.683-6.663 1.024-9.995l.215-2.087a.484.484 0 01.39-.426c.402-.078.787-.212 1.074-.518.455-.488.546-1.124.385-1.766zm-1.478.772c-.145.137-.363.201-.578.233-2.416.359-4.866.54-7.308.46-1.748-.06-3.477-.254-5.207-.498-.17-.024-.353-.055-.47-.18-.22-.236-.111-.71-.054-.995.052-.26.152-.609.463-.646.484-.057 1.046.148 1.526.22.577.088 1.156.165 1.737.226 2.48.253 4.993.335 7.486.196.45-.025.9-.075 1.346-.155.299-.053.59-.11.794.265.102.186.078.446-.01.628-.061.127-.164.249-.325.326z"/>
                 </svg>
                 <span className="hidden md:inline">{t('header.buyMeCoffee')}</span>
               </a>
               <button
                 onClick={toggleLanguage}
-                className="hidden sm:block px-2.5 py-2 text-xs font-medium hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                className="hidden sm:block px-2.5 py-2 text-xs font-medium hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-200/60 dark:hover:bg-gray-800 rounded-full transition-colors"
                 aria-label={t('header.language')}
                 title={t('header.language')}
               >
@@ -1126,7 +1127,7 @@ function App() {
               </button>
               <button
                 onClick={toggleTheme}
-                className="hidden sm:block p-2 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                className="hidden sm:block p-2 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-200/60 dark:hover:bg-gray-800 rounded-full transition-colors"
                 aria-label={t('header.toggleDarkMode')}
               >
                 {theme === 'light' ? (
@@ -1141,13 +1142,13 @@ function App() {
               </button>
               <button
                 onClick={() => setIsSettingsOpen(true)}
-                className="hidden sm:block p-2 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                className="hidden sm:block p-2 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-200/60 dark:hover:bg-gray-800 rounded-full transition-colors"
               >
                 {t('header.settings')}
               </button>
               <button
                 onClick={() => setIsAboutOpen(true)}
-                className="hidden sm:block p-2 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                className="hidden sm:block p-2 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-200/60 dark:hover:bg-gray-800 rounded-full transition-colors"
               >
                 {t('header.about')}
               </button>
@@ -1155,7 +1156,7 @@ function App() {
               {/* Mobile menu button */}
               <button
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                className="sm:hidden p-2 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                className="sm:hidden p-2 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-200/60 dark:hover:bg-gray-800 rounded-full transition-colors"
                 aria-label={t('header.menu')}
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1174,7 +1175,7 @@ function App() {
                     toggleLanguage();
                     setIsMobileMenuOpen(false);
                   }}
-                  className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                  className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-200/60 dark:hover:bg-gray-800 rounded-full transition-colors"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
@@ -1186,7 +1187,7 @@ function App() {
                     toggleTheme();
                     setIsMobileMenuOpen(false);
                   }}
-                  className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                  className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-200/60 dark:hover:bg-gray-800 rounded-full transition-colors"
                 >
                   {theme === 'light' ? (
                     <>
@@ -1209,7 +1210,7 @@ function App() {
                     setIsSettingsOpen(true);
                     setIsMobileMenuOpen(false);
                   }}
-                  className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                  className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-200/60 dark:hover:bg-gray-800 rounded-full transition-colors"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -1222,7 +1223,7 @@ function App() {
                     setIsAboutOpen(true);
                     setIsMobileMenuOpen(false);
                   }}
-                  className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                  className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-200/60 dark:hover:bg-gray-800 rounded-full transition-colors"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -1233,10 +1234,10 @@ function App() {
                   href="https://buymeacoffee.com/zhendong"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 px-3 py-2 text-sm bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-medium rounded-lg transition-colors"
+                  className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-200/60 dark:hover:bg-gray-800 rounded-full transition-colors"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
-                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                  <svg className="w-4 h-4 text-accent" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M20.216 6.415l-.132-.666c-.119-.598-.388-1.163-1.001-1.379-.197-.069-.42-.098-.57-.241-.152-.143-.196-.366-.231-.572-.065-.378-.125-.756-.192-1.133-.057-.325-.102-.69-.25-.987-.195-.4-.597-.634-.996-.788a5.723 5.723 0 00-.626-.194c-1-.263-2.05-.36-3.077-.416a25.834 25.834 0 00-3.7.062c-.915.083-1.88.184-2.75.5-.318.116-.646.256-.888.501-.297.302-.393.77-.177 1.146.154.267.415.456.692.58.36.162.737.284 1.123.366 1.075.238 2.189.331 3.287.37 1.218.05 2.437.01 3.65-.118.299-.033.598-.073.896-.119.352-.054.578-.513.474-.834-.124-.383-.457-.531-.834-.473-.466.074-.96.108-1.382.146-1.177.08-2.358.082-3.536.006a22.228 22.228 0 01-1.157-.107c-.086-.01-.18-.025-.258-.036-.243-.036-.484-.08-.724-.13-.111-.027-.111-.185 0-.212h.005c.277-.06.557-.108.838-.147h.002c.131-.009.263-.032.394-.048a25.076 25.076 0 013.426-.12c.674.019 1.347.067 2.017.144l.228.031c.267.04.533.088.798.145.392.085.895.113 1.07.542.055.137.08.288.111.431l.319 1.484a.237.237 0 01-.199.284h-.003c-.037.006-.075.01-.112.015a36.704 36.704 0 01-4.743.295 37.059 37.059 0 01-4.699-.304c-.14-.017-.293-.042-.417-.06-.326-.048-.649-.108-.973-.161-.393-.065-.768-.032-1.123.161-.29.16-.527.404-.675.701-.154.316-.199.66-.267 1-.069.34-.176.707-.135 1.056.087.753.613 1.365 1.37 1.502a39.69 39.69 0 0011.343.376.483.483 0 01.535.53l-.071.697-1.018 9.907c-.041.41-.047.832-.125 1.237-.122.637-.553 1.028-1.182 1.171-.577.131-1.165.2-1.756.205-.656.004-1.31-.025-1.966-.022-.699.004-1.556-.06-2.095-.58-.475-.458-.54-1.174-.605-1.793l-.731-7.013-.322-3.094c-.037-.351-.286-.695-.678-.678-.336.015-.718.3-.678.679l.228 2.185.949 9.112c.147 1.344 1.174 2.068 2.446 2.272.742.12 1.503.144 2.257.156.966.016 1.942.053 2.892-.122 1.408-.258 2.465-1.198 2.616-2.657.34-3.332.683-6.663 1.024-9.995l.215-2.087a.484.484 0 01.39-.426c.402-.078.787-.212 1.074-.518.455-.488.546-1.124.385-1.766zm-1.478.772c-.145.137-.363.201-.578.233-2.416.359-4.866.54-7.308.46-1.748-.06-3.477-.254-5.207-.498-.17-.024-.353-.055-.47-.18-.22-.236-.111-.71-.054-.995.052-.26.152-.609.463-.646.484-.057 1.046.148 1.526.22.577.088 1.156.165 1.737.226 2.48.253 4.993.335 7.486.196.45-.025.9-.075 1.346-.155.299-.053.59-.11.794.265.102.186.078.446-.01.628-.061.127-.164.249-.325.326z"/>
                   </svg>
                   {t('header.buyMeCoffee')}
@@ -1269,12 +1270,6 @@ function App() {
           </div>
         )}
 
-        {(stage === 'upload' || (stage === 'preview' && fileType === 'image')) && (
-          <p role="note" className="max-w-2xl mx-auto mt-3 px-4 py-3 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 text-sm text-amber-900 dark:text-amber-200">
-            {t('common.imageOcrNotice')}
-          </p>
-        )}
-
         {stage === 'upload' && (
           <FileUpload onFileSelect={handleFileSelect} />
         )}
@@ -1289,7 +1284,7 @@ function App() {
 
         {(stage === 'processing' || stage === 'redacting') && (
           <div className="flex flex-col items-center justify-center min-h-[400px]">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-8">
+            <h2 className="font-serif text-3xl font-normal tracking-tight text-gray-900 dark:text-white mb-8">
               {stage === 'processing' ? t('progress.processing') : t('progress.redacting')} {selectedFile?.name}
             </h2>
             <ProgressIndicator stage={processingStage} />
@@ -1300,12 +1295,12 @@ function App() {
           <div className="flex flex-col items-center justify-center min-h-[400px]">
             <div className="text-center max-w-md">
               <div className="mb-6">
-                <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full mb-4">
-                  <svg className="w-8 h-8 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="inline-flex items-center justify-center w-16 h-16 bg-ink dark:bg-paper rounded-full mb-4">
+                  <svg className="w-8 h-8 text-paper dark:text-ink" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                <h2 className="font-serif text-4xl font-normal tracking-tight text-gray-900 dark:text-white mb-3">
                   {t('complete.title')}
                 </h2>
                 <p className="text-gray-600 dark:text-gray-300">
@@ -1318,13 +1313,13 @@ function App() {
               <div className="flex flex-col gap-3">
                 <button
                   onClick={handleBackToUpload}
-                  className="px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                  className="btn-primary px-6 py-3"
                 >
                   {t('complete.processAnother')}
                 </button>
                 <button
                   onClick={() => setStage('review')}
-                  className="px-6 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-medium rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                  className="btn-ghost px-6 py-3"
                 >
                   {t('complete.backToReview')}
                 </button>
@@ -1336,21 +1331,21 @@ function App() {
         {stage === 'review' && (processedDocument || processedDocx) && (
           <div className="space-y-3 sm:space-y-4">
               {fileType === 'image' && (
-                <p role="note" className="px-4 py-3 rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 text-sm text-amber-900 dark:text-amber-200">
+                <p role="note" className="px-4 py-3 rounded-lg bg-[#f6ece4] dark:bg-[#8a5233]/20 text-sm text-[#8a5233] dark:text-[#e8c9b4]">
                   {t('common.imageOcrNotice')}
                 </p>
               )}
               {/* Review Header */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0">
-                <div className="flex items-center gap-2 sm:gap-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-6">
+                <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
                   <button
                     onClick={handleBackToUpload}
-                    className="px-3 sm:px-4 py-2 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors flex-shrink-0"
+                    className="btn-ghost h-10 px-3 sm:px-4 text-sm flex-shrink-0 whitespace-nowrap"
                   >
                     {t('review.backButton')}
                   </button>
                   <div className="min-w-0">
-                    <h2 className="text-base sm:text-xl font-semibold text-gray-900 dark:text-white truncate">
+                    <h2 className="font-serif text-xl sm:text-3xl font-normal tracking-tight text-gray-900 dark:text-white truncate">
                       {selectedFile?.name}
                     </h2>
                     <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">
@@ -1361,10 +1356,10 @@ function App() {
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 sm:gap-3">
+                <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
                   <button
                     onClick={() => setIsMetadataModalOpen(true)}
-                    className="px-3 sm:px-4 py-2 text-xs sm:text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-medium rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center gap-1.5 sm:gap-2"
+                    className="btn-ghost h-10 px-3 sm:px-4 text-xs sm:text-sm gap-1.5 sm:gap-2 whitespace-nowrap"
                   >
                     <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -1373,7 +1368,7 @@ function App() {
                     <span className="sm:hidden">{t('review.metadata')}</span>
                   </button>
                   <button
-                    className="px-4 sm:px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm whitespace-nowrap"
+                    className="btn-primary h-10 px-4 sm:px-6 text-xs sm:text-sm whitespace-nowrap"
                     onClick={handleApplyRedactions}
                     disabled={confirmedCount === 0}
                   >
@@ -1384,7 +1379,7 @@ function App() {
               </div>
 
               {/* Filters Section - Desktop only (mobile filters are in EntityList) */}
-              <div className="hidden lg:block bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
+              <div className="hidden lg:block surface rounded-xl p-4">
                 <FilterBar
                   entities={processedDocument?.allEntities || processedDocx?.allEntities || []}
                   enabledTypes={enabledTypes}
@@ -1413,7 +1408,7 @@ function App() {
               {/* Review Interface */}
               <div className="flex flex-col lg:flex-row gap-3 lg:gap-6" style={{ height: 'calc(100vh - 200px)', minHeight: '600px' }}>
                 {/* Entity List Panel - Desktop only */}
-                <div className="hidden lg:flex lg:flex-initial lg:h-auto lg:w-96 lg:flex-shrink-0 bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden flex-col">
+                <div className="hidden lg:flex lg:flex-initial lg:h-auto lg:w-96 lg:flex-shrink-0 surface rounded-xl overflow-hidden flex-col">
                   <EntityList
                     entities={filteredEntities}
                     selectedEntityId={selectedEntityId}
@@ -1437,7 +1432,7 @@ function App() {
                 </div>
 
                 {/* Mobile Entity List - Only visible when viewMode is 'entities' */}
-                <div className={`lg:hidden flex-1 bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden flex flex-col ${viewMode === 'document' ? 'hidden' : ''}`}>
+                <div className={`lg:hidden flex-1 surface rounded-xl overflow-hidden flex flex-col ${viewMode === 'document' ? 'hidden' : ''}`}>
                   <EntityList
                     entities={filteredEntities}
                     selectedEntityId={selectedEntityId}
@@ -1462,7 +1457,7 @@ function App() {
                 </div>
 
               {/* Document Viewer - PDF or DOCX */}
-              <div className={`flex-1 bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden flex flex-col min-h-[400px] ${viewMode === 'entities' ? 'hidden lg:flex' : ''}`}
+              <div className={`flex-1 surface rounded-xl overflow-hidden flex flex-col min-h-[400px] ${viewMode === 'entities' ? 'hidden lg:flex' : ''}`}
               >
                 {processedDocument && (
                   <>
@@ -1473,6 +1468,7 @@ function App() {
                         selectedEntityId={selectedEntityId}
                         onEntityClick={handleEntitySelect}
                         onManualEntityCreate={handleManualEntityCreate}
+                        onPageChange={setCurrentPage}
                       />
                     </div>
 
@@ -1481,7 +1477,7 @@ function App() {
                       <button
                         onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                         disabled={currentPage === 1}
-                        className="min-w-[44px] min-h-[44px] px-4 sm:px-4 py-2.5 sm:py-2 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors active:scale-95"
+                        className="btn-ghost min-w-[44px] min-h-[44px] px-4 sm:px-4 py-2.5 sm:py-2 text-sm active:scale-95"
                       >
                         <span className="hidden sm:inline">{t('review.previousFull')}</span>
                         <span className="sm:hidden">{t('review.previousShort')}</span>
@@ -1492,7 +1488,7 @@ function App() {
                       <button
                         onClick={() => setCurrentPage(p => Math.min(processedDocument.pageCount, p + 1))}
                         disabled={currentPage === processedDocument.pageCount}
-                        className="min-w-[44px] min-h-[44px] px-4 sm:px-4 py-2.5 sm:py-2 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors active:scale-95"
+                        className="btn-ghost min-w-[44px] min-h-[44px] px-4 sm:px-4 py-2.5 sm:py-2 text-sm active:scale-95"
                       >
                         <span className="hidden sm:inline">{t('review.nextFull')}</span>
                         <span className="sm:hidden">{t('review.nextShort')}</span>
@@ -1525,10 +1521,10 @@ function App() {
 
       {/* About Dialog */}
       {isAboutOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setIsAboutOpen(false)}>
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-ink/40 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setIsAboutOpen(false)}>
+          <div className="surface rounded-2xl shadow-[0_24px_60px_-28px_rgba(28,27,25,0.35)] p-7 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-start mb-4">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{t('about.title')}</h2>
+              <h2 className="font-serif text-3xl font-normal tracking-tight text-gray-900 dark:text-white">{t('about.title')}</h2>
               <button
                 onClick={() => setIsAboutOpen(false)}
                 className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
@@ -1542,7 +1538,7 @@ function App() {
             <div className="space-y-4">
               <div className="flex items-center gap-3 mb-6">
                 <svg
-                  className="w-12 h-12 text-blue-600"
+                  className="w-12 h-12 text-ink dark:text-paper"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -1570,7 +1566,7 @@ function App() {
                   href="https://github.com/zhendong/safe-redact/issues/new"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+                  className="btn-primary gap-2 px-4 py-2 text-sm"
                 >
                   <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                     <path fillRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clipRule="evenodd" />

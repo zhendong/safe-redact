@@ -17,7 +17,7 @@ export function MobileViewSwitcher({ viewMode, onViewModeChange, entityCount }: 
             flex-1 py-3 px-4 text-sm font-medium border-b-2 transition-colors
             ${
               viewMode === 'document'
-                ? 'border-blue-600 text-blue-600 dark:text-blue-400'
+                ? 'border-ink text-ink dark:border-paper dark:text-paper'
                 : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
             }
           `}
@@ -41,7 +41,7 @@ export function MobileViewSwitcher({ viewMode, onViewModeChange, entityCount }: 
             flex-1 py-3 px-4 text-sm font-medium border-b-2 transition-colors relative
             ${
               viewMode === 'entities'
-                ? 'border-blue-600 text-blue-600 dark:text-blue-400'
+                ? 'border-ink text-ink dark:border-paper dark:text-paper'
                 : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
             }
           `}
@@ -57,7 +57,7 @@ export function MobileViewSwitcher({ viewMode, onViewModeChange, entityCount }: 
             </svg>
             <span>{t('mobileViewSwitcher.entities')}</span>
             {entityCount > 0 && (
-              <span className="ml-1 px-1.5 py-0.5 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-full">
+              <span className="ml-1 px-1.5 py-0.5 text-xs bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-full">
                 {entityCount}
               </span>
             )}
