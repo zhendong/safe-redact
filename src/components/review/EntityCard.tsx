@@ -31,6 +31,7 @@ export function EntityCard({
   const color = getEntityColor(entity.entityType);
   const displayName = getEntityDisplayName(entity.entityType, language);
   const confidencePercent = Math.round(entity.confidence * 100);
+  // Unchecked cards keep full contrast; the dashed border matches the dashed outline in the viewer
   const isChecked = entity.status === 'confirmed';
   const showConfirmAll = !!onConfirmAll && similarCount !== undefined && similarCount > 1 && entity.status === 'rejected';
 
@@ -63,7 +64,7 @@ export function EntityCard({
         className={`
           p-2 border rounded-lg cursor-pointer transition-all
           ${isSelected ? 'border-ink dark:border-gray-300 bg-gray-50 dark:bg-gray-700/40 ring-1 ring-ink dark:ring-gray-300' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 bg-white dark:bg-gray-800'}
-          ${!isChecked ? 'opacity-60' : ''}
+          ${!isChecked ? 'border-dashed' : ''}
         `}
         onClick={handleCardClick}
       >
@@ -162,7 +163,7 @@ export function EntityCard({
       className={`
         p-2.5 sm:p-3 border rounded-lg cursor-pointer transition-all
         ${isSelected ? 'border-ink dark:border-gray-300 bg-gray-50 dark:bg-gray-700/40 ring-1 ring-ink dark:ring-gray-300' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 bg-white dark:bg-gray-800'}
-        ${!isChecked ? 'opacity-60' : ''}
+        ${!isChecked ? 'border-dashed' : ''}
       `}
       onClick={onClick}
     >
