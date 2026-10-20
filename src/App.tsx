@@ -146,9 +146,17 @@ function App() {
     });
   }, [processedDocument, processedDocx, enabledTypes, showHighConfidence, showMediumConfidence, showLowConfidence, detectionConfig]);
 
-  const confirmedCount = useMemo(() => {
+  // Confirmed items in the filtered list, for the list stats
+  const visibleConfirmedCount = useMemo(() => {
     return filteredEntities.filter((e) => e.status === 'confirmed').length;
   }, [filteredEntities]);
+
+  // Every confirmed item is redacted on export, including ones hidden by filters
+  const confirmedCount = useMemo(() => {
+    const allEntities = processedDocument?.allEntities || processedDocx?.allEntities || [];
+    return allEntities.filter((e) => e.status === 'confirmed').length;
+  }, [processedDocument, processedDocx]);
+  const hiddenConfirmedCount = confirmedCount - visibleConfirmedCount;
 
   // Save detection config to localStorage whenever it changes
   const handleConfigChange = (config: DetectionConfig) => {
@@ -1378,6 +1386,12 @@ function App() {
                 </div>
               </div>
 
+              {hiddenConfirmedCount > 0 && (
+                <p role="status" className="px-4 py-2 rounded-lg bg-[#f6ece4] dark:bg-[#8a5233]/20 text-sm text-[#8a5233] dark:text-[#e8c9b4]">
+                  {t('review.hiddenSelected', { count: hiddenConfirmedCount })}
+                </p>
+              )}
+
               {/* Filters Section - Desktop only (mobile filters are in EntityList) */}
               <div className="hidden lg:block surface rounded-xl p-4">
                 <FilterBar
@@ -1394,7 +1408,7 @@ function App() {
                   entityCounts={entityCounts}
                   confidenceCounts={confidenceCounts}
                   filteredCount={filteredEntities.length}
-                  confirmedCount={confirmedCount}
+                  confirmedCount={visibleConfirmedCount}
                 />
               </div>
 
@@ -1427,7 +1441,7 @@ function App() {
                     entityCounts={entityCounts}
                     confidenceCounts={confidenceCounts}
                     filteredCount={filteredEntities.length}
-                    confirmedCount={confirmedCount}
+                    confirmedCount={visibleConfirmedCount}
                     />
                 </div>
 
@@ -1451,7 +1465,7 @@ function App() {
                     entityCounts={entityCounts}
                     confidenceCounts={confidenceCounts}
                     filteredCount={filteredEntities.length}
-                    confirmedCount={confirmedCount}
+                    confirmedCount={visibleConfirmedCount}
                       compactCards={true}
                   />
                 </div>
