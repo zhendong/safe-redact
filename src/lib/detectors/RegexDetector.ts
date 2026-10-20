@@ -1,6 +1,6 @@
 import type { DetectedEntity, ProcessedPage, EntityPosition, RegexPattern } from '@/lib/types';
 import { EntityType } from '@/lib/types';
-import { getAllPatterns, getPatternsForText, getContextConfidenceBoost } from '@/utils/regex-patterns';
+import { getPatternsForText, getContextConfidenceBoost } from '@/utils/regex-patterns';
 import { generateId } from '@/utils/validation';
 import { extractContext } from '@/utils/text-utils';
 import { DEFAULT_SEARCH_CONTEXT_WINDOW, DEFAULT_CONFIDENCE_BOOST } from '@/utils/constants';
@@ -26,7 +26,7 @@ export class RegexDetector {
       for (const [index, pattern] of selectedPatterns.entries()) {
         await yieldToBrowser();
         onProgress?.(index / selectedPatterns.length);
-        const matches = this.findMatches(content, pattern.pattern, pattern.entityType, pattern.name);
+        const matches = this.findMatches(content, pattern);
 
         allEntities.push(...matches.map(match => {
           // Apply context-aware confidence boost
@@ -435,10 +435,15 @@ export class RegexDetector {
         return null;
       }
 
-      // For multiple matches, we need to count which occurrence this is
-      // by checking how many times the text appears before this index
+      // For multiple matches, count which occurrence this is. MuPDF search ignores case
+      // and collapses whitespace, so count the same way or the hits won't line up
+      // (e.g. "secret … SECRET" would put both boxes on the first word)
       const textBefore = page.textContent.substring(0, matchIndex);
-      const occurrenceIndex = (textBefore.match(new RegExp(searchText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) || []).length;
+      const occurrencePattern = searchText.trim()
+        .split(/\s+/)
+        .map(part => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+        .join('\\s+');
+      const occurrenceIndex = (textBefore.match(new RegExp(occurrencePattern, 'gi')) || []).length;
 
       log.debug('MuPDF search', {
         page: page.pageNumber,
@@ -450,9 +455,10 @@ export class RegexDetector {
       });
 
       if (occurrenceIndex >= hits.length) {
-        // Use first hit as fallback
-        log.warn('Occurrence beyond search hits, using first hit', { page: page.pageNumber, occurrence: occurrenceIndex, hits: hits.length });
-        return this.convertQuadToPosition(hits[0], page);
+        // Don't guess with another occurrence's box: that would leave this one visible.
+        // Returning null falls back to locating the match by its text offset.
+        log.warn('Occurrence beyond search hits, falling back to text position', { page: page.pageNumber, occurrence: occurrenceIndex, hits: hits.length });
+        return null;
       }
 
       return this.convertQuadToPosition(hits[occurrenceIndex], page);
@@ -585,107 +591,13 @@ export class RegexDetector {
 
 
   /**
-   * Detect entities of a specific type
-   */
-  async detectEntityType(
-    pages: ProcessedPage[],
-    entityType: EntityType
-  ): Promise<DetectedEntity[]> {
-    const allPatterns = getAllPatterns();
-    const patterns = allPatterns.filter(p => p.entityType === entityType);
-    const allEntities: DetectedEntity[] = [];
-
-    for (const page of pages) {
-      const pageEntities = this.detectInPageWithPatterns(page, patterns);
-      allEntities.push(...pageEntities);
-    }
-
-    return allEntities;
-  }
-
-  /**
-   * Detect entities using specific patterns
-   */
-  private detectInPageWithPatterns(
-    page: ProcessedPage,
-    patterns: RegexPattern[]
-  ): DetectedEntity[] {
-    const entities: DetectedEntity[] = [];
-    const mupdfPage = page.pdfPageObject;
-
-    // Combine text content with form field data for comprehensive search
-    const combinedText = this.getCombinedText(page);
-    const text = combinedText.text;
-
-    for (const pattern of patterns) {
-      pattern.pattern.lastIndex = 0;
-
-      let match: RegExpExecArray | null;
-      while ((match = pattern.pattern.exec(text)) !== null) {
-        const matchedText = match[0];
-
-        if (pattern.validator && !pattern.validator(matchedText)) {
-          continue;
-        }
-
-        // Check if this match is from a form field
-        const formFieldInfo = this.findFormFieldForMatch(page, match.index, matchedText, combinedText);
-
-        // Try using MuPDF's native search for precise positioning
-        let position = formFieldInfo?.position ||
-                       this.findPositionWithSearch(mupdfPage, page, matchedText, match.index);
-
-        // Fallback to text item-based method if search fails
-        if (!position) {
-          position = this.findPosition(page, match.index, matchedText);
-          if (!position) {
-            continue;
-          }
-        }
-
-        const contextText = extractContext(text, match.index, matchedText.length);
-
-        // Apply context-aware confidence boost
-        let confidence = pattern.confidence;
-        if (pattern.contextKeywords && pattern.contextKeywords.length > 0) {
-          const windowSize = pattern.contextWindowSize ?? DEFAULT_SEARCH_CONTEXT_WINDOW;
-          const boostMultiplier = pattern.confidenceBoost ?? DEFAULT_CONFIDENCE_BOOST;
-          const boost = getContextConfidenceBoost(
-            text,
-            match.index,
-            matchedText.length,
-            pattern.contextKeywords,
-            windowSize,
-            boostMultiplier
-          );
-          confidence = Math.min(1.0, confidence * boost); // Cap at 1.0
-        }
-
-        entities.push({
-          id: generateId(),
-          text: matchedText,
-          entityType: pattern.entityType,
-          confidence,
-          position,
-          detectionMethod: 'regex',
-          status: 'rejected',
-          contextText,
-        });
-      }
-    }
-
-    return entities;
-  }
-
-    /**
    * Find all matches for a pattern in docx text
    */
   private findMatches(
     text: string,
-    pattern: RegExp,
-    entityType: EntityType,
-    patternName?: string
+    patternDef: RegexPattern
   ): Array<{ text: string; entityType: EntityType; index: number }> {
+    const { pattern, entityType } = patternDef;
     const matches: Array<{ text: string; entityType: EntityType; index: number }> = [];
 
     // Ensure the pattern has the 'g' flag for global matching
@@ -697,15 +609,11 @@ export class RegexDetector {
     const globalPattern = new RegExp(pattern.source, flags);
 
     let match;
-    let matchCount = 0;
     while ((match = globalPattern.exec(text)) !== null) {
-      matchCount++;
       const matchedText = match[0];
 
       // Apply validator if exists
-      const allPatterns = getAllPatterns();
-      const patternDef = allPatterns.find(p => p.entityType === entityType && p.pattern.source === pattern.source);
-      if (patternDef?.validator && !patternDef.validator(matchedText)) {
+      if (patternDef.validator && !patternDef.validator(matchedText)) {
         continue;
       }
 

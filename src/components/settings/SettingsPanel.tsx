@@ -47,7 +47,8 @@ export function SettingsPanel({
   const [predefinedWords, setPredefinedWords] = useState<PredefinedWord[]>([]);
   const [newWord, setNewWord] = useState('');
   const [newWordCaseSensitive, setNewWordCaseSensitive] = useState(false);
-  const [newWordWholeWord, setNewWordWholeWord] = useState(true);
+  // Off by default so a word is caught inside longer words and in any case
+  const [newWordWholeWord, setNewWordWholeWord] = useState(false);
   const [wordError, setWordError] = useState<string | null>(null);
 
   // Import/Export state
@@ -131,7 +132,7 @@ export function SettingsPanel({
       setPredefinedWords(getPredefinedWords());
       setNewWord('');
       setNewWordCaseSensitive(false);
-      setNewWordWholeWord(true);
+      setNewWordWholeWord(false);
     } catch (error) {
       setWordError(error instanceof Error ? error.message : t('settings.failedToAddWord'));
     }

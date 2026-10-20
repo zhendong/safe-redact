@@ -49,7 +49,7 @@ function savePredefinedWords(words: PredefinedWord[]): void {
 export function addPredefinedWord(
   word: string,
   caseSensitive: boolean = false,
-  wholeWord: boolean = true
+  wholeWord: boolean = false
 ): PredefinedWord {
   const words = getPredefinedWords();
 
