@@ -90,23 +90,22 @@ function highlightEntities(
   let result = html;
 
   // Sort entities by position (longest first to avoid nested replacements)
-  // Filter out rejected entities - they should not show highlights
   const sortedEntities = [...entities]
-    .filter((entity) => entity.status !== 'rejected')
     .sort((a, b) => b.text.length - a.text.length);
 
   for (const entity of sortedEntities) {
     const color = getEntityColor(entity.entityType);
     const isSelected = entity.id === selectedEntityId;
-    const opacity = entity.status === 'confirmed' ? '0.4' : '0.3';
+    // Unchecked detections get a dashed underline and no fill so they read as "not redacted"
+    const isChecked = entity.status === 'confirmed';
 
     // Create highlight span
     const highlightSpan = `<span
       data-entity-id="${entity.id}"
       class="entity-highlight ${isSelected ? 'selected' : ''}"
       style="
-        background-color: ${color}${Math.round(parseFloat(opacity) * 255).toString(16).padStart(2, '0')};
-        border-bottom: 2px solid ${color};
+        background-color: ${isChecked ? `${color}66` : 'transparent'};
+        border-bottom: 2px ${isChecked ? 'solid' : 'dashed'} ${color};
         cursor: pointer;
         padding: 2px 0;
         ${isSelected ? 'box-shadow: 0 0 0 3px ' + color + '40;' : ''}
