@@ -32,6 +32,7 @@ import { buildWhitespaceTolerantPattern } from '@/utils/text-utils';
 import { enableNewEntityTypes } from '@/utils/entity-types';
 import { useMemo } from 'react';
 import { useDialog } from '@/hooks/useDialog';
+import { nextPaint } from '@/utils/yield';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { createLogger, describeFile, timed } from '@/utils/logger';
@@ -902,6 +903,9 @@ function App() {
     setError(null);
 
     try {
+      // Parsing blocks the main thread, so show the processing page before it starts
+      await nextPaint();
+      run.check();
       await timed(log, 'Analysis', async () => {
         if (fileType === 'pdf') {
           await processPdf(run);

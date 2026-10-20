@@ -3,6 +3,7 @@ import type { ProcessedDocument, ProcessedPage, TextItem, FormFieldData, Documen
 import { generateId } from '@/utils/validation';
 import { parsePdfDateToIso } from '@/utils/date-parsing';
 import { createLogger } from '@/utils/logger';
+import { createYielder } from '@/utils/yield';
 
 const log = createLogger('PdfParser');
 
@@ -142,7 +143,10 @@ export class PdfParser {
         totalFormFields: 0,
       };
 
+      // MuPDF is synchronous, so yield now and then to let the progress bar paint
+      const yieldToBrowser = createYielder();
       for (let i = 0; i < pageCount; i++) {
+        await yieldToBrowser();
         const page = this.pdfDocument.loadPage(i);
 
         // Collect hidden content stats during parsing
