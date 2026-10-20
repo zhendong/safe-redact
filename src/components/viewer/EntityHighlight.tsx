@@ -51,6 +51,7 @@ export function EntityHighlight({
         boxShadow: isSelected ? `0 0 0 3px ${color}` : 'none',
       }}
       onClick={onClick}
+      data-entity-id={entity.id}
       title={label}
       aria-label={label}
       aria-pressed={isSelected}

@@ -31,7 +31,9 @@ export function DocumentViewer({
   const [scale, setScale] = useState(1.0);
   const [isLoading, setIsLoading] = useState(true);
   const [isManualSelectionActive, setIsManualSelectionActive] = useState(false);
-  const [isInitialized, setIsInitialized] = useState(false);
+  // Fit-width mode refits whenever the viewer resizes; zooming by hand leaves it
+  const [isFitWidth, setIsFitWidth] = useState(true);
+  const scrolledEntityIdRef = useRef<string | undefined>(undefined);
   const [showManualGuide, setShowManualGuide] = useState(false);
 
   const currentPageData = document.pages[currentPage - 1];
@@ -137,32 +139,60 @@ export function DocumentViewer({
   }, [currentPage, scale, currentPageData]);
 
   const handleZoomIn = () => {
+    setIsFitWidth(false);
     setScale((prev) => Math.min(prev + 0.25, 2.0));
   };
 
   const handleZoomOut = () => {
+    setIsFitWidth(false);
     setScale((prev) => Math.max(prev - 0.25, 0.5));
   };
 
-  const handleFitWidth = () => {
-    if (containerRef.current && currentPageData) {
-      const containerWidth = containerRef.current.clientWidth - 48; // padding
+  // Refit on mount, page change, and whenever the viewer resizes (window resize, rotation, layout changes)
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!isFitWidth || !container || !currentPageData) return;
+
+    const fit = () => {
+      const containerWidth = container.clientWidth - 48; // padding
+      if (containerWidth <= 0) return; // hidden, e.g. the mobile list view is showing
       const bounds = currentPageData.imageBlob ? null : currentPageData.pdfPageObject.getBounds();
       const pageWidth = bounds ? bounds[2] - bounds[0] : currentPageData.dimensions.width;
-      setScale(containerWidth / pageWidth);
-    }
-  };
+      const next = containerWidth / pageWidth;
+      // Skip sub-pixel changes so a resize doesn't re-render the page for nothing
+      setScale((prev) => (Math.abs(prev - next) < 0.005 ? prev : next));
+    };
 
-  // Initialize with fit width on mount and page change
+    fit();
+    // Re-rendering a page is expensive, so wait for the resize to settle
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const observer = new ResizeObserver(() => {
+      clearTimeout(timer);
+      timer = setTimeout(fit, 150);
+    });
+    observer.observe(container);
+    return () => {
+      clearTimeout(timer);
+      observer.disconnect();
+    };
+  }, [isFitWidth, currentPageData]);
+
+  // Bring the selected item's highlight into view once its page has rendered
   useEffect(() => {
-    if (containerRef.current && currentPageData && !isInitialized) {
-      // Wait a brief moment for container to be rendered
-      setTimeout(() => {
-        handleFitWidth();
-        setIsInitialized(true);
-      }, 100);
-    }
-  }, [currentPageData, isInitialized]);
+    if (isLoading || !selectedEntityId || selectedEntityId === scrolledEntityIdRef.current) return;
+    const container = containerRef.current;
+    const highlight = container?.querySelector<HTMLElement>(`[data-entity-id="${CSS.escape(selectedEntityId)}"]`);
+    if (!container || !highlight) return;
+    // Scroll only the viewer, not the page around it
+    const containerRect = container.getBoundingClientRect();
+    const highlightRect = highlight.getBoundingClientRect();
+    container.scrollTo({
+      top: container.scrollTop + highlightRect.top - containerRect.top - (container.clientHeight - highlightRect.height) / 2,
+      left: container.scrollLeft + highlightRect.left - containerRect.left - (container.clientWidth - highlightRect.width) / 2,
+      behavior: 'smooth',
+    });
+    scrolledEntityIdRef.current = selectedEntityId;
+  }, [selectedEntityId, isLoading, currentPage]);
 
   return (
     <div className="flex flex-col h-full">
@@ -221,6 +251,17 @@ export function DocumentViewer({
             >
               +
             </button>
+            <button
+              onClick={() => setIsFitWidth(true)}
+              aria-pressed={isFitWidth}
+              className="btn-ghost w-10 h-10 active:scale-95"
+              aria-label={t('documentViewer.fitWidth')}
+              title={t('documentViewer.fitWidth')}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7l-4 5 4 5M16 7l4 5-4 5M4 12h16" />
+              </svg>
+            </button>
           </div>
         </div>
 
@@ -247,7 +288,8 @@ export function DocumentViewer({
               +
             </button>
             <button
-              onClick={handleFitWidth}
+              onClick={() => setIsFitWidth(true)}
+              aria-pressed={isFitWidth}
               className="btn-ghost px-3 py-1.5 text-sm"
             >
               {t('documentViewer.fitWidth')}
@@ -302,6 +344,8 @@ export function DocumentViewer({
       <div
         ref={containerRef}
         className="flex-1 overflow-auto bg-gray-100 p-6"
+        // Reserve the scrollbar's space so fitting can't toggle it and trigger another refit
+        style={{ scrollbarGutter: 'stable' }}
       >
         <div className="relative inline-block bg-white shadow-lg">
           <canvas ref={canvasRef} className="block" style={{ pointerEvents: isManualSelectionActive ? 'none' : 'auto' }} />

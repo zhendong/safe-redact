@@ -323,9 +323,6 @@ export const translations = {
       pages: 'Pages: {{pages}}',
       dismiss: 'Dismiss warning',
     },
-    floatingActionButton: {
-      viewEntities: 'View Entities',
-    },
     mobileViewSwitcher: {
       document: 'Document',
       entities: 'Entities',
@@ -747,9 +744,6 @@ export const translations = {
       recommendationText: '开启“应用遮盖”旁的“清除元数据”（或设置中的“清除元数据和隐藏内容”），可在导出时移除隐藏内容。',
       pages: '页码：{{pages}}',
       dismiss: '关闭提示',
-    },
-    floatingActionButton: {
-      viewEntities: '查看实体',
     },
     mobileViewSwitcher: {
       document: '文档',
