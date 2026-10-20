@@ -264,7 +264,7 @@ export function ManualSelector({
           {/* Current selection box */}
           {currentBox && (
             <div
-              className="absolute border-2 border-blue-500 bg-blue-500/20"
+              className="absolute border-2 border-ink bg-accent/25 dark:border-paper"
               style={{
                 left: `${currentBox.x * scale}px`,
                 top: `${currentBox.y * scale}px`,
@@ -278,25 +278,25 @@ export function ManualSelector({
 
       {/* Type Selector Modal */}
       {showTypeSelector && pendingBox && (
-        <div className="fixed inset-0 bg-black/70 dark:bg-black/80 flex items-center justify-center z-[100]" onClick={handleCancel}>
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+        <div className="fixed inset-0 bg-ink/40 backdrop-blur-sm flex items-center justify-center z-[100]" onClick={handleCancel}>
+          <div className="surface rounded-2xl shadow-[0_24px_60px_-28px_rgba(28,27,25,0.35)] p-7 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-serif text-3xl font-normal tracking-tight text-gray-900 dark:text-white mb-5">
               {t('manualSelector.selectEntityType')}
             </h3>
             {selectedText && (
-              <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+              <div className="mb-4 p-3 bg-gray-100 dark:bg-gray-700/60 rounded-lg">
                 <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">{t('manualSelector.selectedText')}</p>
                 <p className="text-sm text-gray-900 dark:text-gray-100 font-mono break-words">{selectedText}</p>
               </div>
             )}
             {selectedText && (
-              <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-lg">
+              <div className="mb-5 p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
                 <label className="flex items-start gap-3 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={searchOccurrences}
                     onChange={(e) => setSearchOccurrences(e.target.checked)}
-                    className="mt-0.5 h-4 w-4 text-blue-600 dark:text-blue-400 rounded focus:ring-blue-500 dark:focus:ring-blue-400"
+                    className="mt-0.5 h-4 w-4 rounded"
                   />
                   <div className="flex-1">
                     <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
@@ -309,12 +309,12 @@ export function ManualSelector({
                 </label>
               </div>
             )}
-            <div className="grid grid-cols-2 gap-3 mb-4">
+            <div className="grid grid-cols-2 gap-2 mb-5">
               {Object.values(EntityTypeEnum).filter((type) => type !== EntityTypeEnum.PREDEFINED).map((type) => (
                 <button
                   key={type}
                   onClick={() => handleTypeSelect(type)}
-                  className="min-h-[44px] px-4 py-3 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-900 dark:text-gray-100 rounded-lg transition-colors text-left active:scale-95"
+                  className="min-h-[44px] px-4 py-2.5 text-sm text-left text-gray-900 dark:text-gray-100 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-ink dark:hover:border-gray-300 rounded-lg transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink dark:focus-visible:outline-paper"
                 >
                   {getEntityDisplayName(type, language)}
                 </button>
@@ -322,7 +322,7 @@ export function ManualSelector({
             </div>
             <button
               onClick={handleCancel}
-              className="w-full min-h-[44px] px-4 py-2 text-sm bg-gray-300 dark:bg-gray-600 hover:bg-gray-400 dark:hover:bg-gray-500 text-gray-900 dark:text-gray-100 rounded-lg transition-colors active:scale-95"
+              className="btn-ghost w-full min-h-[44px] px-4 py-2 text-sm"
             >
               {t('manualSelector.cancel')}
             </button>

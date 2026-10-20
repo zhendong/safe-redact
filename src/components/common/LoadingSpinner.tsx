@@ -16,7 +16,7 @@ export function LoadingSpinner({ message, size = 'md' }: LoadingSpinnerProps) {
   return (
     <div className="flex flex-col items-center justify-center gap-3">
       <div
-        className={`${sizeClasses[size]} border-blue-600 border-t-transparent rounded-full animate-spin`}
+        className={`${sizeClasses[size]} border-ink dark:border-paper border-t-transparent dark:border-t-transparent rounded-full animate-spin`}
         role="status"
         aria-label={language === 'zh' ? '加载中' : 'Loading'}
       />

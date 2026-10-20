@@ -59,7 +59,7 @@ export function EntityCard({
       <div
         className={`
           p-2 border rounded-lg cursor-pointer transition-all
-          ${isSelected ? 'border-blue-500 dark:border-blue-400 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 bg-white dark:bg-gray-800'}
+          ${isSelected ? 'border-ink dark:border-gray-300 bg-gray-50 dark:bg-gray-700/40 ring-1 ring-ink dark:ring-gray-300' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 bg-white dark:bg-gray-800'}
           ${!isChecked ? 'opacity-60' : ''}
         `}
         onClick={handleCardClick}
@@ -70,7 +70,7 @@ export function EntityCard({
             type="checkbox"
             checked={isChecked}
             onChange={handleCheckboxChange}
-            className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-green-600 focus:ring-green-500 focus:ring-1 cursor-pointer flex-shrink-0"
+            className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 cursor-pointer flex-shrink-0"
             title={isChecked ? t('entityCard.uncheckToSkip') : t('entityCard.checkToRedact')}
             onClick={(e) => e.stopPropagation()}
           />
@@ -133,7 +133,7 @@ export function EntityCard({
                   e.stopPropagation();
                   onConfirmAll();
                 }}
-                className="w-full px-3 py-1.5 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50 rounded transition-colors"
+                className="w-full px-3 py-1.5 text-xs border border-gray-300 dark:border-gray-600 text-ink dark:text-gray-100 hover:border-ink dark:hover:border-gray-300 rounded-full transition-colors"
               >
                 {t('entityCard.checkAllSimilar', { count: similarCount })}
               </button>
@@ -149,7 +149,7 @@ export function EntityCard({
     <div
       className={`
         p-2.5 sm:p-3 border rounded-lg cursor-pointer transition-all
-        ${isSelected ? 'border-blue-500 dark:border-blue-400 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 bg-white dark:bg-gray-800'}
+        ${isSelected ? 'border-ink dark:border-gray-300 bg-gray-50 dark:bg-gray-700/40 ring-1 ring-ink dark:ring-gray-300' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 bg-white dark:bg-gray-800'}
         ${!isChecked ? 'opacity-60' : ''}
       `}
       onClick={onClick}
@@ -160,7 +160,7 @@ export function EntityCard({
           type="checkbox"
           checked={isChecked}
           onChange={handleCheckboxChange}
-          className="w-5 h-5 mt-0.5 rounded border-gray-300 dark:border-gray-600 text-green-600 focus:ring-green-500 focus:ring-2 cursor-pointer flex-shrink-0"
+          className="w-5 h-5 mt-0.5 rounded border-gray-300 dark:border-gray-600 cursor-pointer flex-shrink-0"
           title={isChecked ? t('entityCard.uncheckToSkip') : t('entityCard.checkToRedact')}
           onClick={(e) => e.stopPropagation()}
         />
@@ -204,7 +204,7 @@ export function EntityCard({
               e.stopPropagation();
               onConfirmAll();
             }}
-            className="px-3 py-1.5 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50 rounded transition-colors"
+            className="px-3 py-1.5 text-xs border border-gray-300 dark:border-gray-600 text-ink dark:text-gray-100 hover:border-ink dark:hover:border-gray-300 rounded-full transition-colors"
           >
             {t('entityCard.checkAllSimilar', { count: similarCount })}
           </button>

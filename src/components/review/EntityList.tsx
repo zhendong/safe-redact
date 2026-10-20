@@ -120,8 +120,8 @@ export function EntityList({
                 <span className="font-semibold text-gray-900 dark:text-gray-100">{filteredCount}</span>
               </div>
               <div className="flex items-center gap-1">
-                <span className="text-green-600 dark:text-green-400">{t('entityList.selected')}</span>
-                <span className="font-semibold text-green-700 dark:text-green-300">{confirmedCount ?? 0}</span>
+                <span className="text-gray-600 dark:text-gray-400">{t('entityList.selected')}</span>
+                <span className="font-semibold text-gray-900 dark:text-gray-100">{confirmedCount ?? 0}</span>
               </div>
             </div>
           )}

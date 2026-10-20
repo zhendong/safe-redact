@@ -20,7 +20,7 @@ export function ProgressIndicator({ stage }: ProgressIndicatorProps) {
         </div>
         <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
           <div
-            className="bg-blue-600 dark:bg-blue-500 h-2.5 rounded-full transition-all duration-300 ease-out"
+            className="bg-ink dark:bg-paper h-2.5 rounded-full transition-all duration-300 ease-out"
             style={{ width: `${stage.progress}%` }}
             role="progressbar"
             aria-valuenow={stage.progress}

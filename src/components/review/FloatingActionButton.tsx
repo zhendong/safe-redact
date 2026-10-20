@@ -23,7 +23,7 @@ export function FloatingActionButton({ entityCount, selectedCount, onClick }: Fl
 
       {/* Selected count indicator */}
       {selectedCount > 0 && (
-        <div className="absolute -bottom-1 -left-1 bg-green-600 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center border-2 border-white dark:border-gray-900">
+        <div className="absolute -bottom-1 -left-1 bg-accent text-ink text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center border-2 border-white dark:border-gray-900">
           {selectedCount > 99 ? '99+' : selectedCount}
         </div>
       )}

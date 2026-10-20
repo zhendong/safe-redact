@@ -64,8 +64,8 @@ export function FilterBar({
               <span className="font-semibold text-gray-900 dark:text-gray-100">{filteredCount}</span>
             </div>
             <div className="flex items-center gap-1">
-              <span className="text-green-600 dark:text-green-400">{t('entityList.selected')}</span>
-              <span className="font-semibold text-green-700 dark:text-green-300">{confirmedCount}</span>
+              <span className="text-gray-600 dark:text-gray-400">{t('entityList.selected')}</span>
+              <span className="font-semibold text-gray-900 dark:text-gray-100">{confirmedCount}</span>
             </div>
           </div>
           <button
@@ -117,8 +117,8 @@ export function FilterBar({
             <span className="font-semibold text-gray-900 dark:text-gray-100">{filteredCount}</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="font-medium text-green-700 dark:text-green-400">{t('entityList.selected')}</span>
-            <span className="font-semibold text-green-900 dark:text-green-300">{confirmedCount}</span>
+            <span className="font-medium text-gray-700 dark:text-gray-300">{t('entityList.selected')}</span>
+            <span className="font-semibold text-gray-900 dark:text-gray-100">{confirmedCount}</span>
           </div>
         </div>
       </div>

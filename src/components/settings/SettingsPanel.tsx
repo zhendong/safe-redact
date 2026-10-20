@@ -261,7 +261,7 @@ export function SettingsPanel({
                     type="checkbox"
                     checked={localConfig.enabledEntityTypes.includes(type)}
                     onChange={() => toggleEntityType(type)}
-                    className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
+                    className="rounded border-gray-300 dark:border-gray-600"
                   />
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{getEntityDisplayName(type, language)}</span>
                 </label>
@@ -286,7 +286,7 @@ export function SettingsPanel({
                     onChange={(e) => setNewWord(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && handleAddWord()}
                     placeholder={t('settings.enterWordPlaceholder')}
-                    className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:border-ink dark:focus:border-gray-300"
                   />
                   {wordError && (
                     <p className="text-xs text-red-600 dark:text-red-400 mt-1">{wordError}</p>
@@ -299,7 +299,7 @@ export function SettingsPanel({
                       type="checkbox"
                       checked={newWordCaseSensitive}
                       onChange={(e) => setNewWordCaseSensitive(e.target.checked)}
-                      className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
+                      className="rounded border-gray-300 dark:border-gray-600"
                     />
                     {t('settings.caseSensitive')}
                   </label>
@@ -309,7 +309,7 @@ export function SettingsPanel({
                       type="checkbox"
                       checked={newWordWholeWord}
                       onChange={(e) => setNewWordWholeWord(e.target.checked)}
-                      className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
+                      className="rounded border-gray-300 dark:border-gray-600"
                     />
                     {t('settings.wholeWordOnly')}
                   </label>
@@ -338,12 +338,12 @@ export function SettingsPanel({
                       </div>
                       <div className="flex gap-2 mt-1">
                         {word.caseSensitive && (
-                          <span className="text-xs px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded">
+                          <span className="text-xs px-2 py-0.5 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 rounded-full">
                             {t('settings.caseSensitive')}
                           </span>
                         )}
                         {word.wholeWord && (
-                          <span className="text-xs px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded">
+                          <span className="text-xs px-2 py-0.5 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 rounded-full">
                             {t('settings.wholeWordOnly')}
                           </span>
                         )}
@@ -470,7 +470,7 @@ export function SettingsPanel({
                   onChange={(e) =>
                     setLocalConfig({ ...localConfig, useRegexPatterns: e.target.checked })
                   }
-                  className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
+                  className="rounded border-gray-300 dark:border-gray-600"
                 />
               </label>
 
@@ -497,7 +497,7 @@ export function SettingsPanel({
                     checked={localConfig.useMLModel}
                     onChange={(e) => handleMLModelToggle(e.target.checked)}
                     disabled={isDownloadingModel}
-                    className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 flex-shrink-0 disabled:opacity-50"
+                    className="rounded border-gray-300 dark:border-gray-600 flex-shrink-0 disabled:opacity-50"
                   />
                 </label>
 
@@ -505,11 +505,11 @@ export function SettingsPanel({
                   <div className="mt-3 space-y-2">
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-gray-600 dark:text-gray-400">{modelDownloadMessage}</span>
-                      <span className="font-medium text-blue-600">{modelDownloadProgress}%</span>
+                      <span className="font-medium text-ink dark:text-gray-100">{modelDownloadProgress}%</span>
                     </div>
                     <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2">
                       <div
-                        className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                        className="bg-ink dark:bg-paper h-2 rounded-full transition-all duration-300"
                         style={{ width: `${modelDownloadProgress}%` }}
                       />
                     </div>
@@ -533,7 +533,7 @@ export function SettingsPanel({
                     name="aggressiveness"
                     checked={localConfig.aggressiveness === level}
                     onChange={() => setLocalConfig({ ...localConfig, aggressiveness: level })}
-                    className="border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
+                    className="border-gray-300 dark:border-gray-600"
                   />
                   <div>
                     <div className="text-sm font-medium text-gray-700 dark:text-gray-300 capitalize">{t(`settings.${level}`)}</div>
@@ -558,7 +558,7 @@ export function SettingsPanel({
                 onChange={(e) =>
                   setLocalConfig({ ...localConfig, sanitizeDocument: e.target.checked })
                 }
-                className="mt-0.5 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
+                className="mt-0.5 rounded border-gray-300 dark:border-gray-600"
               />
               <div>
                 <div className="text-sm font-medium text-gray-700 dark:text-gray-300">{t('settings.stripMetadata')}</div>
@@ -592,7 +592,7 @@ export function SettingsPanel({
 
                 <button
                   onClick={() => void handleImportClick()}
-                  className="px-4 py-2 text-sm text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors flex items-center justify-center gap-2"
+                  className="btn-ghost px-4 py-2 text-sm gap-2"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
