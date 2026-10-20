@@ -891,7 +891,7 @@ function App() {
     };
 
     setUndoStack([]);
-    setProcessingStage({ stage: 'parsing', progress: 0, message: '' });
+    setProcessingStage({ stage: 'parsing', progress: 0, message: t('progress.parsingText') });
     setStage('processing');
     setError(null);
 
@@ -946,11 +946,14 @@ function App() {
   const processPdf = async (run: AnalysisRun, file: File) => {
 
     // Parse PDF
+    // Parsing takes the first half of the bar; detection the rest
     const parser = new PdfParser((progress: ParseProgress) => {
       run.progress({
-        stage: progress.stage === 'loading' ? 'parsing' : progress.stage,
-        progress: progress.progress,
-        message: progress.message,
+        stage: 'parsing',
+        progress: progress.progress * 0.5,
+        message: progress.currentPage && progress.totalPages
+          ? t('progress.parsingPage', { current: progress.currentPage, total: progress.totalPages })
+          : t('progress.parsingText'),
       });
     });
 
@@ -970,9 +973,15 @@ function App() {
         progress: 50,
         message: t('progress.detectingSensitiveInfo'),
       });
+      // Detection is synchronous, so let the progress paint first
+      await nextPaint();
 
+      // Without AI, pattern matching is most of the remaining work
+      const end = detectionConfig.useMLModel ? 60 : 88;
       const detector = new RegexDetector();
-      const regexEntities = await timed(log, 'Regex detection', () => detector.detectEntities(document.pages));
+      const regexEntities = await timed(log, 'Regex detection', () => detector.detectEntities(document.pages, fraction => {
+        run.progress({ stage: 'detecting', progress: 50 + fraction * (end - 50), message: t('progress.detectingSensitiveInfo') });
+      }));
       log.info('Regex entities detected', { count: regexEntities.length });
       allEntities.push(...regexEntities);
     }
@@ -1030,6 +1039,7 @@ function App() {
       progress: 90,
       message: t('progress.removingDuplicates'),
     });
+    await nextPaint();
 
     const aggregator = new EntityAggregator();
     let entities = aggregator.deduplicateEntities(allEntities);
@@ -1062,11 +1072,12 @@ function App() {
   const processDocx = async (run: AnalysisRun, file: File) => {
 
     // Parse DOCX
+    // Parsing takes the bar up to 60%; detection the rest
     const parser = new DocxParser((progress) => {
       run.progress({
-        stage: progress.stage as any,
-        progress: progress.progress,
-        message: progress.message,
+        stage: 'parsing',
+        progress: progress.progress * 0.6,
+        message: t('progress.parsingText'),
       });
     });
 
@@ -1082,9 +1093,15 @@ function App() {
         progress: 60,
         message: t('progress.detectingSensitiveInfo'),
       });
+      // Detection is synchronous, so let the progress paint first
+      await nextPaint();
 
+      // Without AI, pattern matching is most of the remaining work
+      const end = detectionConfig.useMLModel ? 70 : 92;
       const detector = new RegexDetector();
-      const regexEntities = await timed(log, 'Regex detection', () => detector.detectEntities(docx.fullText));
+      const regexEntities = await timed(log, 'Regex detection', () => detector.detectEntities(docx.fullText, fraction => {
+        run.progress({ stage: 'detecting', progress: 60 + fraction * (end - 60), message: t('progress.detectingSensitiveInfo') });
+      }));
       log.info('Regex entities detected', { count: regexEntities.length });
       allEntities.push(...regexEntities);
     }

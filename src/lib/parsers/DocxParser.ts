@@ -6,6 +6,7 @@ import { parseDocxDateToIso } from '@/utils/date-parsing';
 import { parseXmlSafely } from '@/utils/xml-utils';
 import { DOCX_NAMESPACE } from '@/utils/docx-constants';
 import { createLogger } from '@/utils/logger';
+import { nextPaint } from '@/utils/yield';
 
 const log = createLogger('DocxParser');
 
@@ -101,6 +102,8 @@ export class DocxParser {
     const fullText = this.extractText(documentXml);
 
     this.reportProgress('converting', 60, 'Converting to HTML preview...');
+    // mammoth converts synchronously, so let the progress paint first
+    await nextPaint();
 
     // Convert to HTML for preview using mammoth
     const htmlContent = await this.convertToHtml(arrayBuffer);
