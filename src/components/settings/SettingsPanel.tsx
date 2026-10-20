@@ -9,6 +9,7 @@ import { confirmAction, isDesktop, pickFile, revealDesktopLogs } from '@/platfor
 import { saveDiagnosticReport } from '@/utils/diagnostics';
 import { createLogger } from '@/utils/logger';
 import { useDialog } from '@/hooks/useDialog';
+import { RulePacksSection } from './RulePacksSection';
 import {
   getPredefinedWords,
   addPredefinedWord,
@@ -54,6 +55,7 @@ export function SettingsPanel({
   // Import/Export state
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importMessage, setImportMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [rulePacksReloadKey, setRulePacksReloadKey] = useState(0);
   const [diagnosticsMessage, setDiagnosticsMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Load predefined words when panel opens
@@ -69,7 +71,6 @@ export function SettingsPanel({
     confidenceThresholds: DEFAULT_CONFIDENCE_THRESHOLDS,
     useMLModel: false,
     useRegexPatterns: true,
-    useCustomPatterns: false,
     aggressiveness: 'balanced',
     sanitizeDocument: false,
   });
@@ -200,6 +201,7 @@ export function SettingsPanel({
           onConfigChange(JSON.parse(settingsStr));
         }
         setPredefinedWords(getPredefinedWords());
+        setRulePacksReloadKey(key => key + 1);
       } else {
         log.warn('Settings import rejected', { errors: result.errors.length });
         setImportMessage({
@@ -255,14 +257,14 @@ export function SettingsPanel({
           {/* Entity Type Toggles */}
           <div>
             <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">{t('settings.entityTypes')}</h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
               {t('settings.entityTypesDesc')}
             </p>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-wrap gap-2">
               {Object.values(EntityType).map((type) => (
                 <label
                   key={type}
-                  className="flex items-center gap-2 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer transition-colors"
+                  className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 dark:bg-gray-700 rounded-full hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer transition-colors"
                 >
                   <input
                     type="checkbox"
@@ -279,100 +281,88 @@ export function SettingsPanel({
           {/* Predefined Words */}
           <div>
             <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">{t('settings.predefinedWords')}</h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
               {t('settings.predefinedWordsDesc')}
             </p>
 
             {/* Add New Word Form */}
-            <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mb-4">
-              <div className="space-y-3">
-                <div>
-                  <input
-                    type="text"
-                    value={newWord}
-                    onChange={(e) => setNewWord(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleAddWord()}
-                    placeholder={t('settings.enterWordPlaceholder')}
-                    className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:border-ink dark:focus:border-gray-300"
-                  />
-                  {wordError && (
-                    <p className="text-xs text-red-600 dark:text-red-400 mt-1">{wordError}</p>
-                  )}
-                </div>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newWord}
+                onChange={(e) => setNewWord(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleAddWord()}
+                placeholder={t('settings.enterWordPlaceholder')}
+                className="flex-1 min-w-0 px-3 py-1.5 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:border-ink dark:focus:border-gray-300"
+              />
+              <button
+                onClick={handleAddWord}
+                className="btn-primary px-4 py-1.5 text-sm"
+              >
+                {t('settings.addWord')}
+              </button>
+            </div>
+            {wordError && (
+              <p className="text-xs text-red-600 dark:text-red-400 mt-1">{wordError}</p>
+            )}
+            <div className="flex items-center gap-4 mt-2">
+              <label className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={newWordCaseSensitive}
+                  onChange={(e) => setNewWordCaseSensitive(e.target.checked)}
+                  className="rounded border-gray-300 dark:border-gray-600"
+                />
+                {t('settings.caseSensitive')}
+              </label>
 
-                <div className="flex items-center gap-4">
-                  <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={newWordCaseSensitive}
-                      onChange={(e) => setNewWordCaseSensitive(e.target.checked)}
-                      className="rounded border-gray-300 dark:border-gray-600"
-                    />
-                    {t('settings.caseSensitive')}
-                  </label>
-
-                  <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={newWordWholeWord}
-                      onChange={(e) => setNewWordWholeWord(e.target.checked)}
-                      className="rounded border-gray-300 dark:border-gray-600"
-                    />
-                    {t('settings.wholeWordOnly')}
-                  </label>
-                </div>
-
-                <button
-                  onClick={handleAddWord}
-                  className="btn-primary w-full px-4 py-2 text-sm"
-                >
-                  {t('settings.addWord')}
-                </button>
-              </div>
+              <label className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={newWordWholeWord}
+                  onChange={(e) => setNewWordWholeWord(e.target.checked)}
+                  className="rounded border-gray-300 dark:border-gray-600"
+                />
+                {t('settings.wholeWordOnly')}
+              </label>
             </div>
 
             {/* Words List */}
             {predefinedWords.length > 0 ? (
-              <div className="space-y-2 max-h-60 overflow-y-auto">
-                {predefinedWords.map((word) => (
-                  <div
-                    key={word.id}
-                    className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                        {word.word}
-                      </div>
-                      <div className="flex gap-2 mt-1">
-                        {word.caseSensitive && (
-                          <span className="text-xs px-2 py-0.5 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 rounded-full">
-                            {t('settings.caseSensitive')}
-                          </span>
-                        )}
-                        {word.wholeWord && (
-                          <span className="text-xs px-2 py-0.5 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 rounded-full">
-                            {t('settings.wholeWordOnly')}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => handleDeleteWord(word.id)}
-                      className="ml-3 p-2 text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
-                      aria-label={t('settings.deleteWord', { word: word.word })}
-                      title={t('settings.deleteWord', { word: word.word })}
+              <div className="flex flex-wrap gap-2 mt-3 max-h-40 overflow-y-auto">
+                {predefinedWords.map((word) => {
+                  const options = [
+                    word.caseSensitive && t('settings.caseSensitive'),
+                    word.wholeWord && t('settings.wholeWordOnly'),
+                  ].filter(Boolean).join(' · ');
+                  return (
+                    <span
+                      key={word.id}
+                      title={options || undefined}
+                      className="flex items-center gap-1 max-w-full pl-3 pr-1 py-1 bg-gray-50 dark:bg-gray-700 rounded-full text-sm text-gray-900 dark:text-white"
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                ))}
+                      <span className="truncate">{word.word}</span>
+                      {options && (
+                        <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">{options}</span>
+                      )}
+                      <button
+                        onClick={() => handleDeleteWord(word.id)}
+                        className="p-1 text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                        aria-label={t('settings.deleteWord', { word: word.word })}
+                        title={t('settings.deleteWord', { word: word.word })}
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </span>
+                  );
+                })}
               </div>
             ) : (
-              <div className="text-center py-8 text-sm text-gray-500 dark:text-gray-400">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">
                 {t('settings.noWordsYet')}
-              </div>
+              </p>
             )}
           </div>
 
@@ -462,8 +452,9 @@ export function SettingsPanel({
             </label>
           </div>
 
-          {/* Advanced: confidence tuning most people never need */}
-          <div>
+          {/* Advanced: rule packs and confidence tuning most people never need */}
+          <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+            <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">{t('settings.advanced')}</h3>
             <label className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg cursor-pointer">
               <input
                 type="checkbox"
@@ -482,6 +473,8 @@ export function SettingsPanel({
             </label>
             {config.showAdvancedOptions && (
               <div className="mt-6 space-y-6">
+                <RulePacksSection reloadKey={rulePacksReloadKey} />
+
                 {/* Aggressiveness */}
                 <div>
                   <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">{t('settings.detectionAggressiveness')}</h3>

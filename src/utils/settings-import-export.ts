@@ -1,11 +1,14 @@
 /**
  * Settings Import/Export Utility
- * Handles backup and restore of user settings, predefined words, and custom patterns
+ * Handles backup and restore of user settings, predefined words, and rule packs
  */
 
 import { STORAGE_KEYS } from './constants';
 import { getPredefinedWords, type PredefinedWord } from './predefined-words';
 import type { DetectionConfig } from '@/lib/types';
+import type { RulePackStore } from '@/lib/rules/types';
+import { getRulePackStore, saveRulePackStore } from '@/lib/rules/store';
+import { parseRulePack } from '@/lib/rules/parse';
 import { saveFile } from '@/platform';
 import packageJson from '../../package.json';
 import { createLogger } from './logger';
@@ -17,7 +20,7 @@ interface ExportData {
   exportDate: string;
   settings?: DetectionConfig;
   predefinedWords?: PredefinedWord[];
-  customPatterns?: any; // TODO: Type this if custom patterns are implemented
+  rulePacks?: RulePackStore;
 }
 
 const EXPORT_VERSION = packageJson.version;
@@ -51,14 +54,14 @@ export function exportSettings(): string {
     log.error('Failed to export predefined words', error);
   }
 
-  // Export custom patterns
+  // Export rule packs and which rules are switched off
   try {
-    const patternsStr = localStorage.getItem(STORAGE_KEYS.CUSTOM_PATTERNS);
-    if (patternsStr) {
-      exportData.customPatterns = JSON.parse(patternsStr);
+    const rulePacks = getRulePackStore();
+    if (rulePacks.packs.length > 0 || rulePacks.builtinDisabledRules.length > 0) {
+      exportData.rulePacks = rulePacks;
     }
   } catch (error) {
-    log.error('Failed to export custom patterns', error);
+    log.error('Failed to export rule packs', error);
   }
 
   return JSON.stringify(exportData, null, 2);
@@ -116,13 +119,26 @@ export function importSettings(jsonStr: string): {
       }
     }
 
-    // Import custom patterns
-    if (data.customPatterns) {
+    // Import rule packs, checking each one as if it were installed
+    if (data.rulePacks && Array.isArray(data.rulePacks.packs)) {
       try {
-        localStorage.setItem(STORAGE_KEYS.CUSTOM_PATTERNS, JSON.stringify(data.customPatterns));
-        imported.push('Custom patterns');
+        const packs = data.rulePacks.packs.filter(installed => {
+          try {
+            parseRulePack(installed.pack);
+            return true;
+          } catch (error) {
+            errors.push(`Skipped invalid rule pack "${installed.pack?.name ?? installed.pack?.id}"`);
+            log.warn('Skipped invalid rule pack on import', { error: String(error) });
+            return false;
+          }
+        });
+        saveRulePackStore({
+          packs,
+          builtinDisabledRules: Array.isArray(data.rulePacks.builtinDisabledRules) ? data.rulePacks.builtinDisabledRules : [],
+        });
+        imported.push(`${packs.length} rule pack(s)`);
       } catch (error) {
-        errors.push('Failed to import custom patterns');
+        errors.push('Failed to import rule packs');
       }
     }
 

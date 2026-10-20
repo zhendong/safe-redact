@@ -25,7 +25,7 @@ A privacy-focused redaction tool for PDF, DOCX, PNG, JPEG, and WebP files.
 ### 🔍 Smart Detection
 - **Automatic Detection**: Uses regex patterns and ML-based detection to find sensitive information
 - **Multiple Detection Methods**: Combines pattern matching with machine learning for high accuracy
-- **Customizable Patterns**: Add your own predefined words and custom detection rules
+- **Customizable Patterns**: Add your own predefined words, and install rule packs with your own detection rules ([format](docs/rule-packs.md))
 - **Language Support**: Detects content in multiple languages (Latin, Chinese, Arabic, etc.)
 
 ### 📄 Format Support
@@ -92,6 +92,7 @@ Safe Redact detects the following types of sensitive information in PDF, DOCX, a
   - URLs (HTTP/HTTPS)
 - **Cryptocurrency**: Bitcoin addresses
 - **Custom Predefined Words**: User-defined sensitive terms
+- **Rule Packs**: Anything else, from your own regex rules and validators ([format](docs/rule-packs.md))
 
 ## Document Sanitization
 
@@ -184,6 +185,8 @@ Run the test suite:
 ```bash
 npm test
 ```
+
+The rule pack sandbox is checked in a real browser: start `npm run dev`, then run `node test/browser-rule-sandbox.mjs` with Playwright installed (`TEST_BASE_URL` sets the dev server address).
 
 ## 🍎 macOS App
 

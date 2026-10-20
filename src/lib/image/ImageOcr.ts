@@ -1,8 +1,10 @@
 import type { BoundingBox, DetectedEntity, RegexPattern, TextItem } from '@/lib/types';
 import { generateId } from '@/utils/validation';
 import { extractContext } from '@/utils/text-utils';
-import { getContextConfidenceBoost } from '@/utils/regex-patterns';
-import { DEFAULT_CONFIDENCE_BOOST, DEFAULT_SEARCH_CONTEXT_WINDOW } from '@/utils/constants';
+import { findRuleMatches, type RuleMatch } from '@/lib/rules/matcher';
+import type { ScriptValidatorHost } from '@/lib/rules/sandbox';
+import type { RulePack } from '@/lib/rules/types';
+import { entityFromMatch } from '@/lib/detectors/RegexDetector';
 
 interface OcrWord {
   start: number;
@@ -71,43 +73,40 @@ export function parseOcrTsv(tsv: string, imageWidth: number, imageHeight: number
 }
 
 /** Match existing sensitive-data patterns against OCR text and locate each match in image pixels. */
-export function detectImageEntities(ocr: OcrText, imageWidth: number, imageHeight: number, patterns: RegexPattern[]): DetectedEntity[] {
+export async function detectImageEntities(
+  ocr: OcrText,
+  imageWidth: number,
+  imageHeight: number,
+  patterns: RegexPattern[],
+  options: { host?: ScriptValidatorHost; packs?: Map<string, RulePack> } = {},
+): Promise<DetectedEntity[]> {
+  return imageEntitiesFromMatches(ocr, imageWidth, imageHeight, await findRuleMatches(ocr.text, patterns, options));
+}
+
+/** Place matches on the image using the OCR words they cover */
+export function imageEntitiesFromMatches(ocr: OcrText, imageWidth: number, imageHeight: number, matches: RuleMatch[]): DetectedEntity[] {
   const entities: DetectedEntity[] = [];
-  for (const pattern of patterns) {
-    const flags = pattern.pattern.flags.includes('g') ? pattern.pattern.flags : `${pattern.pattern.flags}g`;
-    const regex = new RegExp(pattern.pattern.source, flags);
-    for (const match of ocr.text.matchAll(regex)) {
-      if (!match[0] || match.index === undefined || (pattern.validator && !pattern.validator(match[0]))) continue;
-      const matchedWords = ocr.words.filter(word => word.end > match.index && word.start < match.index + match[0].length);
-      if (!matchedWords.length) continue;
-      const left = Math.max(0, Math.min(...matchedWords.map(word => word.left)));
-      const top = Math.max(0, Math.min(...matchedWords.map(word => word.top)));
-      const right = Math.min(imageWidth, Math.max(...matchedWords.map(word => word.left + word.width)));
-      const bottom = Math.min(imageHeight, Math.max(...matchedWords.map(word => word.top + word.height)));
-      let confidence = pattern.confidence;
-      if (pattern.contextKeywords?.length) {
-        confidence *= getContextConfidenceBoost(
-          ocr.text, match.index, match[0].length, pattern.contextKeywords,
-          pattern.contextWindowSize ?? DEFAULT_SEARCH_CONTEXT_WINDOW,
-          pattern.confidenceBoost ?? DEFAULT_CONFIDENCE_BOOST
-        );
-      }
-      confidence = Math.min(1, confidence, matchedWords.reduce((sum, word) => sum + word.confidence, 0) / matchedWords.length / 100);
-      entities.push({
-        id: generateId(),
-        text: match[0],
-        entityType: pattern.entityType,
-        confidence,
-        position: {
-          pageNumber: 1,
-          boundingBox: { x: left, y: imageHeight - bottom, width: right - left, height: bottom - top },
-          textIndex: ocr.words.indexOf(matchedWords[0]),
-        },
-        detectionMethod: 'regex',
-        status: 'rejected',
-        contextText: extractContext(ocr.text, match.index, match[0].length),
-      });
-    }
+  for (const match of matches) {
+    const matchedWords = ocr.words.filter(word => word.end > match.index && word.start < match.index + match.text.length);
+    if (!matchedWords.length) continue;
+    const left = Math.max(0, Math.min(...matchedWords.map(word => word.left)));
+    const top = Math.max(0, Math.min(...matchedWords.map(word => word.top)));
+    const right = Math.min(imageWidth, Math.max(...matchedWords.map(word => word.left + word.width)));
+    const bottom = Math.min(imageHeight, Math.max(...matchedWords.map(word => word.top + word.height)));
+    const entity = entityFromMatch(match);
+    entities.push({
+      ...entity,
+      id: generateId(),
+      // OCR that misread the words can't be trusted more than it trusts itself
+      confidence: Math.min(entity.confidence, matchedWords.reduce((sum, word) => sum + word.confidence, 0) / matchedWords.length / 100),
+      position: {
+        pageNumber: 1,
+        boundingBox: { x: left, y: imageHeight - bottom, width: right - left, height: bottom - top },
+        textIndex: ocr.words.indexOf(matchedWords[0]),
+      },
+      status: 'rejected',
+      contextText: extractContext(ocr.text, match.index, match.text.length),
+    });
   }
   return entities;
 }

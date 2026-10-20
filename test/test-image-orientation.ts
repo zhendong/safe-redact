@@ -18,7 +18,7 @@ for (const [turns, tsv, width, height] of [
   assert.deepEqual(ocr.textItems[0].transform, [1, 0, 0, 1, 20, 155]);
   assert.equal(ocr.textItems[0].width, 100);
   assert.equal(ocr.textItems[0].height, 15);
-  const [entity] = detectImageEntities(ocr, 320, 200, [{
+  const [entity] = await detectImageEntities(ocr, 320, 200, [{
     name: 'email', entityType: EntityType.EMAIL, pattern: /demo@example\.com/g,
     confidence: 0.9, examples: [],
   }]);
