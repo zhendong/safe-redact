@@ -580,18 +580,13 @@ function App() {
     return foundEntities;
   };
 
-  // Check if two bounding boxes overlap
-  const boundingBoxesOverlap = (box1: BoundingBox, box2: BoundingBox): boolean => {
-    // Use a small threshold to account for floating point precision
-    const threshold = 2;
-
-    // Check if boxes are essentially the same or overlap significantly
-    const xOverlap = Math.abs(box1.x - box2.x) < threshold;
-    const yOverlap = Math.abs(box1.y - box2.y) < threshold;
-    const widthSimilar = Math.abs(box1.width - box2.width) < threshold;
-    const heightSimilar = Math.abs(box1.height - box2.height) < threshold;
-
-    return xOverlap && yOverlap && widthSimilar && heightSimilar;
+  // Whether a search hit is the manual selection itself: most of the hit lies inside the drawn box.
+  // A hand-drawn box never lines up exactly with the text, so comparing edges would miss it.
+  const boundingBoxesOverlap = (hit: BoundingBox, selection: BoundingBox): boolean => {
+    const width = Math.min(hit.x + hit.width, selection.x + selection.width) - Math.max(hit.x, selection.x);
+    const height = Math.min(hit.y + hit.height, selection.y + selection.height) - Math.max(hit.y, selection.y);
+    if (width <= 0 || height <= 0) return false;
+    return width * height >= 0.5 * hit.width * hit.height;
   };
 
   // Convert MuPDF Quad array to EntityPosition
