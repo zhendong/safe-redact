@@ -480,7 +480,8 @@ function App() {
           page.dimensions.height,
           [{ name: 'manual', entityType, pattern: new RegExp(escaped, 'gi'), confidence: 1, examples: [] }]
         );
-        foundEntities.push(...matches.map(entity => ({ ...entity, detectionMethod: 'manual' as const })));
+        // The user asked to redact every occurrence, so matches start checked
+        foundEntities.push(...matches.map(entity => ({ ...entity, detectionMethod: 'manual' as const, status: 'confirmed' as const })));
         continue;
       }
       try {
@@ -541,7 +542,8 @@ function App() {
               confidence: 1.0,
               position,
               detectionMethod: 'manual',
-              status: 'rejected',
+              // The user asked to redact every occurrence, so matches start checked
+              status: 'confirmed',
               contextText: `Found on page ${page.pageNumber}`,
             };
             foundEntities.push(entity);
