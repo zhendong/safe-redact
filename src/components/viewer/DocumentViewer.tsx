@@ -168,13 +168,13 @@ export function DocumentViewer({
     <div className="flex flex-col h-full">
       {/* Toolbar */}
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-3 sm:p-3 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-0">
-        <div className="flex items-center justify-between sm:justify-start gap-3">
-          <div className="flex items-center gap-1.5">
+        <div className="flex flex-wrap items-center justify-between sm:justify-start gap-x-2 gap-y-2 sm:gap-3">
+          <div className="flex items-center gap-1 sm:gap-1.5">
             {onPageChange && (
               <button
                 onClick={() => onPageChange(Math.max(1, currentPage - 1))}
                 disabled={currentPage === 1}
-                className="btn-ghost w-11 h-11 sm:w-8 sm:h-8 text-sm active:scale-95"
+                className="btn-ghost w-10 h-10 sm:w-8 sm:h-8 text-sm active:scale-95"
                 aria-label={t('documentViewer.previousPage')}
                 title={t('documentViewer.previousPage')}
               >
@@ -182,13 +182,16 @@ export function DocumentViewer({
               </button>
             )}
             <span className="text-sm text-gray-700 dark:text-gray-300 font-medium whitespace-nowrap tabular-nums px-1">
-              {t('documentViewer.pageOf', { current: currentPage, total: document.pageCount })}
+              <span className="hidden sm:inline">{t('documentViewer.pageOf', { current: currentPage, total: document.pageCount })}</span>
+              <span className="sm:hidden" aria-label={t('documentViewer.pageOf', { current: currentPage, total: document.pageCount })}>
+                {currentPage} / {document.pageCount}
+              </span>
             </span>
             {onPageChange && (
               <button
                 onClick={() => onPageChange(Math.min(document.pageCount, currentPage + 1))}
                 disabled={currentPage === document.pageCount}
-                className="btn-ghost w-11 h-11 sm:w-8 sm:h-8 text-sm active:scale-95"
+                className="btn-ghost w-10 h-10 sm:w-8 sm:h-8 text-sm active:scale-95"
                 aria-label={t('documentViewer.nextPage')}
                 title={t('documentViewer.nextPage')}
               >
@@ -198,22 +201,22 @@ export function DocumentViewer({
           </div>
 
           {/* Zoom controls on mobile - improved touch targets */}
-          <div className="flex sm:hidden items-center gap-2">
+          <div className="flex sm:hidden items-center gap-1">
             <button
               onClick={handleZoomOut}
               disabled={scale <= 0.5}
-              className="btn-ghost min-w-[44px] min-h-[44px] text-lg font-bold active:scale-95"
+              className="btn-ghost w-10 h-10 text-lg font-bold active:scale-95"
               aria-label={t('documentViewer.zoomOut')}
             >
               −
             </button>
-            <span className="text-sm text-gray-700 dark:text-gray-300 min-w-[50px] text-center font-medium">
+            <span className="text-sm text-gray-700 dark:text-gray-300 min-w-[44px] text-center font-medium tabular-nums">
               {Math.round(scale * 100)}%
             </span>
             <button
               onClick={handleZoomIn}
               disabled={scale >= 2.0}
-              className="btn-ghost min-w-[44px] min-h-[44px] text-lg font-bold active:scale-95"
+              className="btn-ghost w-10 h-10 text-lg font-bold active:scale-95"
               aria-label={t('documentViewer.zoomIn')}
             >
               +
@@ -345,7 +348,7 @@ export function DocumentViewer({
 
           {isLoading && (
             <div className="absolute inset-0 flex items-center justify-center bg-white/75 dark:bg-gray-900/75">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-ink dark:border-paper" />
             </div>
           )}
         </div>
