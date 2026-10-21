@@ -288,6 +288,9 @@ testRegexPattern('Date (MM/DD/YYYY)', [
   { text: '01/32/2024', shouldMatch: false, description: 'Invalid day (32)' },
   { text: '1/1/1899', shouldMatch: false, description: 'Year too old' },
   { text: '2024/01/15', shouldMatch: false, description: 'Wrong format' },
+  { text: '01-15-2024', shouldMatch: true, description: 'Dashes' },
+  { text: '01.15.2024', shouldMatch: true, description: 'Dots' },
+  { text: '01/15-2024', shouldMatch: false, description: 'Mixed separators' },
 ]);
 
 testRegexPattern('Date (YYYY-MM-DD)', [
@@ -300,6 +303,32 @@ testRegexPattern('Date (YYYY-MM-DD)', [
   { text: '2024-13-01', shouldMatch: false, description: 'Invalid month (13)' },
   { text: '2024-01-32', shouldMatch: false, description: 'Invalid day (32)' },
   { text: '01-15-2024', shouldMatch: false, description: 'Wrong order' },
+  { text: '2024/01/15', shouldMatch: true, description: 'Slashes' },
+  { text: '2024.1.15', shouldMatch: true, description: 'Dots without zeros' },
+  { text: '2024-01/15', shouldMatch: false, description: 'Mixed separators' },
+  { text: '2024-01-150', shouldMatch: false, description: 'Day runs into more digits' },
+]);
+
+testRegexPattern('Date (DD/MM/YYYY)', [
+  { text: '15/01/2024', shouldMatch: true, description: 'Slashes' },
+  { text: '15.01.2024', shouldMatch: true, description: 'Dots (German style)' },
+  { text: '15-01-2024', shouldMatch: true, description: 'Dashes' },
+  { text: '15/13/2024', shouldMatch: false, description: 'Invalid month (13)' },
+]);
+
+testRegexPattern('Date (MM/DD/YY)', [
+  { text: 'Date: 01/15/24', shouldMatch: true, expectedMatch: '01/15/24', description: 'Month first' },
+  { text: '31/12/23', shouldMatch: true, description: 'Day first' },
+  { text: '13/13/24', shouldMatch: false, description: 'Neither reading is a date' },
+  { text: '01/15/2024', shouldMatch: false, description: '4-digit year belongs to other rules' },
+]);
+
+testRegexPattern('Date (YYYYMMDD)', [
+  { text: 'DOB 20240115', shouldMatch: true, expectedMatch: '20240115', description: 'Compact date' },
+  { text: '20240229', shouldMatch: true, description: 'Leap day' },
+  { text: '20230229', shouldMatch: false, description: 'Not a leap year' },
+  { text: '20241315', shouldMatch: false, description: 'Invalid month' },
+  { text: '11010519491231002X', shouldMatch: false, description: 'Inside an ID number' },
 ]);
 
 testRegexPattern('Date (Chinese)', [
@@ -313,6 +342,26 @@ testRegexPattern('Date (Chinese)', [
   { text: '2024年13月15日', shouldMatch: false, description: 'Invalid month (13)' },
   { text: '2024年1月32日', shouldMatch: false, description: 'Invalid day (32)' },
   { text: '1899年1月15日', shouldMatch: false, description: 'Year too old' },
+  { text: '2024 年 1 月 15 日', shouldMatch: true, description: 'Spaces from PDF extraction' },
+  { text: '2024年1月15号', shouldMatch: true, description: '号 instead of 日' },
+  { text: '２０２４年１月１５日', shouldMatch: true, description: 'Full-width digits' },
+  { text: '2024年2月30日', shouldMatch: false, description: 'No such day' },
+]);
+
+testRegexPattern('Date (Chinese, partial)', [
+  { text: '于2024年1月签订', shouldMatch: true, expectedMatch: '2024年1月', description: 'Year and month' },
+  { text: '于3月5日到期', shouldMatch: true, expectedMatch: '3月5日', description: 'Month and day' },
+  { text: '12月31号', shouldMatch: true, description: 'Month and day with 号' },
+  { text: '2024年1月15日', shouldMatch: false, description: 'Full dates belong to the full rule' },
+  { text: '13月5日', shouldMatch: false, description: 'Invalid month' },
+  { text: '2月30日', shouldMatch: false, description: 'No such day' },
+]);
+
+testRegexPattern('Date (Chinese numerals)', [
+  { text: '二〇二四年一月十五日', shouldMatch: true, description: 'Court judgment style' },
+  { text: '一九九九年十二月三十一日', shouldMatch: true, description: 'End of year' },
+  { text: '二〇二四年三月', shouldMatch: true, description: 'Year and month' },
+  { text: '二〇二四年十五月', shouldMatch: false, description: 'Invalid month' },
 ]);
 
 testRegexPattern('Date (Month DD, YYYY)', [
@@ -321,10 +370,28 @@ testRegexPattern('Date (Month DD, YYYY)', [
   { text: 'December 31, 2023', shouldMatch: true, description: 'End of year' },
   { text: 'March 1, 1999', shouldMatch: true, description: 'Single digit day' },
 
+  { text: 'Jan 15, 2024', shouldMatch: true, description: 'Abbreviated month' },
+  { text: 'Jan. 15, 2024', shouldMatch: true, description: 'Abbreviation with period' },
+  { text: 'Sept 3 2024', shouldMatch: true, description: 'Sept, no comma' },
+  { text: 'March 3rd, 2024', shouldMatch: true, description: 'Ordinal day' },
+
   // Invalid
-  { text: 'Jan 15, 2024', shouldMatch: false, description: 'Abbreviated month' },
-  // Note: Pattern doesn't validate day ranges, only format
-  { text: 'January 32, 2024', shouldMatch: true, description: 'Matches format (day validation not implemented)' },
+  { text: 'January 32, 2024', shouldMatch: false, description: 'Invalid day (32)' },
+  { text: 'January 15, 1850', shouldMatch: false, description: 'Year too old' },
+]);
+
+testRegexPattern('Date (DD Month YYYY)', [
+  { text: '15 January 2024', shouldMatch: true, description: 'Day first' },
+  { text: '15th Jan 2024', shouldMatch: true, description: 'Ordinal and abbreviation' },
+  { text: 'the 3rd of March, 2024', shouldMatch: true, expectedMatch: '3rd of March, 2024', description: '"of" and comma' },
+  { text: '32 January 2024', shouldMatch: false, description: 'Invalid day (32)' },
+]);
+
+testRegexPattern('Date (Month YYYY)', [
+  { text: 'Effective January 2024', shouldMatch: true, expectedMatch: 'January 2024', description: 'Month and year' },
+  { text: 'Dec. 2023', shouldMatch: true, description: 'Abbreviation with period' },
+  { text: '15 January 2024', shouldMatch: false, description: 'Tail of a full date' },
+  { text: 'you may 2024', shouldMatch: false, description: 'Lowercase "may" is not a month' },
 ]);
 
 // =============================================================================
@@ -558,6 +625,10 @@ testContextConfidence('SSN (US, no separators)', 'Invoice 123456789 total due', 
 testContextConfidence('SSN (US, no separators)', 'SSN: 123456789', '123456789', 0.9, 'Bare 9 digits next to an SSN label');
 testContextConfidence('Phone (US, no separators)', 'Order 2124567890 shipped', '2124567890', 0.5, 'Bare 10 digits without a label stay below default threshold');
 testContextConfidence('Phone (US, no separators)', 'Phone: 2124567890', '2124567890', 0.9, 'Bare 10 digits next to a phone label');
+testContextConfidence('Date (YYYYMMDD)', 'Order 20240115 shipped', '20240115', 0.5, 'Bare 8 digits without a label stay below default threshold');
+testContextConfidence('Date (YYYYMMDD)', 'Date of birth: 20240115', '20240115', 0.9, 'Bare 8 digits next to a date label');
+testContextConfidence('Date (MM/DD/YY)', 'Ratio 1/2/24 applied', '1/2/24', 0.6, 'Short-year date without a label stays below default threshold');
+testContextConfidence('Date (MM/DD/YY)', '出生日期 01/15/24', '01/15/24', 0.9, 'Short-year date next to a Chinese date label');
 
 // =============================================================================
 // SUMMARY
