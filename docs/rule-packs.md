@@ -22,7 +22,7 @@ See [`examples/rule-pack-example.json`](examples/rule-pack-example.json) for a c
 | `name` | required | Shown on the entities the rule detects. |
 | `pattern` | required | A JavaScript regular expression, as a JSON string (so `\d` is written `"\\d"`). |
 | `flags` | `""` | Any of `i`, `m`, `s`, `u`. Matching is always global. |
-| `entityType` | `CUSTOM` | One of `PERSON`, `ORG`, `LOC`, `DATE`, `SSN`, `CREDIT_CARD`, `PHONE`, `EMAIL`, `CUSTOM`. Decides the colour, the filter and the Settings checkbox. |
+| `entityType` | `CUSTOM` | One of `PERSON`, `ORG`, `LOC`, `DATE`, `ID`, `CREDIT_CARD`, `PHONE`, `EMAIL`, `CUSTOM`. Decides the colour, the filter and the Settings checkbox. |
 | `confidence` | `0.8` | From 0 to 1. Detections below the threshold for the chosen aggressiveness are dropped (balanced keeps 0.7 and up). |
 | `group` | whole match | A capture group number or name. Only that group is detected and redacted, so `"Badge: (?<number>\\d{5})"` with `"group": "number"` redacts the number but not the label. |
 | `validator` | none | A built-in validator, or a name from the pack's `validators`. Matches it rejects are dropped. |
@@ -49,6 +49,9 @@ When you install a pack, every rule runs against its `examples` and `counterExam
 | `us-phone` | US area code and exchange |
 | `intl-phone` | 8 to 15 digits |
 | `bitcoin` | Bitcoin address checksum |
+| `cn-date` | Chinese date (2024年1月15日, 2024年1月, 1月15日) is a real date, also in full-width digits |
+| `compact-date` | YYYYMMDD is a real date from 1900 to 2099 |
+| `short-year-date` | DD/MM/YY or MM/DD/YY is a real date either way round |
 
 ## Validators with code
 

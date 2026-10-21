@@ -1,8 +1,10 @@
 /**
- * Tests for grouping detections by value and the starting selection on the Choose screen
+ * Tests for grouping detections by value and the starting selection on the Choose screen,
+ * and for migrating the entity types in saved settings
  */
 import { allSelected, applyDefaultSelection, groupByValue } from '../src/utils/entity-groups';
-import { EntityType, type DetectedEntity } from '../src/lib/types';
+import { enableNewEntityTypes } from '../src/utils/entity-types';
+import { EntityType, type DetectedEntity, type DetectionConfig } from '../src/lib/types';
 
 let passed = 0;
 let failed = 0;
@@ -65,6 +67,39 @@ check(
   ]).map(e => e.status),
   ['confirmed', 'confirmed', 'rejected', 'rejected', 'confirmed'],
 );
+
+console.log('\n=== enableNewEntityTypes ===');
+const allTypes = Object.values(EntityType);
+const typesWithSsn = allTypes.map(type => (type === EntityType.ID_NUMBER ? 'SSN' : type));
+const saved = (enabled: string[], known?: string[]) =>
+  ({ enabledEntityTypes: enabled, knownEntityTypes: known } as unknown as DetectionConfig);
+const enabledAfterLoad = (config: DetectionConfig) => [...enableNewEntityTypes(config).enabledEntityTypes].sort();
+check(
+  'saved SSN becomes ID',
+  enabledAfterLoad(saved(['PERSON', 'SSN'], typesWithSsn)),
+  ['ID', 'PERSON'],
+);
+check(
+  'ID stays enabled when only Custom, which had the other ID rules, was enabled',
+  enabledAfterLoad(saved(['CUSTOM'], typesWithSsn)),
+  ['CUSTOM', 'ID'],
+);
+check(
+  'ID stays off when SSN and Custom were both off',
+  enabledAfterLoad(saved(['PERSON'], typesWithSsn)),
+  ['PERSON'],
+);
+check(
+  'settings from before knownEntityTypes: SSN becomes ID and PREDEFINED is new',
+  enabledAfterLoad(saved(['SSN'])),
+  ['ID', 'PREDEFINED'],
+);
+check(
+  'current settings are left alone',
+  enabledAfterLoad(saved(['PERSON'], allTypes)),
+  ['PERSON'],
+);
+check('every type is known after loading', enableNewEntityTypes(saved(['SSN'], typesWithSsn)).knownEntityTypes, allTypes);
 
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

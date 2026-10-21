@@ -50,7 +50,7 @@ export enum EntityType {
   ORGANIZATION = 'ORG',                    // Company/org names
   LOCATION = 'LOC',                        // Places, addresses
   DATE = 'DATE',                           // Dates
-  SSN = 'SSN',                             // Social Security Numbers
+  ID_NUMBER = 'ID',                        // Personal ID numbers (SSN, national ID, passport, ...)
   CREDIT_CARD = 'CREDIT_CARD',             // Credit card numbers
   PHONE = 'PHONE',                         // Phone numbers
   EMAIL = 'EMAIL',                         // Email addresses

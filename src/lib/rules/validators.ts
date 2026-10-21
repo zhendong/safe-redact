@@ -169,6 +169,39 @@ function validateChinaMobile(phone: string): boolean {
   return validPrefixes.test(digits);
 }
 
+/** Whether year, month and day form a real calendar date from 1900 to 2099 */
+function isRealDate(year: number, month: number, day: number): boolean {
+  if (year < 1900 || year > 2099 || month < 1 || month > 12 || day < 1) return false;
+  return day <= new Date(Date.UTC(year, month, 0)).getUTCDate();
+}
+
+/** Full-width digits (２０２４) as ASCII */
+function asciiDigits(text: string): string {
+  return text.replace(/[０-９]/g, digit => String.fromCharCode(digit.charCodeAt(0) - 0xfee0));
+}
+
+/**
+ * Validate a Chinese date with Arabic or full-width digits: 2024年1月15日,
+ * 2024年1月 or 1月15日. Without a year, 2000 (a leap year) allows 2月29日.
+ */
+function validateChineseDate(date: string): boolean {
+  const parts = asciiDigits(date).match(/^(?:(\d{4})\s*年)?\s*(\d{1,2})\s*月\s*(?:(\d{1,2})\s*[日号])?$/);
+  if (!parts) return false;
+  const [, year = '2000', month, day = '1'] = parts;
+  return isRealDate(Number(year), Number(month), Number(day));
+}
+
+/** Validate an 8-digit YYYYMMDD date */
+function validateCompactDate(date: string): boolean {
+  return isRealDate(Number(date.slice(0, 4)), Number(date.slice(4, 6)), Number(date.slice(6, 8)));
+}
+
+/** Validate a date with a 2-digit year (01/15/24), read as either month/day or day/month */
+function validateShortYearDate(date: string): boolean {
+  const [a, b] = date.split('/').map(Number);
+  return isRealDate(2000, a, b) || isRealDate(2000, b, a);
+}
+
 export const BUILTIN_VALIDATORS: Record<string, (text: string) => boolean> = {
   'luhn': validateLuhn,
   'credit-card': validateCardNumber,
@@ -178,4 +211,7 @@ export const BUILTIN_VALIDATORS: Record<string, (text: string) => boolean> = {
   'intl-phone': validateInternationalPhone,
   'cn-mobile': validateChinaMobile,
   'bitcoin': isValidBitcoinAddress,
+  'cn-date': validateChineseDate,
+  'compact-date': validateCompactDate,
+  'short-year-date': validateShortYearDate,
 };

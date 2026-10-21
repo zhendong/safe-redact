@@ -3,7 +3,7 @@ import type { DetectionConfig } from '@/lib/types';
 import { EntityType } from '@/lib/types';
 import { STORAGE_KEYS, DEFAULT_CONFIDENCE_THRESHOLDS } from '@/utils/constants';
 import { LLMDetector } from '@/lib/detectors/LLMDetector';
-import { getEntityDisplayName } from '@/utils/entity-types';
+import { enableNewEntityTypes, getEntityDisplayName } from '@/utils/entity-types';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { confirmAction, isDesktop, pickFile, revealDesktopLogs } from '@/platform';
 import { saveDiagnosticReport } from '@/utils/diagnostics';
@@ -198,7 +198,7 @@ export function SettingsPanel({
         // Reload settings and predefined words
         const settingsStr = localStorage.getItem(STORAGE_KEYS.SETTINGS);
         if (settingsStr) {
-          onConfigChange(JSON.parse(settingsStr));
+          onConfigChange(enableNewEntityTypes(JSON.parse(settingsStr)));
         }
         setPredefinedWords(getPredefinedWords());
         setRulePacksReloadKey(key => key + 1);
