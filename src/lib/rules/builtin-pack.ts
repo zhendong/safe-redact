@@ -8,6 +8,15 @@ function rx(regex: RegExp): { pattern: string; flags: string } {
   return { pattern: regex.source, flags: regex.flags.replace('g', '') };
 }
 
+/** English month names and abbreviations, with or without a period */
+const MONTH = String.raw`Jan(?:uary|\.)?|Feb(?:ruary|\.)?|Mar(?:ch|\.)?|Apr(?:il|\.)?|May|Jun(?:e|\.)?|Jul(?:y|\.)?|Aug(?:ust|\.)?|Sep(?:t(?:ember)?)?\.?|Oct(?:ober|\.)?|Nov(?:ember|\.)?|Dec(?:ember|\.)?`;
+
+/** Day of the month, with an optional ordinal suffix (3rd) */
+const DAY = String.raw`(?:0?[1-9]|[12]\d|3[01])(?:st|nd|rd|th)?`;
+
+/** Labels that make an ambiguous number a date */
+const DATE_KEYWORDS = ['date', 'dated', 'dob', 'd.o.b', 'birth', 'born', 'birthday', 'issued', 'expiry', 'expires', 'valid until', '日期', '出生', '生日', '签发', '有效期'];
+
 /**
  * Built-in rules, in the same format as user rule packs
  *
@@ -25,7 +34,7 @@ export const BUILTIN_PACK: RulePack = {
     {
       id: 'ssn-us',
       name: 'SSN (US)',
-      entityType: EntityType.SSN,
+      entityType: EntityType.ID_NUMBER,
       // Same separator in both places: 123-45-6789 or 123 45 6789
       ...rx(/\b(?!000|666)\d{3}([- ])(?!00)\d{2}\1(?!0000)\d{4}\b/g),
       confidence: 0.85,
@@ -42,7 +51,7 @@ export const BUILTIN_PACK: RulePack = {
     {
       id: 'ssn-us-no-separators',
       name: 'SSN (US, no separators)',
-      entityType: EntityType.SSN,
+      entityType: EntityType.ID_NUMBER,
       ...rx(/\b(?!000|666)\d{3}(?!00)\d{2}(?!0000)\d{4}\b/g),
       confidence: 0.5,
       validator: 'us-ssn',
@@ -51,6 +60,67 @@ export const BUILTIN_PACK: RulePack = {
       contextKeywords: ['ssn', 'social security', 'social security number', 'ss#', 'ss #'],
       contextWindow: 30,
       confidenceBoost: 1.8, // 0.5 → 0.9 with an SSN label
+    },
+
+    // Chinese National ID Card (18 digits with check digit)
+    // Format: RRRRRRYYYYMMDDSSSC (Region + Date + Sequential + Check)
+    // Also accepts the common 6-8-4 grouping with a space or hyphen.
+    // No script filter: the checksum keeps false positives low, and IDs appear in
+    // short forms (too few letters for script detection) and English documents.
+    {
+      id: 'chinese-national-id',
+      name: 'Chinese National ID',
+      entityType: EntityType.ID_NUMBER,
+      ...rx(/\b[1-9]\d{5}[ -]?(?:19|20)\d{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01])[ -]?\d{3}[\dXx]\b/g),
+      confidence: 0.7,
+      validator: 'cn-id',
+      examples: ['11010519491231002X', '110105 19491231 002X'],
+      contextKeywords: ['身份证', '身份证号', '身份号码', 'id', 'id card', 'identity', 'national id', '证件'],
+      contextWindow: 25, // Moderate window for ID context
+      confidenceBoost: 1.2, // +20% confidence boost when keyword found
+    },
+
+    // Chinese Passport (Current format: E + Letter + 7 digits)
+    // Excludes I, O, P, Q to avoid confusion
+    {
+      id: 'chinese-passport-current',
+      name: 'Chinese Passport (Current)',
+      entityType: EntityType.ID_NUMBER,
+      ...rx(/\bE[A-HJ-NR-Z]\d{7}\b/g),
+      confidence: 0.95,
+      examples: ['EA1234567', 'EB9876543'],
+      scripts: ['chinese', 'cjk'], // China-specific
+      contextKeywords: ['护照', '护照号', 'passport', 'passport number', 'passport no'],
+      contextWindow: 25, // Moderate window for passport context
+      confidenceBoost: 1.05, // +5% confidence boost (already high confidence)
+    },
+
+    // Chinese Passport (Legacy format: E + 8 digits)
+    {
+      id: 'chinese-passport-legacy',
+      name: 'Chinese Passport (Legacy)',
+      entityType: EntityType.ID_NUMBER,
+      ...rx(/\bE\d{8}\b/g),
+      confidence: 0.90,
+      examples: ['E12345678'],
+      scripts: ['chinese', 'cjk'], // China-specific
+      contextKeywords: ['护照', '护照号', 'passport', 'passport number', 'passport no'],
+      contextWindow: 25, // Moderate window for passport context
+      confidenceBoost: 1.1, // +10% confidence boost
+    },
+
+    // US Passport (Current format: Letter + 8 digits)
+    {
+      id: 'us-passport',
+      name: 'US Passport',
+      entityType: EntityType.ID_NUMBER,
+      ...rx(/\b[A-Z]\d{8}\b/g),
+      confidence: 0.40,
+      examples: ['C12345678', 'A98765432'],
+      scripts: ['latin'], // US-specific
+      contextKeywords: ['passport', 'passport number', 'passport no', 'passport #', 'us passport'],
+      contextWindow: 30, // Moderate window for passport context
+      confidenceBoost: 2, // confidence boost (higher due to lower base confidence)
     },
 
     // Email Address (RFC 5322 simplified)
@@ -240,38 +310,49 @@ export const BUILTIN_PACK: RulePack = {
       id: 'date-mm-dd-yyyy',
       name: 'Date (MM/DD/YYYY)',
       entityType: EntityType.DATE,
-      ...rx(/\b(?:0?[1-9]|1[0-2])\/(?:0?[1-9]|[12][0-9]|3[01])\/(?:19|20)\d{2}\b/g),
+      // Same separator in both places: 01/15/2024, 01-15-2024, 01.15.2024
+      ...rx(/\b(?:0?[1-9]|1[0-2])([/.-])(?:0?[1-9]|[12][0-9]|3[01])\1(?:19|20)\d{2}\b/g),
       confidence: 0.85,
-      examples: ['01/15/2024', '12/31/2023', '1/1/2024'],
+      examples: ['01/15/2024', '12/31/2023', '1/1/2024', '01-15-2024'],
     },
 
     {
       id: 'date-yyyy-mm-dd',
       name: 'Date (YYYY-MM-DD)',
       entityType: EntityType.DATE,
-      ...rx(/\b(?:19|20)\d{2}-(?:0?[1-9]|1[0-2])-(?:0?[1-9]|[12][0-9]|3[01])\b/g),
+      ...rx(/\b(?:19|20)\d{2}([/.-])(?:0?[1-9]|1[0-2])\1(?:0?[1-9]|[12][0-9]|3[01])\b/g),
       confidence: 0.85,
-      examples: ['2024-01-15', '2023-12-31'],
+      examples: ['2024-01-15', '2023-12-31', '2024/01/15', '2024.1.15'],
     },
 
     {
       id: 'date-month-dd-yyyy',
       name: 'Date (Month DD, YYYY)',
       entityType: EntityType.DATE,
-      ...rx(/\b(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},\s+\d{4}\b/gi),
-      confidence: 0.80,
-      examples: ['January 15, 2024', 'December 31, 2023'],
+      ...rx(new RegExp(String.raw`\b(?:${MONTH})\s+${DAY},?\s+(?:19|20)\d{2}\b`, 'gi')),
+      confidence: 0.85,
+      examples: ['January 15, 2024', 'Jan 15, 2024', 'Sept. 3 2024', 'March 3rd, 2024'],
     },
 
-    // Chinese Date Format (YYYY年MM月DD日)
     {
-      id: 'date-chinese',
-      name: 'Date (Chinese)',
+      id: 'date-dd-month-yyyy',
+      name: 'Date (DD Month YYYY)',
       entityType: EntityType.DATE,
-      ...rx(/(?:19|20)\d{2}年(?:0?[1-9]|1[0-2])月(?:0?[1-9]|[12]\d|3[01])日/g),
-      confidence: 0.90,
-      examples: ['2024年1月15日', '2024年01月15日', '2023年12月31日'],
-      scripts: ['chinese', 'japanese', 'cjk'], // Chinese/Japanese date format
+      ...rx(new RegExp(String.raw`\b${DAY}(?:\s+of)?\s+(?:${MONTH}),?\s+(?:19|20)\d{2}\b`, 'gi')),
+      confidence: 0.85,
+      examples: ['15 January 2024', '15th Jan 2024', '3rd of March, 2024'],
+    },
+
+    // Month and year only: less specific, so it sits at the default threshold
+    {
+      id: 'date-month-yyyy',
+      name: 'Date (Month YYYY)',
+      entityType: EntityType.DATE,
+      // Capitalized only, so "may 2024" in running text isn't a date; skips the
+      // tail of "15 January 2024", which the rule above detects in full
+      ...rx(new RegExp(String.raw`(?<!\d(?:st|nd|rd|th)?\s+(?:of\s+)?)\b(?:${MONTH})\s+(?:19|20)\d{2}\b`, 'g')),
+      confidence: 0.7,
+      examples: ['January 2024', 'Sept 2023'],
     },
 
     // DD/MM/YYYY (International format)
@@ -279,76 +360,79 @@ export const BUILTIN_PACK: RulePack = {
       id: 'date-dd-mm-yyyy',
       name: 'Date (DD/MM/YYYY)',
       entityType: EntityType.DATE,
-      ...rx(/\b(?:0?[1-9]|[12][0-9]|3[01])\/(?:0?[1-9]|1[0-2])\/(?:19|20)\d{2}\b/g),
+      // Same separator in both places: 15/01/2024, 15-01-2024, 15.01.2024
+      ...rx(/\b(?:0?[1-9]|[12][0-9]|3[01])([/.-])(?:0?[1-9]|1[0-2])\1(?:19|20)\d{2}\b/g),
       confidence: 0.75,
-      examples: ['15/01/2024', '31/12/2023', '1/1/2024'],
+      examples: ['15/01/2024', '31/12/2023', '1/1/2024', '15.01.2024'],
     },
 
-    // ============================================================================
-    // ADDITIONAL PATTERNS (Using CUSTOM entity type)
-    // These patterns can be enabled by users who need them
-    // ============================================================================
-
-    // Chinese National ID Card (18 digits with check digit)
-    // Format: RRRRRRYYYYMMDDSSSC (Region + Date + Sequential + Check)
-    // Also accepts the common 6-8-4 grouping with a space or hyphen.
-    // No script filter: the checksum keeps false positives low, and IDs appear in
-    // short forms (too few letters for script detection) and English documents.
+    // 2-digit year: could be MM/DD/YY or DD/MM/YY, and reads like other slashed
+    // numbers, so it needs a date label nearby to pass the default threshold
     {
-      id: 'chinese-national-id',
-      name: 'Chinese National ID',
-      entityType: EntityType.CUSTOM,
-      ...rx(/\b[1-9]\d{5}[ -]?(?:19|20)\d{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01])[ -]?\d{3}[\dXx]\b/g),
-      confidence: 0.7,
-      validator: 'cn-id',
-      examples: ['11010519491231002X', '110105 19491231 002X'],
-      contextKeywords: ['身份证', '身份证号', '身份号码', 'id', 'id card', 'identity', 'national id', '证件'],
-      contextWindow: 25, // Moderate window for ID context
-      confidenceBoost: 1.2, // +20% confidence boost when keyword found
+      id: 'date-short-year',
+      name: 'Date (MM/DD/YY)',
+      entityType: EntityType.DATE,
+      ...rx(/\b\d{1,2}\/\d{1,2}\/\d{2}\b/g),
+      confidence: 0.6,
+      validator: 'short-year-date',
+      examples: ['01/15/24', '31/12/23'],
+      contextKeywords: DATE_KEYWORDS,
+      contextWindow: 30,
+      confidenceBoost: 1.5, // 0.6 → 0.9 with a date label
     },
 
-    // Chinese Passport (Current format: E + Letter + 7 digits)
-    // Excludes I, O, P, Q to avoid confusion
+    // YYYYMMDD: indistinguishable from order or account numbers on its own
     {
-      id: 'chinese-passport-current',
-      name: 'Chinese Passport (Current)',
-      entityType: EntityType.CUSTOM,
-      ...rx(/\bE[A-HJ-NR-Z]\d{7}\b/g),
-      confidence: 0.95,
-      examples: ['EA1234567', 'EB9876543'],
-      scripts: ['chinese', 'cjk'], // China-specific
-      contextKeywords: ['护照', '护照号', 'passport', 'passport number', 'passport no'],
-      contextWindow: 25, // Moderate window for passport context
-      confidenceBoost: 1.05, // +5% confidence boost (already high confidence)
+      id: 'date-compact',
+      name: 'Date (YYYYMMDD)',
+      entityType: EntityType.DATE,
+      ...rx(/\b(?:19|20)\d{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01])\b/g),
+      confidence: 0.5,
+      validator: 'compact-date',
+      examples: ['20240115'],
+      contextKeywords: DATE_KEYWORDS,
+      contextWindow: 30,
+      confidenceBoost: 1.8, // 0.5 → 0.9 with a date label
     },
 
-    // Chinese Passport (Legacy format: E + 8 digits)
+    // Chinese Date Format (YYYY年MM月DD日), also with spaces, 号, or full-width digits
     {
-      id: 'chinese-passport-legacy',
-      name: 'Chinese Passport (Legacy)',
-      entityType: EntityType.CUSTOM,
-      ...rx(/\bE\d{8}\b/g),
+      id: 'date-chinese',
+      name: 'Date (Chinese)',
+      entityType: EntityType.DATE,
+      ...rx(/(?<![0-9０-９])[12１２][0-9０-９]{3}\s*年\s*[0-9０-９]{1,2}\s*月\s*[0-9０-９]{1,2}\s*[日号]/g),
       confidence: 0.90,
-      examples: ['E12345678'],
-      scripts: ['chinese', 'cjk'], // China-specific
-      contextKeywords: ['护照', '护照号', 'passport', 'passport number', 'passport no'],
-      contextWindow: 25, // Moderate window for passport context
-      confidenceBoost: 1.1, // +10% confidence boost
+      validator: 'cn-date',
+      examples: ['2024年1月15日', '2024年01月15日', '2024 年 1 月 15 日', '2024年1月15号', '２０２４年１月１５日'],
+      scripts: ['chinese', 'japanese', 'cjk'], // Chinese/Japanese date format
     },
 
-    // US Passport (Current format: Letter + 8 digits)
+    // Chinese year and month (2024年1月), or month and day (1月15日)
     {
-      id: 'us-passport',
-      name: 'US Passport',
-      entityType: EntityType.CUSTOM,
-      ...rx(/\b[A-Z]\d{8}\b/g),
-      confidence: 0.40,
-      examples: ['C12345678', 'A98765432'],
-      scripts: ['latin'], // US-specific
-      contextKeywords: ['passport', 'passport number', 'passport no', 'passport #', 'us passport'],
-      contextWindow: 30, // Moderate window for passport context
-      confidenceBoost: 2, // confidence boost (higher due to lower base confidence)
+      id: 'date-chinese-partial',
+      name: 'Date (Chinese, partial)',
+      entityType: EntityType.DATE,
+      ...rx(/(?<![0-9０-９])[12１２][0-9０-９]{3}\s*年\s*[0-9０-９]{1,2}\s*月(?!\s*[0-9０-９])|(?<![0-9０-９]|年\s*)[0-9０-９]{1,2}\s*月\s*[0-9０-９]{1,2}\s*[日号]/g),
+      confidence: 0.7,
+      validator: 'cn-date',
+      examples: ['2024年1月', '1月15日', '12月31号'],
+      scripts: ['chinese', 'japanese', 'cjk'],
     },
+
+    // Chinese numerals, as in court judgments and contracts (二〇二四年一月十五日)
+    {
+      id: 'date-chinese-numerals',
+      name: 'Date (Chinese numerals)',
+      entityType: EntityType.DATE,
+      ...rx(/[〇零一二三四五六七八九]{4}\s*年\s*(?:十[一二]?|[一二三四五六七八九])\s*月(?:\s*(?:[一二]?十[一二三四五六七八九]?|三十一?|[一二三四五六七八九])\s*[日号])?/g),
+      confidence: 0.85,
+      examples: ['二〇二四年一月十五日', '一九九九年十二月三十一日', '二〇二四年三月'],
+      scripts: ['chinese', 'japanese', 'cjk'],
+    },
+
+    // ============================================================================
+    // OTHER PATTERNS (CUSTOM entity type)
+    // ============================================================================
 
     // IPv4 Address
     // Clause numbers in legal and insurance documents (1.1.3.6) look exactly like IPs,

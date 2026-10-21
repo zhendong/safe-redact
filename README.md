@@ -54,7 +54,11 @@ Safe Redact detects the following types of sensitive information in PDF, DOCX, a
 
 ### Personal Identifiers
 
-- **Social Security Numbers (SSN)**: US Social Security Numbers in various formats
+- **ID Numbers**:
+  - US Social Security Numbers (SSN) in various formats
+  - Chinese National ID: 18-digit ID with validation
+  - Chinese Passport (current and legacy formats)
+  - US Passport
 - **Email Addresses**: RFC 5322 compliant email addresses
 - **Phone Numbers**:
   - US phone numbers (various formats)
@@ -74,18 +78,14 @@ Safe Redact detects the following types of sensitive information in PDF, DOCX, a
 
 ### Dates
 
-- MM/DD/YYYY format
-- YYYY-MM-DD format
-- Month DD, YYYY format
-- Chinese date format (YYYY年MM月DD日)
-- DD/MM/YYYY format (International)
+- MM/DD/YYYY and DD/MM/YYYY, with `/`, `-` or `.` (01/15/2024, 15.01.2024)
+- YYYY-MM-DD, with `-`, `/` or `.` (2024-01-15, 2024/01/15)
+- Month names and abbreviations: January 15, 2024, Jan. 15 2024, 15th January 2024, January 2024
+- Chinese dates: 2024年1月15日, 2024 年 1 月 15 号, full-width digits, 2024年1月, 1月15日, 二〇二四年一月十五日
+- 2-digit years (01/15/24) and YYYYMMDD (20240115) when a date label such as "Date" or "DOB" is nearby
 
 ### Additional Data Types (Custom)
 
-- **Chinese National ID**: 18-digit ID with validation
-- **Passports**:
-  - Chinese Passport (current and legacy formats)
-  - US Passport
 - **Network Information**:
   - IPv4 addresses
   - IPv6 addresses
