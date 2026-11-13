@@ -2,7 +2,7 @@
  * Diagnostic report that users attach to bug reports.
  *
  * It holds the environment, a summary of the settings (counts only — never
- * predefined words or custom patterns, which are sensitive), and the logs.
+ * predefined words or rule packs, which are sensitive), and the logs.
  * The desktop app reads its log files, which span earlier sessions; the web
  * version keeps the previous session's log in localStorage.
  */
@@ -12,6 +12,7 @@ import { isDesktop, readDesktopLogs, saveFile } from '@/platform';
 import { STORAGE_KEYS } from './constants';
 import { createLogger, formatLogEntry, getLogEntries } from './logger';
 import { getPredefinedWords } from './predefined-words';
+import { getRulePackStore } from '@/lib/rules/store';
 import { LANGUAGE_STORAGE_KEY } from '@/i18n/translations';
 
 const log = createLogger('App');
@@ -69,7 +70,6 @@ function settingsSummary(): string[] {
         `  confidenceThresholds: ${JSON.stringify(config.confidenceThresholds)}`,
         `  useRegexPatterns: ${config.useRegexPatterns}`,
         `  useMLModel: ${config.useMLModel}`,
-        `  useCustomPatterns: ${config.useCustomPatterns}`,
         `  aggressiveness: ${config.aggressiveness}`,
         `  sanitizeDocument: ${config.sanitizeDocument}`,
       );
@@ -77,7 +77,9 @@ function settingsSummary(): string[] {
       lines.push('  (defaults)');
     }
     lines.push(`  predefinedWords: ${getPredefinedWords().length}`);
-    lines.push(`  customPatternsStored: ${localStorage.getItem(STORAGE_KEYS.CUSTOM_PATTERNS) !== null}`);
+    const { packs, builtinDisabledRules } = getRulePackStore();
+    lines.push(`  rulePacks: ${packs.length} installed, ${packs.filter(p => p.enabled).length} enabled, ${packs.filter(p => p.pack.validators).length} with code`);
+    lines.push(`  builtinRulesDisabled: ${builtinDisabledRules.length}`);
     lines.push(`  language: ${localStorage.getItem(LANGUAGE_STORAGE_KEY) ?? 'default'}`);
   } catch (error) {
     lines.push(`  (could not read settings: ${error instanceof Error ? error.message : String(error)})`);

@@ -20,7 +20,7 @@ import { RedactionEngine } from '@/lib/redaction/RedactionEngine';
 import { DocxRedactor } from '@/lib/redaction/DocxRedactor';
 import { processImage as processUploadedImage } from '@/lib/image/ImageProcessor';
 import { redactImage, downloadRedactedImage } from '@/lib/image/ImageRedactor';
-import { detectImageEntities } from '@/lib/image/ImageOcr';
+import { imageEntitiesFromMatches } from '@/lib/image/ImageOcr';
 import { DocxViewer } from '@/components/viewer/DocxViewer';
 import type { ProcessedDocument, ProcessedPage, ProcessingStage, DetectedEntity, BoundingBox, EntityType, DetectionConfig } from '@/lib/types';
 import { EntityType as EntityTypeEnum } from '@/lib/types';
@@ -102,7 +102,6 @@ function App() {
       confidenceThresholds: DEFAULT_CONFIDENCE_THRESHOLDS,
       useMLModel: false,
       useRegexPatterns: true,
-      useCustomPatterns: false,
       aggressiveness: 'balanced',
       sanitizeDocument: false,
     };
@@ -510,11 +509,12 @@ function App() {
     for (const page of processedDocument.pages) {
       if (page.imageBlob && page.ocrWords) {
         const escaped = searchText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const matches = detectImageEntities(
+        const pattern = { name: 'manual', entityType, pattern: new RegExp(escaped, 'gi'), confidence: 1, examples: [] };
+        const matches = imageEntitiesFromMatches(
           { text: page.textContent, textItems: page.textItems, words: page.ocrWords },
           page.dimensions.width,
           page.dimensions.height,
-          [{ name: 'manual', entityType, pattern: new RegExp(escaped, 'gi'), confidence: 1, examples: [] }]
+          Array.from(page.textContent.matchAll(pattern.pattern), match => ({ pattern, text: match[0], index: match.index, confidence: 1 }))
         );
         // The user asked to redact every occurrence, so matches start checked
         foundEntities.push(...matches.map(entity => ({ ...entity, detectionMethod: 'manual' as const, status: 'confirmed' as const })));

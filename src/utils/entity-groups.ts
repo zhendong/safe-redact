@@ -8,7 +8,7 @@ import { EntityType } from '@/lib/types';
 export const STRUCTURED_TYPES: readonly EntityType[] = [
   EntityType.PHONE,
   EntityType.EMAIL,
-  EntityType.SSN,
+  EntityType.ID_NUMBER,
   EntityType.CREDIT_CARD,
   EntityType.CUSTOM,
   EntityType.PREDEFINED,

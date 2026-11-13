@@ -39,11 +39,11 @@ export const ENTITY_TYPE_METADATA: Record<EntityType, EntityTypeMetadata> = {
     color: '#6B7280', // gray
     description: 'Dates and time references',
   },
-  [EntityType.SSN]: {
-    type: EntityType.SSN,
-    displayName: 'SSN',
+  [EntityType.ID_NUMBER]: {
+    type: EntityType.ID_NUMBER,
+    displayName: 'ID Number',
     color: '#EF4444', // red
-    description: 'Social Security Numbers',
+    description: 'Personal ID numbers such as social security numbers, national IDs, and passports',
   },
   [EntityType.CREDIT_CARD]: {
     type: EntityType.CREDIT_CARD,
@@ -67,7 +67,7 @@ export const ENTITY_TYPE_METADATA: Record<EntityType, EntityTypeMetadata> = {
     type: EntityType.CUSTOM,
     displayName: 'Custom',
     color: '#EC4899', // pink
-    description: 'Other patterns such as IDs, URLs, and IP addresses',
+    description: 'Other patterns such as URLs, IP addresses, and crypto addresses',
   },
   [EntityType.PREDEFINED]: {
     type: EntityType.PREDEFINED,
@@ -117,18 +117,39 @@ const LEGACY_ENTITY_TYPES: EntityType[] = [
   EntityType.ORGANIZATION,
   EntityType.LOCATION,
   EntityType.DATE,
-  EntityType.SSN,
+  EntityType.ID_NUMBER,
   EntityType.CREDIT_CARD,
   EntityType.PHONE,
   EntityType.EMAIL,
   EntityType.CUSTOM,
 ];
 
+/** Saved name of ID_NUMBER, which then covered only SSNs */
+const LEGACY_SSN = 'SSN';
+
+/**
+ * Rename SSN in settings saved before ID_NUMBER existed. ID numbers stay
+ * enabled if SSNs or Custom (which had the other ID rules) were enabled.
+ */
+function migrateSsnType(config: DetectionConfig): DetectionConfig {
+  const known = config.knownEntityTypes as string[] | undefined;
+  if (known && !known.includes(LEGACY_SSN)) return config;
+  const enabled = (config.enabledEntityTypes ?? []) as string[];
+  const withoutSsn = (types: string[]) => types.filter(type => type !== LEGACY_SSN) as EntityType[];
+  const idEnabled = enabled.includes(LEGACY_SSN) || enabled.includes(EntityType.CUSTOM);
+  return {
+    ...config,
+    enabledEntityTypes: [...withoutSsn(enabled), ...(idEnabled ? [EntityType.ID_NUMBER] : [])],
+    knownEntityTypes: known && [...withoutSsn(known), EntityType.ID_NUMBER],
+  };
+}
+
 /**
  * Enable entity types added since the settings were saved, so new types
  * (e.g. PREDEFINED) aren't silently filtered out for existing users
  */
-export function enableNewEntityTypes(config: DetectionConfig): DetectionConfig {
+export function enableNewEntityTypes(saved: DetectionConfig): DetectionConfig {
+  const config = migrateSsnType(saved);
   const allTypes = Object.values(EntityType);
   const known = config.knownEntityTypes ?? LEGACY_ENTITY_TYPES;
   const newTypes = allTypes.filter(type => !known.includes(type));
@@ -147,7 +168,7 @@ export const DEFAULT_ENABLED_ENTITY_TYPES: EntityType[] = [
   EntityType.ORGANIZATION,
   EntityType.LOCATION,
   EntityType.DATE,
-  EntityType.SSN,
+  EntityType.ID_NUMBER,
   EntityType.CREDIT_CARD,
   EntityType.PHONE,
   EntityType.EMAIL,

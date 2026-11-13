@@ -1,6 +1,8 @@
 import type { ProcessedDocument } from '@/lib/types';
 import { EntityAggregator } from '@/lib/detectors/EntityAggregator';
 import { getPatternsForText } from '@/utils/regex-patterns';
+import { WorkerScriptHost } from '@/lib/rules/sandbox';
+import { getEnabledRulePacks } from '@/lib/rules/store';
 import { generateId } from '@/utils/validation';
 import { detectImageEntities } from './ImageOcr';
 import { recognizeImageOcr } from './ImageOrientation';
@@ -49,7 +51,14 @@ export async function processImage(file: File, onProgress?: (progress: number) =
   const ocr = await recognizeImageOcr(canvas, (image, progress) => imageOcrWorker.recognize(image, progress), progress => {
     onProgress?.(20 + Math.round(progress * 60));
   });
-  const detected = detectImageEntities(ocr, canvas.width, canvas.height, getPatternsForText(ocr.text));
+  const patterns = getPatternsForText(ocr.text);
+  const host = patterns.some(pattern => pattern.scriptValidator) ? new WorkerScriptHost() : undefined;
+  let detected;
+  try {
+    detected = await detectImageEntities(ocr, canvas.width, canvas.height, patterns, { host, packs: getEnabledRulePacks() });
+  } finally {
+    host?.dispose();
+  }
   const entities = new EntityAggregator().deduplicateEntities(detected);
   onProgress?.(100);
   return {
