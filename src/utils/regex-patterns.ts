@@ -3,6 +3,7 @@ import type { RegexPattern } from '@/lib/types';
 import { getPredefinedWords, createPatternFromWord } from './predefined-words';
 import { DocumentScript, detectDocumentScript } from './language-detection';
 import { createLogger } from './logger';
+import { isValidBitcoinAddress } from './crypto-address';
 
 const log = createLogger('RegexPatterns');
 
@@ -21,7 +22,14 @@ function hasContextKeywords(
   const end = Math.min(text.length, matchIndex + matchLength + windowSize);
   const context = text.substring(start, end).toLowerCase();
 
-  return keywords.some(keyword => context.includes(keyword.toLowerCase()));
+  return keywords.some(keyword => {
+    const kw = keyword.toLowerCase();
+    // Latin keywords must be whole words ("ip" must not match "recipient");
+    // CJK keywords have no word boundaries, so match them anywhere
+    if (!/^[\x20-\x7e]+$/.test(kw)) return context.includes(kw);
+    const escaped = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp(`(?<![a-z0-9])${escaped}(?![a-z0-9])`).test(context);
+  });
 }
 
 /**
@@ -71,6 +79,17 @@ function validateLuhn(cardNumber: string): boolean {
 }
 
 /**
+ * Validate a card number matched by the generic card pattern.
+ * A grouped 4-4-4-4-3 match may be a 16-digit card followed by a 3-digit CVV,
+ * so also accept it when the first 16 digits pass Luhn.
+ */
+function validateCardNumber(cardNumber: string): boolean {
+  if (validateLuhn(cardNumber)) return true;
+  const digits = cardNumber.replace(/\D/g, '');
+  return digits.length === 19 && /[- ]/.test(cardNumber) && validateLuhn(digits.slice(0, 16));
+}
+
+/**
  * Validate SSN format (US Social Security Number)
  * Post-2011 randomization rules: allows 900-999 area numbers
  */
@@ -109,7 +128,8 @@ function validateSSN(ssn: string): boolean {
  * Validates check digit using ISO 7064:1983.MOD 11-2
  */
 function validateChineseID(idNumber: string): boolean {
-  const id = idNumber.trim().toUpperCase();
+  // Strip 6-8-4 grouping separators (e.g. "110105 19491231 002X")
+  const id = idNumber.replace(/[\s-]/g, '').toUpperCase();
 
   if (id.length !== 18) {
     return false;
@@ -148,14 +168,18 @@ function validateUSPhone(phone: string): boolean {
 
   // Extract area code and exchange (remove country code if present)
   const offset = digits.length === 11 ? 1 : 0;
-  const areaCode = parseInt(digits.substring(offset, offset + 3));
-  const exchange = parseInt(digits.substring(offset + 3, offset + 6));
+  const areaCode = digits.substring(offset, offset + 3);
+  const exchange = digits.substring(offset + 3, offset + 6);
+  const line = digits.substring(offset + 6);
 
-  // Invalid area codes
-  if (areaCode === 0 || areaCode === 1) return false;
+  // Area codes never start with 0 or 1
+  if (areaCode[0] === '0' || areaCode[0] === '1') return false;
 
-  // 555-01XX is reserved for fictional use
-  if (areaCode === 555 && exchange >= 100 && exchange <= 199) return false;
+  // Exchanges never start with 0 or 1 either
+  if (exchange[0] === '0' || exchange[0] === '1') return false;
+
+  // NXX-555-0100 through 0199 is reserved for fictional use
+  if (exchange === '555' && line.startsWith('01')) return false;
 
   // Valid format check
   if (digits.length !== 10 && digits.length !== 11) return false;
@@ -202,21 +226,37 @@ export const REGEX_PATTERNS: RegexPattern[] = [
   {
     name: 'SSN (US)',
     entityType: EntityType.SSN,
-    pattern: /\b(?!000|666)\d{3}[-\s]?(?!00)\d{2}[-\s]?(?!0000)\d{4}\b/g,
+    // Same separator in both places: 123-45-6789 or 123 45 6789
+    pattern: /\b(?!000|666)\d{3}([- ])(?!00)\d{2}\1(?!0000)\d{4}\b/g,
     confidence: 0.85,
     validator: validateSSN,
-    examples: ['123-45-6789', '123 45 6789', '123456789'],
+    examples: ['123-45-6789', '123 45 6789'],
     scripts: ['latin'], // US-specific, primarily Latin script documents
     contextKeywords: ['ssn', 'social security', 'social security number', 'ss#', 'ss #'],
     contextWindowSize: 30, // Look within 30 chars for "SSN" label
     confidenceBoost: 1.15, // +15% confidence boost when keyword found
   },
 
+  // Bare 9-digit SSN: indistinguishable from invoice/order numbers on its own,
+  // so it stays below the default threshold unless an SSN label is nearby
+  {
+    name: 'SSN (US, no separators)',
+    entityType: EntityType.SSN,
+    pattern: /\b(?!000|666)\d{3}(?!00)\d{2}(?!0000)\d{4}\b/g,
+    confidence: 0.5,
+    validator: validateSSN,
+    examples: ['123456789'],
+    scripts: ['latin'],
+    contextKeywords: ['ssn', 'social security', 'social security number', 'ss#', 'ss #'],
+    contextWindowSize: 30,
+    confidenceBoost: 1.8, // 0.5 → 0.9 with an SSN label
+  },
+
   // Email Address (RFC 5322 simplified)
   {
     name: 'Email',
     entityType: EntityType.EMAIL,
-    pattern: /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g,
+    pattern: /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g,
     confidence: 0.95,
     examples: ['user@example.com', 'name.surname+tag@domain.co.uk'],
   },
@@ -225,14 +265,16 @@ export const REGEX_PATTERNS: RegexPattern[] = [
   {
     name: 'Phone (US)',
     entityType: EntityType.PHONE,
-    pattern: /\b(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b/g,
+    // Lookbehind instead of \b so a leading "(" or "+" is part of the match.
+    // Requires parentheses or separators; bare digit runs are handled below.
+    pattern: /(?<![\w+(])(?:\+?1[-.\s]?)?(?:\(\d{3}\)[-.\s]?|\d{3}[-.\s])\d{3}[-.\s]\d{4}\b/g,
     confidence: 0.90,
     validator: validateUSPhone,
     examples: [
-      '(555) 123-4567',
-      '555-123-4567',
-      '555.123.4567',
-      '+1-555-123-4567',
+      '(212) 456-7890',
+      '212-456-7890',
+      '212.456.7890',
+      '+1-212-456-7890',
     ],
     scripts: ['latin'], // US-specific
     contextKeywords: ['phone', 'tel', 'telephone', 'mobile', 'cell', 'contact', 'call'],
@@ -240,11 +282,27 @@ export const REGEX_PATTERNS: RegexPattern[] = [
     confidenceBoost: 1.1, // +10% confidence boost when keyword found
   },
 
+  // Bare 10/11-digit US number: easily an order or account number,
+  // so it stays below the default threshold unless a phone label is nearby
+  {
+    name: 'Phone (US, no separators)',
+    entityType: EntityType.PHONE,
+    pattern: /(?<![\w+])(?:\+?1)?\d{10}\b/g,
+    confidence: 0.5,
+    validator: validateUSPhone,
+    examples: ['2124567890', '+12124567890'],
+    scripts: ['latin'],
+    contextKeywords: ['phone', 'tel', 'telephone', 'mobile', 'cell', 'contact', 'call'],
+    contextWindowSize: 40,
+    confidenceBoost: 1.8, // 0.5 → 0.9 with a phone label
+  },
+
   // Phone Number (International)
   {
     name: 'Phone (International)',
     entityType: EntityType.PHONE,
-    pattern: /\b\+\d{1,3}[-.\s]?\d{1,4}[-.\s]?\d{1,4}[-.\s]?\d{1,9}\b/g,
+    // \b can't precede "+" (it needs a word character before it), so use a lookbehind
+    pattern: /(?<![\w+])\+\d{1,3}[-.\s]?\d{1,4}[-.\s]?\d{1,4}[-.\s]?\d{1,9}\b/g,
     confidence: 0.85,
     validator: validateInternationalPhone,
     examples: ['+44 20 7123 4567', '+33 1 42 86 82 00', '+86 138 0013 8000'],
@@ -295,20 +353,23 @@ export const REGEX_PATTERNS: RegexPattern[] = [
   {
     name: 'Credit Card (Generic)',
     entityType: EntityType.CREDIT_CARD,
-    pattern: /\b(?:\d[-\s]?){12,18}\d\b/g,
+    // Contiguous digits, or the standard groupings (4-4-4-4[-3], Amex 4-6-5, 4-4-4-1..3).
+    // Free-form "digit, optional separator" runs swallowed whatever number came next
+    // (e.g. "…0000 50"), failed Luhn, and lost the card.
+    pattern: /\b(?:\d{13,19}|\d{4}(?:[- ]\d{4}){3}(?:[- ]\d{3})?|\d{4}[- ]\d{6}[- ]\d{4,5}|\d{4}(?:[- ]\d{4}){2}[- ]\d{1,3})\b/g,
     confidence: 0.4,
-    validator: validateLuhn,
+    validator: validateCardNumber,
     examples: [
       '4532-1234-5678-9010', // Visa 16
       '4532 1234 5678 9010', // Visa 16 with spaces
       '4532123456789010', // Visa 16 no separators
-      '4532-1234-5678-901', // Visa 13
+      '4222-2222-2222-2', // Visa 13
       '3782-822463-10005', // Amex 15
       '6212-3456-7890-1234-567', // UnionPay 19
     ],
     contextKeywords: ['card', 'credit', 'debit', 'visa', 'mastercard', 'amex', 'payment', 'cc', 'card number', '信用卡', '银行卡'],
     contextWindowSize: 50, // Larger window for credit card context
-    confidenceBoost: 2, // +30% confidence boost (critical for low base confidence patterns)
+    confidenceBoost: 2, // Doubles confidence (critical for low base confidence patterns)
   },
 
   // Visa Credit Cards (13 or 16 digits starting with 4)
@@ -318,7 +379,7 @@ export const REGEX_PATTERNS: RegexPattern[] = [
     pattern: /\b4\d{3}[-\s]?\d{4}[-\s]?\d{4}[-\s]?(?:\d{4}|\d{1})\b/g,
     confidence: 0.6,
     validator: validateLuhn,
-    examples: ['4532-1234-5678-9010', '4532-123-456-789'],
+    examples: ['4532-1234-5678-9010', '4222222222222'],
   },
 
   // Mastercard (16 digits, starts with 51-55 or 2221-2720)
@@ -412,15 +473,17 @@ export const REGEX_PATTERNS: RegexPattern[] = [
 
   // Chinese National ID Card (18 digits with check digit)
   // Format: RRRRRRYYYYMMDDSSSC (Region + Date + Sequential + Check)
+  // Also accepts the common 6-8-4 grouping with a space or hyphen.
+  // No script filter: the checksum keeps false positives low, and IDs appear in
+  // short forms (too few letters for script detection) and English documents.
   {
     name: 'Chinese National ID',
     entityType: EntityType.CUSTOM,
-    pattern: /\b[1-9]\d{5}(?:19|20)\d{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01])\d{3}[\dXx]\b/g,
+    pattern: /\b[1-9]\d{5}[ -]?(?:19|20)\d{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01])[ -]?\d{3}[\dXx]\b/g,
     confidence: 0.7,
     validator: validateChineseID,
-    examples: ['110101199001011234', '44030119950615123X'],
-    scripts: ['chinese', 'cjk'], // China-specific
-    contextKeywords: ['身份证', '身份证号', 'id', 'id card', 'identity', 'national id', '证件'],
+    examples: ['11010519491231002X', '110105 19491231 002X'],
+    contextKeywords: ['身份证', '身份证号', '身份号码', 'id', 'id card', 'identity', 'national id', '证件'],
     contextWindowSize: 25, // Moderate window for ID context
     confidenceBoost: 1.2, // +20% confidence boost when keyword found
   },
@@ -466,12 +529,18 @@ export const REGEX_PATTERNS: RegexPattern[] = [
   },
 
   // IPv4 Address
+  // Clause numbers in legal and insurance documents (1.1.3.6) look exactly like IPs,
+  // so skip longer dotted runs (1.1.3.6.2) and explicit clause markers, and keep
+  // the base confidence below the default threshold unless network words are nearby.
   {
     name: 'IP Address (IPv4)',
     entityType: EntityType.CUSTOM,
-    pattern: /\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b/g,
-    confidence: 0.95,
+    pattern: /(?<![\d.]|(?:第|§|section|clause|article)\s*)(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(?!\.?\d)(?!\s*[条款项节章])/gi,
+    confidence: 0.6,
     examples: ['192.168.1.1', '10.0.0.1', '172.16.0.1'],
+    contextKeywords: ['ip', 'ip address', 'ipv4', 'server', 'host', 'hostname', 'gateway', 'dns', 'subnet', 'router', 'proxy', 'vpn', 'firewall', '服务器', '网关', '主机', '子网', '内网', '外网'],
+    contextWindowSize: 30,
+    confidenceBoost: 1.5, // 0.6 → 0.9 with network context
   },
 
   // IPv6 Address (simplified pattern)
@@ -514,6 +583,7 @@ export const REGEX_PATTERNS: RegexPattern[] = [
     entityType: EntityType.CUSTOM,
     pattern: /\b(?:[13][a-km-zA-HJ-NP-Z1-9]{25,34}|bc1[a-z0-9]{39,59})\b/g,
     confidence: 0.85,
+    validator: isValidBitcoinAddress,
     examples: [
       '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa',
       'bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq',
@@ -533,13 +603,6 @@ export function getPatternsByEntityType(entityType: EntityType): RegexPattern[] 
  */
 export function getPatternByName(name: string): RegexPattern | undefined {
   return REGEX_PATTERNS.find(pattern => pattern.name === name);
-}
-
-/**
- * Test if a string matches any pattern
- */
-export function testPatterns(text: string): boolean {
-  return REGEX_PATTERNS.some(pattern => pattern.pattern.test(text));
 }
 
 // Cache for patterns to avoid recreating them on every call
@@ -578,11 +641,16 @@ export function getAllPatterns(): RegexPattern[] {
 /**
  * Filter patterns based on detected document scripts
  * Returns patterns that are either universal (no scripts specified) or match any of the detected scripts
+ * When the script is unknown (e.g. a short form like "电话：13800138000"), keep every pattern
  */
 export function filterPatternsByScript(
   patterns: RegexPattern[],
   detectedScripts: DocumentScript[]
 ): RegexPattern[] {
+  if (detectedScripts.includes(DocumentScript.UNKNOWN)) {
+    return patterns;
+  }
+
   return patterns.filter(pattern => {
     // If no scripts specified, pattern is universal (applies to all languages)
     if (!pattern.scripts || pattern.scripts.length === 0) {

@@ -272,8 +272,8 @@ console.log('');
 testPatternFiltering(
   'Latin script should include US SSN, exclude Chinese patterns',
   [DocumentScript.LATIN],
-  ['SSN (US)', 'Email', 'Phone (US)'],
-  ['Phone (China Mobile)', 'Phone (China Landline)', 'Chinese National ID']
+  ['SSN (US)', 'Email', 'Phone (US)', 'Chinese National ID'], // Checksum-validated ID applies to all scripts
+  ['Phone (China Mobile)', 'Phone (China Landline)']
 );
 
 testPatternFiltering(
@@ -286,7 +286,7 @@ testPatternFiltering(
 testPatternFiltering(
   'CJK script should include Chinese patterns',
   [DocumentScript.CJK],
-  ['Phone (China Mobile)', 'Phone (China Landline)', 'Date (Chinese)'],
+  ['Phone (China Mobile)', 'Phone (China Landline)', 'Chinese National ID', 'Date (Chinese)'],
   ['US Passport'] // US-specific pattern should be excluded
 );
 
@@ -300,10 +300,17 @@ testPatternFiltering(
 testPatternFiltering(
   'Japanese script should exclude China-specific patterns',
   [DocumentScript.JAPANESE],
-  ['Date (Chinese)', 'Email'], // Chinese date format used in Japanese too
-  ['Phone (China Mobile)', 'Phone (China Landline)', 'Chinese National ID', 'Chinese Passport (Current)']
+  ['Date (Chinese)', 'Email', 'Chinese National ID'], // Chinese date format used in Japanese too
+  ['Phone (China Mobile)', 'Phone (China Landline)', 'Chinese Passport (Current)']
 );
 
+
+testPatternFiltering(
+  'Unknown script (too little text to tell) should keep every pattern',
+  [DocumentScript.UNKNOWN],
+  ['Phone (China Mobile)', 'Phone (China Landline)', 'SSN (US)', 'Phone (US)', 'Chinese National ID'],
+  []
+);
 
 // =============================================================================
 // SUMMARY

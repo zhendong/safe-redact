@@ -6,7 +6,7 @@
  * Tests may fail if the test data doesn't pass these validators, even if the regex matches.
  * This is expected behavior and ensures high-quality detection.
  */
-import { REGEX_PATTERNS, getPatternByName, getAllPatterns } from '../src/utils/regex-patterns';
+import { REGEX_PATTERNS, getPatternByName, getAllPatterns, getContextConfidenceBoost } from '../src/utils/regex-patterns';
 import { EntityType } from '../src/lib/types';
 import { addPredefinedWord, clearPredefinedWords } from '../src/utils/predefined-words';
 
@@ -60,15 +60,10 @@ function testRegexPattern(
     patternDef.pattern.lastIndex = 0;
 
     const matches = text.match(patternDef.pattern);
-    let didMatch = matches !== null && matches.length > 0;
+    const validatedMatches = (matches ?? []).filter(match => !patternDef.validator || patternDef.validator(match));
+    const didMatch = validatedMatches.length > 0;
 
-    // Apply validator if it exists
-    if (didMatch && patternDef.validator && matches) {
-      const validatedMatches = matches.filter(match => patternDef.validator!(match));
-      didMatch = validatedMatches.length > 0;
-    }
-
-    const passed = didMatch === shouldMatch;
+    const passed = didMatch === shouldMatch && (!expectedMatch || validatedMatches[0] === expectedMatch);
 
     if (passed) {
       passedTests++;
@@ -83,7 +78,7 @@ function testRegexPattern(
     console.log(`  Expected: ${shouldMatch ? 'MATCH' : 'NO MATCH'}, Got: ${didMatch ? 'MATCH' : 'NO MATCH'}`);
     if (matches) {
       console.log(`  Matched: "${matches[0]}"`);
-      if (expectedMatch && matches[0] !== expectedMatch) {
+      if (expectedMatch && validatedMatches[0] !== expectedMatch) {
         console.log(`  ⚠️  Expected to match: "${expectedMatch}"`);
       }
     }
@@ -95,11 +90,18 @@ function testRegexPattern(
 // SSN (US Social Security Number) TESTS
 // =============================================================================
 
+testRegexPattern('SSN (US, no separators)', [
+  { text: '123456789', shouldMatch: true, description: 'Bare 9 digits' },
+  { text: '000456789', shouldMatch: false, description: 'Invalid area 000' },
+  { text: '1234567890', shouldMatch: false, description: '10 digits' },
+]);
+
 testRegexPattern('SSN (US)', [
   // Valid SSNs
   { text: '123-45-6789', shouldMatch: true, description: 'Valid SSN with dashes' },
   { text: '123 45 6789', shouldMatch: true, description: 'Valid SSN with spaces' },
-  { text: '123456789', shouldMatch: true, description: 'Valid SSN without separators' },
+  { text: '123456789', shouldMatch: false, description: 'No separators (handled by the low-confidence pattern)' },
+  { text: '123-45 6789', shouldMatch: false, description: 'Mixed separators' },
   { text: 'SSN: 987-65-4321', shouldMatch: true, description: 'SSN in context' },
   { text: '900-12-3456', shouldMatch: true, description: 'Valid post-2011 area (900-999)' },
 
@@ -119,6 +121,7 @@ testRegexPattern('SSN (US)', [
 // =============================================================================
 
 testRegexPattern('Email', [
+  { text: 'a@b.c|m', shouldMatch: false, description: 'Pipe is not part of a TLD' },
   // Valid emails
   { text: 'user@example.com', shouldMatch: true, description: 'Simple email' },
   { text: 'john.doe@company.org', shouldMatch: true, description: 'Email with dot in name' },
@@ -144,28 +147,38 @@ testRegexPattern('Phone (US)', [
   { text: '(212) 456-7890', shouldMatch: true, description: 'US phone with parens' },
   { text: '212-456-7890', shouldMatch: true, description: 'US phone with dashes' },
   { text: '212.456.7890', shouldMatch: true, description: 'US phone with dots' },
-  { text: '2124567890', shouldMatch: true, description: 'US phone no separators' },
+  { text: '2124567890', shouldMatch: false, description: 'No separators (handled by the low-confidence pattern)' },
+  { text: '212-056-7890', shouldMatch: false, description: 'Exchange starting with 0' },
   { text: '+1-212-456-7890', shouldMatch: true, description: 'US phone with country code' },
   { text: '+1 (212) 456-7890', shouldMatch: true, description: 'US phone with +1 and parens' },
 
   // Invalid
   { text: '123-4567', shouldMatch: false, description: 'Too short' },
   { text: '55-123-4567', shouldMatch: false, description: 'Wrong format' },
-  { text: '(555) 123-4567', shouldMatch: false, description: 'Fictional 555-01XX' },
+  { text: '(212) 555-0123', shouldMatch: false, description: 'Fictional 555-01XX' },
+  { text: '012-456-7890', shouldMatch: false, description: 'Area code starting with 0' },
+  { text: '112-456-7890', shouldMatch: false, description: 'Area code starting with 1' },
+  { text: 'Call (212) 456-7890 now', shouldMatch: true, description: 'Opening paren is part of the match', expectedMatch: '(212) 456-7890' },
+]);
+
+testRegexPattern('Phone (US, no separators)', [
+  { text: '2124567890', shouldMatch: true, description: 'Bare 10 digits' },
+  { text: '+12124567890', shouldMatch: true, description: 'With +1' },
+  { text: 'Order 1234567890 shipped', shouldMatch: false, description: 'Area code starting with 1' },
 ]);
 
 testRegexPattern('Phone (International)', [
-  // Note: International phone pattern has limited format support
-  // It matches certain formats but not all variations
-  // These formats are not supported by current pattern (too many segments)
-  { text: '+44 20 71234567', shouldMatch: false, description: 'UK phone (unsupported format)' },
-  { text: '+33 142868200', shouldMatch: false, description: 'France phone (unsupported format)' },
-  { text: '+86 13800138000', shouldMatch: false, description: 'China phone (unsupported format)' },
-  { text: '+81-3-12345678', shouldMatch: false, description: 'Japan phone (unsupported format)' },
-  { text: '+49 3012345678', shouldMatch: false, description: 'Germany phone (unsupported format)' },
+  { text: '+44 20 71234567', shouldMatch: true, description: 'UK phone' },
+  { text: '+44 20 7123 4567', shouldMatch: true, description: 'UK phone grouped' },
+  { text: '+33 142868200', shouldMatch: true, description: 'France phone' },
+  { text: '+86 13800138000', shouldMatch: true, description: 'China phone' },
+  { text: '+81-3-12345678', shouldMatch: true, description: 'Japan phone' },
+  { text: '+49 3012345678', shouldMatch: true, description: 'Germany phone' },
+  { text: 'Tel: +44 20 7123 4567', shouldMatch: true, description: 'After a label', expectedMatch: '+44 20 7123 4567' },
+  { text: 'Tel:+44 20 7123 4567', shouldMatch: true, description: 'Directly after a colon', expectedMatch: '+44 20 7123 4567' },
 
   // Invalid
-  { text: '+123456789012345', shouldMatch: false, description: 'Too long (>15 digits)' },
+  { text: '+1234567890123456', shouldMatch: false, description: 'Too long (>15 digits)' },
   { text: '+1-2', shouldMatch: false, description: 'Too short (<8 digits)' },
 ]);
 
@@ -199,6 +212,18 @@ testRegexPattern('Phone (China Landline)', [
 // =============================================================================
 // CREDIT CARD TESTS
 // =============================================================================
+
+testRegexPattern('Credit Card (Generic)', [
+  { text: '3530111333300000', shouldMatch: true, description: 'JCB (no brand-specific pattern)' },
+  { text: '3530 1113 3330 0000', shouldMatch: true, description: 'JCB grouped' },
+  { text: 'Card 3530111333300000 50 dollars', shouldMatch: true, description: 'Followed by another number', expectedMatch: '3530111333300000' },
+  { text: 'Card 3530 1113 3330 0000 50 dollars', shouldMatch: true, description: 'Grouped, followed by another number', expectedMatch: '3530 1113 3330 0000' },
+  { text: 'Card 3530 1113 3330 0000 123', shouldMatch: true, description: 'Followed by a 3-digit CVV (redacted with it)', expectedMatch: '3530 1113 3330 0000 123' },
+  { text: '6222 0212 3456 7890 128', shouldMatch: true, description: 'UnionPay 19 grouped 4-4-4-4-3' },
+  { text: '3782 822463 10005', shouldMatch: true, description: 'Amex 4-6-5' },
+  { text: '3530111333300000\n2024', shouldMatch: true, description: 'Does not continue onto the next line', expectedMatch: '3530111333300000' },
+  { text: '3530111333300001', shouldMatch: false, description: 'Fails Luhn' },
+]);
 
 testRegexPattern('Credit Card (Visa)', [
   // Valid Visa cards (these are test numbers that pass Luhn)
@@ -307,6 +332,14 @@ testRegexPattern('Date (Month DD, YYYY)', [
 // =============================================================================
 
 testRegexPattern('Chinese National ID', [
+  // Valid checksums
+  { text: '11010519491231002X', shouldMatch: true, description: 'Valid ID with X check digit' },
+  { text: '11010519491231002x', shouldMatch: true, description: 'Lowercase x check digit' },
+  { text: '身份证号：11010519491231002X，住址', shouldMatch: true, description: 'Inside Chinese text', expectedMatch: '11010519491231002X' },
+  { text: '110105 19491231 002X', shouldMatch: true, description: '6-8-4 grouping with spaces' },
+  { text: '110105-19491231-002X', shouldMatch: true, description: '6-8-4 grouping with hyphens' },
+  { text: '110 105 1949 1231 002X', shouldMatch: false, description: 'Arbitrary grouping' },
+
   // Note: These have invalid checksums and will fail validator
   // Pattern matches format, but validator requires correct checksum
   { text: '110101199001010010', shouldMatch: false, description: 'Valid format but invalid checksum' },
@@ -363,8 +396,15 @@ testRegexPattern('IP Address (IPv4)', [
   // Invalid
   { text: '256.1.1.1', shouldMatch: false, description: 'Octet > 255' },
   { text: '192.168.1', shouldMatch: false, description: 'Incomplete IP' },
-  // Note: Regex matches first valid IPv4 in string
-  { text: '192.168.1.1.1', shouldMatch: true, description: 'Matches 192.168.1.1 from string' },
+  { text: '192.168.1.1.1', shouldMatch: false, description: 'Part of a longer dotted run' },
+
+  // Clause numbers in legal/insurance documents
+  { text: '1.1.3.6.2 保险责任', shouldMatch: false, description: 'Five-level clause number' },
+  { text: '第1.1.3.6条', shouldMatch: false, description: 'Chinese clause marker' },
+  { text: '1.1.3.6 条 保险责任', shouldMatch: false, description: 'Followed by 条' },
+  { text: 'Section 1.1.3.6 Exclusions', shouldMatch: false, description: 'Section marker' },
+  { text: 'see § 2.1.4.3', shouldMatch: false, description: 'Section sign' },
+  { text: 'IP: 10.0.0.1.', shouldMatch: true, description: 'Sentence-ending period', expectedMatch: '10.0.0.1' },
 ]);
 
 testRegexPattern('IP Address (IPv6)', [
@@ -419,11 +459,15 @@ testRegexPattern('URL (without protocol)', [
 testRegexPattern('Crypto (Bitcoin)', [
   // Valid Bitcoin addresses
   { text: '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa', shouldMatch: true, description: 'Bitcoin P2PKH (Genesis)' },
-  { text: '3J98t1WpEZ73CNmYviecrnyiWrnqRhWNLy', shouldMatch: true, description: 'Bitcoin P2SH' },
+  { text: '3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy', shouldMatch: true, description: 'Bitcoin P2SH' },
   { text: 'bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdq', shouldMatch: true, description: 'Bitcoin Bech32' },
+  { text: 'bc1p5d7rjq7g6rdk2yhzks9smlaqtedr4dekq08ge8ztwac72sfr9rusxg3297', shouldMatch: true, description: 'Bitcoin Taproot (bech32m)' },
 
   // Invalid
-  { text: '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfN', shouldMatch: true, description: 'Valid length (33 chars)' }, // Bitcoin addresses can be 26-35 chars
+  { text: '3J98t1WpEZ73CNmYviecrnyiWrnqRhWNLy', shouldMatch: false, description: 'One character changed (checksum fails)' },
+  { text: '1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfN', shouldMatch: false, description: 'Truncated (checksum fails)' },
+  { text: 'ref 1234567891234567891234567891', shouldMatch: false, description: 'Long number that fits the alphabet' },
+  { text: 'bc1qar0srrr7xfkvy5l643lydnw9re59gtzzwf5mdx', shouldMatch: false, description: 'Bech32 checksum fails' },
   { text: '0A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa', shouldMatch: false, description: 'Invalid prefix (0)' },
   { text: '1ABC', shouldMatch: false, description: 'Too short' },
 ]);
@@ -489,6 +533,33 @@ try {
 }
 
 // =============================================================================
+// CONTEXT CONFIDENCE TESTS
+// =============================================================================
+
+function testContextConfidence(patternName: string, text: string, match: string, expectedConfidence: number, description: string) {
+  totalTests++;
+  const p = getPatternByName(patternName)!;
+  const index = text.indexOf(match);
+  const confidence = Math.min(1, p.confidence * getContextConfidenceBoost(
+    text, index, match.length, p.contextKeywords ?? [], p.contextWindowSize ?? 10, p.confidenceBoost ?? 1.2
+  ));
+  const passed = Math.abs(confidence - expectedConfidence) < 1e-9;
+  if (passed) passedTests++; else failedTests++;
+  console.log(`${passed ? '✓ PASS' : '✗ FAIL'} (${description})`);
+  console.log(`  Text: "${text}"  Expected confidence: ${expectedConfidence}, Got: ${confidence}\n`);
+}
+
+console.log(`\n${'='.repeat(80)}\nTEST: Context confidence\n${'='.repeat(80)}`);
+testContextConfidence('IP Address (IPv4)', '1.1.3.6 被保险人的义务', '1.1.3.6', 0.6, 'Clause number without network context stays below default threshold');
+testContextConfidence('IP Address (IPv4)', 'The recipient shall notify the principal under 1.1.3.6', '1.1.3.6', 0.6, '"ip" inside "recipient"/"principal" is not a keyword');
+testContextConfidence('IP Address (IPv4)', 'Server IP: 10.0.0.1', '10.0.0.1', 0.9, 'Network context boosts IP');
+testContextConfidence('IP Address (IPv4)', '服务器地址 192.168.1.10', '192.168.1.10', 0.9, 'Chinese network keyword boosts IP');
+testContextConfidence('SSN (US, no separators)', 'Invoice 123456789 total due', '123456789', 0.5, 'Bare 9 digits without a label stay below default threshold');
+testContextConfidence('SSN (US, no separators)', 'SSN: 123456789', '123456789', 0.9, 'Bare 9 digits next to an SSN label');
+testContextConfidence('Phone (US, no separators)', 'Order 2124567890 shipped', '2124567890', 0.5, 'Bare 10 digits without a label stay below default threshold');
+testContextConfidence('Phone (US, no separators)', 'Phone: 2124567890', '2124567890', 0.9, 'Bare 10 digits next to a phone label');
+
+// =============================================================================
 // SUMMARY
 // =============================================================================
 
@@ -508,7 +579,7 @@ if (failedTests > 0) {
   console.log('  - Pattern-specific matching behavior');
   console.log('  - Test data not meeting validation requirements');
   console.log('\nReview individual test results above for details.');
-  process.exit(0); // Don't fail CI, just inform
+  process.exit(1);
 } else {
   console.log('\n✅ ALL TESTS PASSED');
   process.exit(0);
