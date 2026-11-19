@@ -67,6 +67,8 @@ Different fields handle different sensitive information. A rule pack lets you de
 - **HR:** employee IDs, badge numbers, and salary amounts next to salary labels.
 - **Finance:** internal account references and transaction IDs.
 
+Try the [legal example pack](docs/examples/legal-rule-pack.json), with English and Chinese labels for client references, matter numbers, contract references, and settlement amounts. The [walkthrough and sample document](docs/rule-packs.md#legal-domain-example) show what it detects and what stays visible.
+
 ### Create a ruleset with an AI agent
 
 Describe what to detect, its format, and examples of what should and should not match. Give your AI agent the [rule-pack format](docs/rule-packs.md) and [example pack](docs/examples/rule-pack-example.json). You can start with this prompt:

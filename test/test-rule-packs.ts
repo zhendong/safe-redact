@@ -1,4 +1,5 @@
 import { strict as assert } from 'node:assert';
+import { readFileSync } from 'node:fs';
 import { EntityType } from '../src/lib/types';
 import { compilePack } from '../src/lib/rules/compile';
 import { findRuleMatches } from '../src/lib/rules/matcher';
@@ -140,6 +141,21 @@ assert.deepEqual(await findRuleMatches('abc', compilePack({ id: 'e', name: 'E', 
 const failures = await testRulePack({ id: 't', name: 'T', rules: [{ id: 'r', name: 'R', pattern: 'abc', examples: ['xyz'], counterExamples: ['abc'] }] });
 assert.deepEqual(failures, ['Rule "r" did not detect its example "xyz"', 'Rule "r" detected its counter-example "abc"']);
 console.log('Rule conditions and validators passed');
+
+// --- Legal example: install-time checks and selected spans in a mixed document ---
+const legalPack = parseRulePack(readFileSync(new URL('../docs/examples/legal-rule-pack.json', import.meta.url), 'utf8'));
+assert.deepEqual(await testRulePack(legalPack), []);
+const legalText = readFileSync(new URL('../docs/examples/legal-domain-sample.txt', import.meta.url), 'utf8');
+const legalMatches = await findRuleMatches(legalText, compilePack(legalPack));
+assert.deepEqual(legalMatches.map(match => match.text).sort(), [
+  'CL-000123', 'CL-000789', 'MAT-2026-0042', 'MAT-2026-0044',
+  'CTR-2026-0017', 'CTR-2026-0019', 'USD 85,000.00', '￥50000',
+].sort());
+for (const match of legalMatches) {
+  assert.equal(legalText.slice(match.index, match.index + match.text.length), match.text, 'selected span excludes the field label');
+  assert.ok(match.confidence >= 0.7, 'legal example matches survive the balanced confidence threshold');
+}
+console.log('Legal example pack self-tests and sample document passed');
 
 // --- Built-in pack ---
 for (const pattern of REGEX_PATTERNS) {

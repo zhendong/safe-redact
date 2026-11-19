@@ -4,6 +4,21 @@ A rule pack is a JSON file of detection rules. Install one in **Settings → Sho
 
 See [`examples/rule-pack-example.json`](examples/rule-pack-example.json) for a complete pack.
 
+## Legal domain example
+
+Install [`examples/legal-rule-pack.json`](examples/legal-rule-pack.json) for an example of a ruleset tailored to a law office. It uses fictional office-specific formats, English and Chinese labels, and no JavaScript validators. Adapt its prefixes and formats to your practice.
+
+| Rule | Example input | Selected value |
+| --- | --- | --- |
+| Client reference | `Client ID: CL-000123` | `CL-000123` |
+| Matter number | `Matter: MAT-2026-0042` | `MAT-2026-0042` |
+| Contract reference | `合同编号：CTR-2026-0019` | `CTR-2026-0019` |
+| Settlement amount | `Settlement amount: USD 85,000.00` | `USD 85,000.00` |
+
+Capture groups keep field labels visible. The matter-number rule requires a nearby label such as `Matter` or `项目编号`, so the same format used as a product code does not match. Each rule includes examples and counter-examples checked during installation.
+
+The [sample text](examples/legal-domain-sample.txt) contains eight intended matches and four unrelated values that this pack should leave visible. Paste it into a Word document or a text-based PDF to try it in SafeRedact. Built-in rules run alongside the pack and may detect additional values. Review results, then ask your AI agent to adapt the pack using your own formats and fictional examples.
+
 ## Pack
 
 | Field | Required | Description |

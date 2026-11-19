@@ -67,6 +67,8 @@
 - **人力资源**：员工编号、工牌号、薪资标签旁的金额。
 - **财务业务**：内部账户编号、交易流水号。
 
+可以先试用[法律业务示例规则包](docs/examples/legal-rule-pack.json)，它通过中英文标签检测客户编号、项目编号、合同编号和和解金额。[使用说明和样本文档](docs/rule-packs.md#legal-domain-example)展示了应命中和应保留的内容。
+
 ### 用 AI Agent 创建规则集
 
 说明需要检测什么、格式是什么，以及哪些示例应该命中、哪些不应该命中。把[规则包格式说明](docs/rule-packs.md)和[示例规则包](docs/examples/rule-pack-example.json)交给 AI Agent，可以从这段提示词开始：

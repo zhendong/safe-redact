@@ -1,0 +1,17 @@
+FICTIONAL LEGAL MATTER / 虚构法律业务示例
+
+Client ID: CL-000123
+Matter: MAT-2026-0042
+Contract reference: CTR-2026-0017
+Settlement amount: USD 85,000.00
+
+客户编号：CL-000789
+项目编号：MAT-2026-0044
+合同编号：CTR-2026-0019
+调解金额：￥50000
+
+Unrelated references below should stay visible with this pack alone:
+Invoice ID: CL-999999
+Product code: MAT-2026-9999
+Product reference: CTR-2026-9999
+Invoice amount: USD 99,000.00

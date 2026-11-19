@@ -1,0 +1,101 @@
+{
+  "id": "example-legal",
+  "name": "Legal matter records / 法律业务档案",
+  "version": "1.0.0",
+  "description": "Illustrative law-office formats for client, matter and contract references, plus labelled settlement amounts. All examples are fictional; adapt the formats to your own practice.",
+  "author": "SafeRedact",
+  "rules": [
+    {
+      "id": "client-reference",
+      "name": "Client reference / 客户编号",
+      "pattern": "(?:\\bclient[ \\t]+(?:id|ref(?:erence)?)|客户编号)[ \\t]*[:：#][ \\t]*(?<reference>CL-\\d{6})(?![\\w-])",
+      "flags": "i",
+      "group": "reference",
+      "entityType": "CUSTOM",
+      "confidence": 0.9,
+      "examples": [
+        "Client ID: CL-000123",
+        "Client reference # CL-000456",
+        "客户编号：CL-000789"
+      ],
+      "counterExamples": [
+        "Invoice ID: CL-000123",
+        "Client ID: CL-12345",
+        "Client ID: CL-0001234",
+        "Client ID: CL-000123-REV"
+      ]
+    },
+    {
+      "id": "matter-number",
+      "name": "Matter number / 项目编号",
+      "pattern": "(?<![\\w-])MAT-20\\d{2}-\\d{4}(?![\\w-])",
+      "flags": "i",
+      "entityType": "CUSTOM",
+      "confidence": 0.8,
+      "contextKeywords": [
+        "matter",
+        "file reference",
+        "项目编号",
+        "委托编号"
+      ],
+      "contextWindow": 24,
+      "confidenceBoost": 1.125,
+      "requireContext": true,
+      "examples": [
+        "Matter: MAT-2026-0042",
+        "File reference: MAT-2026-0043",
+        "项目编号：MAT-2026-0044"
+      ],
+      "counterExamples": [
+        "Product code: MAT-2026-0042",
+        "Matter: MAT-2026-042",
+        "Matter: MAT-2026-00420",
+        "Matter: XMAT-2026-0042",
+        "Matter: MAT-2026-0042-REV"
+      ]
+    },
+    {
+      "id": "contract-reference",
+      "name": "Contract reference / 合同编号",
+      "pattern": "(?:\\bcontract[ \\t]+(?:id|number|no\\.?|ref(?:erence)?)|合同编号)[ \\t]*[:：#][ \\t]*(?<reference>CTR-20\\d{2}-\\d{4})(?![\\w-])",
+      "flags": "i",
+      "group": "reference",
+      "entityType": "CUSTOM",
+      "confidence": 0.9,
+      "examples": [
+        "Contract reference: CTR-2026-0017",
+        "Contract no.: CTR-2026-0018",
+        "合同编号：CTR-2026-0019"
+      ],
+      "counterExamples": [
+        "Product reference: CTR-2026-0017",
+        "Contract reference: CTR-2026-017",
+        "Contract reference: CTR-2026-00170",
+        "Contract reference: CTR-2026-0017-REV"
+      ]
+    },
+    {
+      "id": "settlement-amount",
+      "name": "Settlement amount / 和解金额",
+      "pattern": "(?:\\bsettlement[ \\t]+amount|和解金额|调解金额)[ \\t]*[:：][ \\t]*(?<amount>(?:USD|CNY|RMB|人民币|[$¥￥])[ \\t]*(?:\\d{1,3}(?:,\\d{3})+|\\d+)(?:\\.\\d{2})?)(?![\\w,]|\\.\\d)",
+      "flags": "i",
+      "group": "amount",
+      "entityType": "CUSTOM",
+      "confidence": 0.9,
+      "examples": [
+        "Settlement amount: USD 85,000.00",
+        "Settlement amount: $85000",
+        "Settlement amount: USD 85,000.00.",
+        "和解金额：人民币 120,000.00",
+        "调解金额：￥50000"
+      ],
+      "counterExamples": [
+        "Invoice amount: USD 85,000.00",
+        "Settlement date: 2026-11-19",
+        "Settlement amount: 85000",
+        "Settlement amount: USD 85,00.00",
+        "Settlement amount: USD 85,000.001"
+      ]
+    }
+  ]
+}
