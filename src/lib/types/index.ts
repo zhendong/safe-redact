@@ -14,6 +14,7 @@ export interface DetectedEntity {
   detectionMethod: DetectionMethod;        // How it was detected
   status: EntityStatus;                    // Current review status
   contextText?: string;                    // Surrounding text (±50 chars)
+  ruleName?: string;                       // Name of the rule that matched (regex detections)
 }
 
 /**
@@ -49,7 +50,7 @@ export enum EntityType {
   ORGANIZATION = 'ORG',                    // Company/org names
   LOCATION = 'LOC',                        // Places, addresses
   DATE = 'DATE',                           // Dates
-  SSN = 'SSN',                             // Social Security Numbers
+  ID_NUMBER = 'ID',                        // Personal ID numbers (SSN, national ID, passport, ...)
   CREDIT_CARD = 'CREDIT_CARD',             // Credit card numbers
   PHONE = 'PHONE',                         // Phone numbers
   EMAIL = 'EMAIL',                         // Email addresses
@@ -217,20 +218,6 @@ export interface EntityContext {
   followingText: string;                   // Text after entity
 }
 
-/**
- * Custom learned pattern
- */
-export interface CustomPattern {
-  id: string;                              // UUID
-  pattern: string;                         // Regex pattern (as string)
-  entityType: EntityType;                  // What it detects
-  confidence: number;                      // Base confidence (0-1)
-  examples: string[];                      // Example matches
-  createdAt: number;                       // When learned
-  matchCount: number;                      // Times successfully matched
-  lastUsed: number;                        // Last usage timestamp
-}
-
 // ============================================================================
 // DETECTION CONFIGURATION
 // ============================================================================
@@ -247,7 +234,6 @@ export interface DetectionConfig {
   };
   useMLModel: boolean;                     // Enable ML-based NER
   useRegexPatterns: boolean;               // Enable regex detection
-  useCustomPatterns: boolean;              // Enable learned patterns
   aggressiveness: 'conservative' | 'balanced' | 'aggressive';
   sanitizeDocument: boolean;               // Strip metadata and hidden content
   knownEntityTypes?: EntityType[];         // Types that existed when saved; newer ones get enabled on load
@@ -268,6 +254,13 @@ export interface RegexPattern {
   contextKeywords?: string[];              // Keywords that boost confidence when found near match
   contextWindowSize?: number;              // Characters before/after to search for keywords (default: 50)
   confidenceBoost?: number;                // Confidence multiplier when keywords found (default: 1.2 = +20%)
+  requireContext?: boolean;                // Drop matches without a context keyword nearby
+  excludeKeywords?: string[];              // Drop matches with any of these words nearby
+  group?: number | string;                 // Capture group to detect instead of the whole match
+  packId?: string;                         // Rule pack this pattern came from
+  ruleId?: string;                         // Rule id within the pack
+  scriptValidator?: string;                // Validator from the pack's code, run in the sandbox
+  detectionMethod?: DetectionMethod;       // Reported on entities (default: 'regex')
 }
 
 // ============================================================================

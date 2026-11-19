@@ -23,6 +23,7 @@
 
 ## Newly Added Features and Fixes
 
+- **Rule packs for your domain**: Create reusable detection rules for your industry or workflow, such as client references, patient record numbers, or employee IDs. Ask an AI agent to turn your requirements and examples into a rule pack, then install the JSON file in Settings. See [Rule packs](#rule-packs-for-your-domain).
 - **macOS app**: SafeRedact now runs as a native Mac app. OCR and the name-detection model are bundled, so it works fully offline, and the app is blocked from making any network connection. Open files from the File menu, the Dock, or Finder's "Open With", and save results with the native Save dialog. See [macOS App](#macos-app).
 - **Image redaction**: Upload PNG, JPEG, or WebP images; Tesseract.js recognizes English and Simplified Chinese text for pattern matching. Review detections or draw a manual selection, then download a flattened PNG with the selected pixels covered.
 - **OCR accuracy**: Image OCR is best effort. Tesseract.js can miss or misread text; inspect the entire image and manually select any sensitive area it missed before exporting.
@@ -41,7 +42,7 @@
 
 | Feature | What you can do |
 | :--- | :--- |
-| **Find sensitive details** | Combine pattern matching, optional local machine learning, predefined words, and custom detection rules. |
+| **Find sensitive details** | Combine pattern matching, optional local machine learning, predefined words, and rule packs with custom detection rules ([format](docs/rule-packs.md)). |
 | **Review with context** | Inspect detected entities beside the document, filter results, and confirm or reject them in bulk. |
 | **Select manually** | Drag over sensitive areas that automatic detection missed. |
 | **Look beyond visible text** | Review metadata and hidden content; inspect extracted document images in a full-size lightbox. |
@@ -56,6 +57,33 @@
 | **PNG · JPEG · WebP** | English and Simplified Chinese OCR, image metadata review, and manual selection | Flattened PNG with selected pixels covered; original file metadata is not copied. |
 
 > Image OCR is best effort. Inspect the entire image and manually select anything sensitive that was missed before exporting. Images embedded in PDF and DOCX files are available for manual review; they are not automatically scanned with OCR.
+
+## Rule packs for your domain
+
+Different fields handle different sensitive information. A rule pack lets you define your own ruleset as a reusable JSON file, without changing Safe Redact's code. For example, you could create rules for:
+
+- **Legal work:** client references, matter numbers, and internal case IDs.
+- **Healthcare:** patient record numbers and appointment references.
+- **HR:** employee IDs, badge numbers, and salary amounts next to salary labels.
+- **Finance:** internal account references and transaction IDs.
+
+### Create a ruleset with an AI agent
+
+Describe what to detect, its format, and examples of what should and should not match. Give your AI agent the [rule-pack format](docs/rule-packs.md) and [example pack](docs/examples/rule-pack-example.json). You can start with this prompt:
+
+```text
+Create a Safe Redact JSON rule pack using docs/rule-packs.md and
+docs/examples/rule-pack-example.json in this repository.
+My domain is [domain]. Detect [sensitive fields] in these formats: [formats].
+Examples to detect: [made-up examples]. Do not match: [counter-examples].
+Use context conditions or capture groups where needed to select only the
+sensitive value. Include examples and counterExamples for every rule.
+Prefer regex rules and built-in validators. Return a JSON file I can install.
+```
+
+Use made-up examples when working with an external AI service. The AI agent helps you author the file; installed rules run locally in Safe Redact.
+
+Install the file in **Settings → Show advanced options → Rule Packs → Install rule pack**. Safe Redact checks the pack's format and runs its supplied examples before installation. Try it on a sample document, review what it finds and misses, and refine the rules with your agent. You can enable or disable individual rules and back up installed packs with Export Settings.
 
 ## Privacy and offline use
 
@@ -73,7 +101,11 @@ Safe Redact detects the following types of sensitive information in PDF, DOCX, a
 
 ### Personal Identifiers
 
-- **Social Security Numbers (SSN)**: US Social Security Numbers in various formats
+- **ID Numbers**:
+  - US Social Security Numbers (SSN) in various formats
+  - Chinese National ID: 18-digit ID with validation
+  - Chinese Passport (current and legacy formats)
+  - US Passport
 - **Email Addresses**: RFC 5322 compliant email addresses
 - **Phone Numbers**:
   - US phone numbers (various formats)
@@ -93,24 +125,21 @@ Safe Redact detects the following types of sensitive information in PDF, DOCX, a
 
 ### Dates
 
-- MM/DD/YYYY format
-- YYYY-MM-DD format
-- Month DD, YYYY format
-- Chinese date format (YYYY年MM月DD日)
-- DD/MM/YYYY format (International)
+- MM/DD/YYYY and DD/MM/YYYY, with `/`, `-` or `.` (01/15/2024, 15.01.2024)
+- YYYY-MM-DD, with `-`, `/` or `.` (2024-01-15, 2024/01/15)
+- Month names and abbreviations: January 15, 2024, Jan. 15 2024, 15th January 2024, January 2024
+- Chinese dates: 2024年1月15日, 2024 年 1 月 15 号, full-width digits, 2024年1月, 1月15日, 二〇二四年一月十五日
+- 2-digit years (01/15/24) and YYYYMMDD (20240115) when a date label such as "Date" or "DOB" is nearby
 
 ### Additional Data Types (Custom)
 
-- **Chinese National ID**: 18-digit ID with validation
-- **Passports**:
-  - Chinese Passport (current and legacy formats)
-  - US Passport
 - **Network Information**:
   - IPv4 addresses
   - IPv6 addresses
   - URLs (HTTP/HTTPS)
 - **Cryptocurrency**: Bitcoin addresses
 - **Custom Predefined Words**: User-defined sensitive terms
+- **Rule Packs**: Anything else, from your own regex rules and validators ([format](docs/rule-packs.md))
 
 </details>
 
@@ -216,6 +245,8 @@ Run the test suite:
 ```bash
 npm test
 ```
+
+The rule pack sandbox is checked in a real browser: start `npm run dev`, then run `node test/browser-rule-sandbox.mjs` with Playwright installed (`TEST_BASE_URL` sets the dev server address).
 
 ## macOS App
 

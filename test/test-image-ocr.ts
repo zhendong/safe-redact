@@ -16,7 +16,7 @@ const parsed = parseOcrTsv(tsv, 320, 200);
 assert.equal(parsed.text, 'amy@example.com\namy@example.com\n4111 1111 1111 1111');
 assert.equal(parseOcrTsv(tsv.split('\n').slice(1).join('\n'), 320, 200).text, parsed.text);
 
-const entities = detectImageEntities(parsed, 320, 200, [
+const entities = await detectImageEntities(parsed, 320, 200, [
   { name: 'email', entityType: EntityType.EMAIL, pattern: /amy@example\.com/g, confidence: 0.9, examples: [] },
   { name: 'card', entityType: EntityType.CREDIT_CARD, pattern: /4111 1111 1111 1111/g, confidence: 0.9, examples: [] },
 ]);

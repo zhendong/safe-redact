@@ -1,55 +1,61 @@
 import type { DetectedEntity, ProcessedPage, EntityPosition, RegexPattern } from '@/lib/types';
-import { EntityType } from '@/lib/types';
-import { getPatternsForText, getContextConfidenceBoost } from '@/utils/regex-patterns';
+import { getPatternsForText } from '@/utils/regex-patterns';
+import { findRuleMatches, type RuleMatch } from '@/lib/rules/matcher';
+import { WorkerScriptHost, type ScriptValidatorHost } from '@/lib/rules/sandbox';
+import { getEnabledRulePacks } from '@/lib/rules/store';
+import type { RulePack } from '@/lib/rules/types';
 import { generateId } from '@/utils/validation';
 import { extractContext } from '@/utils/text-utils';
-import { DEFAULT_SEARCH_CONTEXT_WINDOW, DEFAULT_CONFIDENCE_BOOST } from '@/utils/constants';
 import { createLogger } from '@/utils/logger';
 import { createYielder } from '@/utils/yield';
 
 const log = createLogger('RegexDetector');
 
+/** The entity fields that come from the rule that matched */
+export function entityFromMatch(match: RuleMatch): Pick<DetectedEntity, 'text' | 'entityType' | 'confidence' | 'detectionMethod' | 'ruleName'> {
+  return {
+    text: match.text,
+    entityType: match.pattern.entityType,
+    confidence: match.confidence,
+    detectionMethod: match.pattern.detectionMethod ?? 'regex',
+    ruleName: match.pattern.ruleId ? match.pattern.name : undefined,
+  };
+}
+
+/** Patterns from rule packs with code need a sandbox; create one only then */
+function needsSandbox(patterns: RegexPattern[]): boolean {
+  return patterns.some(pattern => pattern.scriptValidator);
+}
+
 export class RegexDetector {
   /**
-   * Detect entities using regex patterns. Matching is synchronous, so it
+   * Detect entities using the enabled rules. Matching is synchronous, so it
    * yields to the browser between pages (or patterns, for DOCX text) and
    * reports the fraction done through `onProgress`.
    */
   async detectEntities(content: string | ProcessedPage[], onProgress?: (fraction: number) => void): Promise<DetectedEntity[]> {
     const allEntities: DetectedEntity[] = [];
     const yieldToBrowser = createYielder();
+    const packs = getEnabledRulePacks();
+    let host: ScriptValidatorHost | undefined;
+    const sandbox = (patterns: RegexPattern[]) => {
+      if (!host && needsSandbox(patterns)) host = new WorkerScriptHost();
+      return host;
+    };
 
-    if (typeof content === 'string') {
-      // Use language-aware pattern selection for DOCX content
-      const selectedPatterns = getPatternsForText(content);
+    try {
+      if (typeof content === 'string') {
+        // Use language-aware pattern selection for DOCX content
+        const selectedPatterns = getPatternsForText(content);
 
-      for (const [index, pattern] of selectedPatterns.entries()) {
-        await yieldToBrowser();
-        onProgress?.(index / selectedPatterns.length);
-        const matches = this.findMatches(content, pattern);
+        for (const [index, pattern] of selectedPatterns.entries()) {
+          await yieldToBrowser();
+          onProgress?.(index / selectedPatterns.length);
+          const matches = await findRuleMatches(content, [pattern], { host: sandbox([pattern]), packs });
 
-        allEntities.push(...matches.map(match => {
-          // Apply context-aware confidence boost
-          let confidence = pattern.confidence;
-          if (pattern.contextKeywords && pattern.contextKeywords.length > 0) {
-            const windowSize = pattern.contextWindowSize ?? DEFAULT_SEARCH_CONTEXT_WINDOW;
-            const boostMultiplier = pattern.confidenceBoost ?? DEFAULT_CONFIDENCE_BOOST;
-            const boost = getContextConfidenceBoost(
-              content,
-              match.index,
-              match.text.length,
-              pattern.contextKeywords,
-              windowSize,
-              boostMultiplier
-            );
-            confidence = Math.min(1.0, confidence * boost); // Cap at 1.0
-          }
-
-          return {
-            ...match,
+          allEntities.push(...matches.map(match => ({
+            ...entityFromMatch(match),
             id: generateId(),
-            detectionMethod: 'regex' as const,
-            confidence,
             status: 'rejected' as const,
             position: {
               pageNumber: 1, // DOCX doesn't have pages in XML
@@ -57,16 +63,18 @@ export class RegexDetector {
               boundingBox: { x: 0, y: 0, width: 0, height: 0 }, // No coordinates needed for DOCX
             },
             contextText: extractContext(content, match.index, match.text.length),
-          };
-        }));
+          })));
+        }
+      } else {
+        for (const [index, page] of content.entries()) {
+          await yieldToBrowser();
+          onProgress?.(index / content.length);
+          const pageEntities = await this.detectInPage(page, sandbox, packs);
+          allEntities.push(...pageEntities);
+        }
       }
-    } else {
-      for (const [index, page] of content.entries()) {
-        await yieldToBrowser();
-        onProgress?.(index / content.length);
-        const pageEntities = this.detectInPage(page);
-        allEntities.push(...pageEntities);
-      }
+    } finally {
+      host?.dispose();
     }
     return allEntities;
   }
@@ -74,7 +82,11 @@ export class RegexDetector {
   /**
    * Detect entities in a single page
    */
-  private detectInPage(page: ProcessedPage): DetectedEntity[] {
+  private async detectInPage(
+    page: ProcessedPage,
+    sandbox: (patterns: RegexPattern[]) => ScriptValidatorHost | undefined,
+    packs: Map<string, RulePack>,
+  ): Promise<DetectedEntity[]> {
     const entities: DetectedEntity[] = [];
     const mupdfPage = page.pdfPageObject;
 
@@ -84,72 +96,36 @@ export class RegexDetector {
 
     // Use language-aware pattern selection for PDF pages
     const selectedPatterns = getPatternsForText(text);
+    const matches = await findRuleMatches(text, selectedPatterns, { host: sandbox(selectedPatterns), packs });
 
-    for (const pattern of selectedPatterns) {
-      // Reset regex state
-      pattern.pattern.lastIndex = 0;
+    for (const [i, match] of matches.entries()) {
+      // Check if this match is from a form field
+      const formFieldInfo = this.findFormFieldForMatch(page, match.index, match.text, combinedText);
 
-      let match: RegExpExecArray | null;
-      let matchCount = 0;
-      while ((match = pattern.pattern.exec(text)) !== null) {
-        matchCount++;
-        const matchedText = match[0];
-
-        // Validate using custom validator if provided
-        if (pattern.validator && !pattern.validator(matchedText)) {
+      // Try using MuPDF's native search for precise positioning
+      let position = formFieldInfo?.position ||
+                     this.findPositionWithSearch(mupdfPage, page, match.text, match.index);
+      log.debug('Pattern matched', {
+        pattern: match.pattern.name || match.pattern.entityType,
+        page: page.pageNumber,
+        match: i + 1,
+        positioned: Boolean(position),
+      });
+      // Fallback to text item-based method if search fails
+      if (!position) {
+        position = this.findPosition(page, match.index, match.text);
+        if (!position) {
           continue;
         }
-
-        // Check if this match is from a form field
-        const formFieldInfo = this.findFormFieldForMatch(page, match.index, matchedText, combinedText);
-
-        // Try using MuPDF's native search for precise positioning
-        let position = formFieldInfo?.position ||
-                       this.findPositionWithSearch(mupdfPage, page, matchedText, match.index);
-        log.debug('Pattern matched', {
-          pattern: pattern.name || pattern.entityType,
-          page: page.pageNumber,
-          match: matchCount,
-          positioned: Boolean(position),
-        });
-        // Fallback to text item-based method if search fails
-        if (!position) {
-          position = this.findPosition(page, match.index, matchedText);
-          if (!position) {
-            continue;
-          }
-        }
-
-        // Extract context
-        const contextText = extractContext(text, match.index, matchedText.length);
-
-        // Apply context-aware confidence boost
-        let confidence = pattern.confidence;
-        if (pattern.contextKeywords && pattern.contextKeywords.length > 0) {
-          const windowSize = pattern.contextWindowSize ?? DEFAULT_SEARCH_CONTEXT_WINDOW;
-          const boostMultiplier = pattern.confidenceBoost ?? DEFAULT_CONFIDENCE_BOOST;
-          const boost = getContextConfidenceBoost(
-            text,
-            match.index,
-            matchedText.length,
-            pattern.contextKeywords,
-            windowSize,
-            boostMultiplier
-          );
-          confidence = Math.min(1.0, confidence * boost); // Cap at 1.0
-        }
-
-        entities.push({
-          id: generateId(),
-          text: matchedText,
-          entityType: pattern.entityType,
-          confidence,
-          position,
-          detectionMethod: 'regex',
-          status: 'rejected',
-          contextText,
-        });
       }
+
+      entities.push({
+        ...entityFromMatch(match),
+        id: generateId(),
+        position,
+        status: 'rejected',
+        contextText: extractContext(text, match.index, match.text.length),
+      });
     }
 
     return entities;
@@ -587,43 +563,5 @@ export class RegexDetector {
       textIndex: itemIndex,
       transform: item.transform,
     };
-  }
-
-
-  /**
-   * Find all matches for a pattern in docx text
-   */
-  private findMatches(
-    text: string,
-    patternDef: RegexPattern
-  ): Array<{ text: string; entityType: EntityType; index: number }> {
-    const { pattern, entityType } = patternDef;
-    const matches: Array<{ text: string; entityType: EntityType; index: number }> = [];
-
-    // Ensure the pattern has the 'g' flag for global matching
-    let flags = pattern.flags;
-    if (!flags.includes('g')) {
-      flags += 'g';
-    }
-
-    const globalPattern = new RegExp(pattern.source, flags);
-
-    let match;
-    while ((match = globalPattern.exec(text)) !== null) {
-      const matchedText = match[0];
-
-      // Apply validator if exists
-      if (patternDef.validator && !patternDef.validator(matchedText)) {
-        continue;
-      }
-
-      matches.push({
-        text: matchedText,
-        entityType,
-        index: match.index,
-      });
-    }
-
-    return matches;
   }
 }
