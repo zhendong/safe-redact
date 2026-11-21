@@ -63,11 +63,15 @@
 Different fields handle different sensitive information. A rule pack lets you define your own ruleset as a reusable JSON file, without changing Safe Redact's code. For example, you could create rules for:
 
 - **Legal work:** client references, matter numbers, and internal case IDs.
-- **Healthcare:** patient record numbers and appointment references.
+- **Healthcare:** patient record numbers, prescriptions, NPIs, and insurance member IDs.
+- **Finance / Banking:** account references, wire transfers, SWIFT codes, and loan numbers.
+- **Education:** student IDs, transcripts, financial aid IDs, and GPA values.
+- **Real Estate:** MLS numbers, escrow accounts, deed recordings, and purchase prices.
+- **Insurance:** policy numbers, claim references, adjuster IDs, and coverage amounts.
+- **IT / DevOps:** AWS keys, API secrets, database connection strings, private keys, and GitHub PATs.
 - **HR:** employee IDs, badge numbers, and salary amounts next to salary labels.
-- **Finance:** internal account references and transaction IDs.
 
-Try the [legal example pack](docs/examples/legal-rule-pack.json), with English and Chinese labels for client references, matter numbers, contract references, and settlement amounts. The [walkthrough and sample document](docs/rule-packs.md#legal-domain-example) show what it detects and what stays visible.
+Try the six English-only domain packs in [`docs/examples/`](docs/examples/), each with a sample document. The [walkthrough](docs/rule-packs.md#domain-examples) shows their exact formats, selected values, and language scope. The existing [legal example](docs/examples/legal-rule-pack.json) is also available.
 
 ### Create a ruleset with an AI agent
 
@@ -77,6 +81,7 @@ Describe what to detect, its format, and examples of what should and should not 
 Create a Safe Redact JSON rule pack using docs/rule-packs.md and
 docs/examples/rule-pack-example.json in this repository.
 My domain is [domain]. Detect [sensitive fields] in these formats: [formats].
+Use [language] labels and context only; create separate packs for other languages.
 Examples to detect: [made-up examples]. Do not match: [counter-examples].
 Use context conditions or capture groups where needed to select only the
 sensitive value. Include examples and counterExamples for every rule.

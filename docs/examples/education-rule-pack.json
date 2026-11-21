@@ -1,0 +1,133 @@
+{
+  "id": "example-education",
+  "name": "Education records (English)",
+  "version": "1.0.0",
+  "description": "English-language rules. Student IDs, transcript reference numbers, financial aid identifiers, GPA values in context, and education record IDs. All examples are fictional.",
+  "author": "SafeRedact",
+  "rules": [
+    {
+      "id": "student-id",
+      "name": "Student ID",
+      "pattern": "(?<![\\p{L}\\p{N}_])(?:student[ \\t]+(?:id|number|no\\.?))[ \\t]*[:#][ \\t]*(?<sid>[A-Z]{0,3}\\d{7,10})(?![\\p{L}\\p{N}_-])",
+      "flags": "iu",
+      "group": "sid",
+      "entityType": "ID",
+      "confidence": 0.9,
+      "scripts": [
+        "latin"
+      ],
+      "examples": [
+        "Student ID: 2026012345",
+        "Student number: STU2026001",
+        "Student no: 1234567890"
+      ],
+      "counterExamples": [
+        "Invoice number: 2026012345",
+        "Student ID: 20260",
+        "Student ID: 20260123456789"
+      ]
+    },
+    {
+      "id": "transcript-ref",
+      "name": "Transcript Reference",
+      "pattern": "(?<![\\p{L}\\p{N}_])(?:transcript[ \\t]+(?:ref(?:erence)?|id|no\\.?|number))[ \\t]*[:#][ \\t]*(?<tref>TR-\\d{4}-\\d{5})(?![\\p{L}\\p{N}_-])",
+      "flags": "iu",
+      "group": "tref",
+      "entityType": "ID",
+      "confidence": 0.9,
+      "scripts": [
+        "latin"
+      ],
+      "examples": [
+        "Transcript Ref: TR-2026-00123",
+        "Transcript number: TR-2026-00456",
+        "Transcript ID: TR-2026-00789"
+      ],
+      "counterExamples": [
+        "Order Ref: TR-2026-00123",
+        "Transcript Ref: TR-2026-0012",
+        "Transcript Ref: TR-2026-001234"
+      ]
+    },
+    {
+      "id": "financial-aid-id",
+      "name": "Financial Aid ID",
+      "pattern": "(?<![\\p{L}\\p{N}_])(?:financial[ \\t]+aid|scholarship|grant|FAFSA)[ \\t]+(?:id|number|no\\.?|ref(?:erence)?)?[ \\t]*[:#][ \\t]*(?<faid>FA-\\d{4}-\\d{6})(?![\\p{L}\\p{N}_-])",
+      "flags": "iu",
+      "group": "faid",
+      "entityType": "ID",
+      "confidence": 0.9,
+      "scripts": [
+        "latin"
+      ],
+      "examples": [
+        "Financial Aid ID: FA-2026-012345",
+        "Scholarship ref: FA-2026-098765",
+        "Grant number: FA-2026-054321"
+      ],
+      "counterExamples": [
+        "Account ID: FA-2026-012345",
+        "Financial Aid ID: FA-2026-12345",
+        "Financial Aid ID: FA-2026-012345-A"
+      ]
+    },
+    {
+      "id": "gpa-value",
+      "name": "GPA",
+      "pattern": "(?<![\\p{L}\\p{N}_])(?:GPA|grade[ \\t]+point[ \\t]+average|cumulative[ \\t]+GPA)[ \\t]*:[ \\t]*(?<gpa>(?:[0-3]\\.\\d{1,2}|4\\.0{1,2}))(?![\\p{L}\\p{N}_.-])",
+      "flags": "iu",
+      "group": "gpa",
+      "entityType": "CUSTOM",
+      "confidence": 0.6,
+      "scripts": [
+        "latin"
+      ],
+      "contextKeywords": [
+        "student",
+        "academic",
+        "transcript",
+        "cumulative",
+        "semester"
+      ],
+      "contextWindow": 40,
+      "confidenceBoost": 1.4,
+      "requireContext": true,
+      "examples": [
+        "Student cumulative GPA: 3.85",
+        "Academic transcript GPA: 2.50",
+        "Student GPA: 4.00",
+        "Semester GPA: 0.00"
+      ],
+      "counterExamples": [
+        "Rating: 3.85",
+        "Version 3.85",
+        "GPA: 3.85",
+        "Product GPA: 3.85",
+        "Academic GPA: 4.50",
+        "Student GPA: 3.850",
+        "Student GPA: 3.85.1"
+      ]
+    },
+    {
+      "id": "ferpa-education-record",
+      "name": "Education Record ID",
+      "pattern": "(?<![\\p{L}\\p{N}_])(?:education[ \\t]+record|enrollment|registration)[ \\t]+(?:id|number|no\\.?)?[ \\t]*[:#][ \\t]*(?<erid>ER\\d{4}-\\d{5})(?![\\p{L}\\p{N}_-])",
+      "flags": "iu",
+      "group": "erid",
+      "entityType": "ID",
+      "confidence": 0.85,
+      "scripts": [
+        "latin"
+      ],
+      "examples": [
+        "Education Record ID: ER2026-00123",
+        "Enrollment number: ER2026-00456"
+      ],
+      "counterExamples": [
+        "Error code: ER2026-00123",
+        "Education Record ID: ER2026-0012",
+        "Education Record ID: ER2026-001234"
+      ]
+    }
+  ]
+}

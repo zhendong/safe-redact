@@ -1,0 +1,144 @@
+{
+  "id": "example-it-devops",
+  "name": "IT / DevOps secrets (English)",
+  "version": "1.0.0",
+  "description": "English-language rules. AWS access key IDs, generic API keys, database connection strings, complete private key blocks, GCP service account emails, and GitHub PATs. Use on incident reports, runbooks, and configuration audits. All examples are fictional.",
+  "author": "SafeRedact",
+  "rules": [
+    {
+      "id": "aws-access-key",
+      "name": "AWS Access Key ID",
+      "pattern": "(?<![A-Z0-9])(?<key>(?:AKIA|ABIA|ACCA|ASIA)[A-Z0-9]{16})(?![A-Z0-9])",
+      "flags": "",
+      "group": "key",
+      "entityType": "CUSTOM",
+      "confidence": 0.95,
+      "scripts": [
+        "latin"
+      ],
+      "examples": [
+        "AKIAIOSFODNN7EXAMPLE",
+        "aws_access_key_id = AKIAIOSFODNN7EXAMPLE"
+      ],
+      "counterExamples": [
+        "AKIAIOSFODNN7EXAMPL",
+        "XAKIAIOSFODNN7EXAMPLE"
+      ]
+    },
+    {
+      "id": "generic-api-key",
+      "name": "API Key / Secret",
+      "pattern": "(?<![\\p{L}\\p{N}_])[\"']?(?:api[_-]?key|api[_-]?secret|auth[_-]?token|access[_-]?token|secret[_-]?key)[\"']?[ \\t]*[:=][ \\t]*[\"']?(?<apikey>[A-Za-z0-9_.~+/-]{20,2048}={0,2})(?![A-Za-z0-9_.~+/=-])",
+      "flags": "iu",
+      "group": "apikey",
+      "entityType": "CUSTOM",
+      "confidence": 0.85,
+      "scripts": [
+        "latin"
+      ],
+      "examples": [
+        "api_key: sk_live_abcdefghij1234567890",
+        "API_SECRET=\"AbCdEfGhIjKlMnOpQrStUvWx\"",
+        "auth_token=eyJhbGciOiJIUzI1NiIsIn",
+        "\"api_key\": \"sk_live_abcdefghij1234567890\"",
+        "auth_token=eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJkZW1vIn0.fake_signature",
+        "secret_key=AbCdEfGhIjKlMnOpQrStUvWx+/=="
+      ],
+      "counterExamples": [
+        "api_key: short",
+        "api_version: v2.1.0",
+        "my_api_secret=AbCdEfGhIjKlMnOpQrStUvWx",
+        "api_key_name: demo",
+        "auth_token=short.short.short"
+      ]
+    },
+    {
+      "id": "database-connection-string",
+      "name": "Database Connection String",
+      "pattern": "(?<![A-Za-z0-9+.-])(?<connstr>(?:mongodb(?:\\+srv)?|postgres(?:ql)?|mysql|redis|amqp)://[^\\s\"'<>]{10,2048})(?![^\\s\"'<>])",
+      "flags": "i",
+      "group": "connstr",
+      "entityType": "CUSTOM",
+      "confidence": 0.95,
+      "scripts": [
+        "latin"
+      ],
+      "examples": [
+        "mongodb+srv://admin:P%40ssw0rd@cluster0.example.net/mydb",
+        "postgresql://user:secret@db.internal:5432/production",
+        "redis://default:mypassword@cache.internal:6379"
+      ],
+      "counterExamples": [
+        "https://example.com/api",
+        "mongodb://lo"
+      ]
+    },
+    {
+      "id": "private-key-block",
+      "name": "Private Key Block",
+      "pattern": "(?<keyblock>-----BEGIN (?<kind>(?:RSA |EC |DSA |OPENSSH |ENCRYPTED )?PRIVATE KEY|PGP PRIVATE KEY BLOCK)-----[\\s\\S]{1,16384}?-----END \\k<kind>-----)",
+      "flags": "",
+      "group": "keyblock",
+      "entityType": "CUSTOM",
+      "confidence": 0.99,
+      "scripts": [
+        "latin"
+      ],
+      "examples": [
+        "-----BEGIN RSA PRIVATE KEY-----\nFICTIONAL_KEY_MATERIAL_NOT_A_REAL_KEY\n-----END RSA PRIVATE KEY-----",
+        "-----BEGIN PRIVATE KEY-----\nFICTIONAL_KEY_MATERIAL_NOT_A_REAL_KEY\n-----END PRIVATE KEY-----",
+        "-----BEGIN EC PRIVATE KEY-----\nFICTIONAL_KEY_MATERIAL_NOT_A_REAL_KEY\n-----END EC PRIVATE KEY-----",
+        "-----BEGIN OPENSSH PRIVATE KEY-----\nFICTIONAL_KEY_MATERIAL_NOT_A_REAL_KEY\n-----END OPENSSH PRIVATE KEY-----",
+        "-----BEGIN ENCRYPTED PRIVATE KEY-----\nFICTIONAL_KEY_MATERIAL_NOT_A_REAL_KEY\n-----END ENCRYPTED PRIVATE KEY-----",
+        "-----BEGIN PGP PRIVATE KEY BLOCK-----\nFICTIONAL_KEY_MATERIAL_NOT_A_REAL_KEY\n-----END PGP PRIVATE KEY BLOCK-----"
+      ],
+      "counterExamples": [
+        "-----BEGIN PUBLIC KEY-----",
+        "-----BEGIN CERTIFICATE-----",
+        "-----BEGIN RSA PRIVATE KEY-----",
+        "-----BEGIN RSA PRIVATE KEY-----\nFICTIONAL\n-----END EC PRIVATE KEY-----"
+      ]
+    },
+    {
+      "id": "gcp-service-account",
+      "name": "GCP Service Account Email",
+      "pattern": "(?<![A-Za-z0-9._%+-])(?<sa>[a-z][a-z0-9-]{4,28}[a-z0-9]@[a-z][a-z0-9-]*\\.iam\\.gserviceaccount\\.com)(?![A-Za-z0-9_.-])",
+      "flags": "",
+      "group": "sa",
+      "entityType": "CUSTOM",
+      "confidence": 0.95,
+      "scripts": [
+        "latin"
+      ],
+      "examples": [
+        "my-service@my-project.iam.gserviceaccount.com",
+        "prod-worker@example-prod-123.iam.gserviceaccount.com"
+      ],
+      "counterExamples": [
+        "user@gmail.com",
+        "admin@company.com",
+        "my-service@my-project.iam.gserviceaccount.com.evil.test",
+        "prefix.my-service@my-project.iam.gserviceaccount.com"
+      ]
+    },
+    {
+      "id": "github-pat",
+      "name": "GitHub Personal Access Token",
+      "pattern": "(?<![A-Za-z0-9_])(?<ghpat>ghp_[A-Za-z0-9]{36})(?![A-Za-z0-9_])",
+      "flags": "",
+      "group": "ghpat",
+      "entityType": "CUSTOM",
+      "confidence": 0.95,
+      "scripts": [
+        "latin"
+      ],
+      "examples": [
+        "ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghij"
+      ],
+      "counterExamples": [
+        "ghp_short",
+        "xghp_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghij"
+      ]
+    }
+  ]
+}

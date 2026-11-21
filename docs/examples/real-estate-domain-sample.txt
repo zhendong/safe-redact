@@ -1,0 +1,20 @@
+FICTIONAL REAL ESTATE RECORD
+
+MLS# 12345678
+Escrow No: ESC-2026-01234
+Deed No: 2026-012345
+APN: 123-456-789
+Purchase price: $750,000.00
+
+MLS number: 987654321
+Escrow account: ESC-2026-56789
+Recording number: 2026-01234567
+Parcel No: 001-002-003
+Sale price: $1,200,000
+
+Unrelated references below should stay visible with this pack alone:
+Phone: 12345678
+Account No: ESC-2026-01234
+Phone: 2026-012345
+Phone: 123-456-789
+Repair cost: $750,000.00

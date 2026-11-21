@@ -1,0 +1,20 @@
+FICTIONAL FINANCIAL RECORD
+
+Account No: 001-2345-6789
+Wire Transfer ID: WT202611210001
+SWIFT: BOFAUS3N
+Loan No: LN-2026-012345
+Trading Account: TD12345678
+
+Account reference: 100-0001-0001
+Wire ref: WT202611210002
+BIC code: CHASUS33XXX
+Mortgage number: LN-2026-098765
+Brokerage account: MS98765432
+
+Unrelated references below should stay visible with this pack alone:
+Order No: 001-2345-6789
+Tracking ID: WT202611210001
+Code: BOFAUS3N
+Policy No: LN-2026-012345
+Client code: TD12345678

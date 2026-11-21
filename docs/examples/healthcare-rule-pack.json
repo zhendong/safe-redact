@@ -1,0 +1,134 @@
+{
+  "id": "example-healthcare",
+  "name": "Healthcare records (English)",
+  "version": "1.0.0",
+  "description": "English-language rules. Patient record numbers, prescription IDs, provider NPIs, insurance member IDs, and lab accession numbers. All examples are fictional.",
+  "author": "SafeRedact",
+  "rules": [
+    {
+      "id": "patient-mrn",
+      "name": "Patient MRN",
+      "pattern": "(?<![\\p{L}\\p{N}_])(?:patient[ \\t]+(?:id|mrn|record(?:[ \\t]+(?:no\\.?|number))?)[ \\t]*[:#][ \\t]*)(?<mrn>[A-Z]{2,3}-\\d{7,9})(?![\\p{L}\\p{N}_-])",
+      "flags": "iu",
+      "group": "mrn",
+      "entityType": "ID",
+      "confidence": 0.9,
+      "scripts": [
+        "latin"
+      ],
+      "examples": [
+        "Patient MRN: MRN-0012345",
+        "Patient ID: PT-123456789",
+        "Patient record no: MRN-0012345"
+      ],
+      "counterExamples": [
+        "Order ID: MRN-0012345",
+        "Patient MRN: MRN-12345",
+        "Patient MRN: MRN-0012345-A"
+      ]
+    },
+    {
+      "id": "prescription-id",
+      "name": "Prescription ID",
+      "pattern": "(?<![\\p{L}\\p{N}_])(?:prescription[ \\t]+(?:id|no\\.?|number|ref)|Rx[ \\t]*#)[ \\t]*[:]?[ \\t]*(?<rxid>RX-\\d{4}-\\d{6})(?![\\p{L}\\p{N}_-])",
+      "flags": "iu",
+      "group": "rxid",
+      "entityType": "ID",
+      "confidence": 0.9,
+      "scripts": [
+        "latin"
+      ],
+      "examples": [
+        "Prescription ID: RX-2026-001234",
+        "Rx# RX-2026-005678",
+        "Prescription no: RX-2026-009999"
+      ],
+      "counterExamples": [
+        "Invoice ID: RX-2026-001234",
+        "Prescription ID: RX-2026-12345",
+        "Prescription ID: RX-2026-001234-REV"
+      ]
+    },
+    {
+      "id": "npi-number",
+      "name": "NPI Number",
+      "pattern": "(?<![\\p{L}\\p{N}_])(?:NPI|provider[ \\t]+(?:id|number|no\\.?))[ \\t]*[:#]?[ \\t]*(?<npi>[12]\\d{9})(?![\\p{L}\\p{N}_-])",
+      "flags": "iu",
+      "group": "npi",
+      "entityType": "ID",
+      "confidence": 0.75,
+      "validator": "npi-checksum",
+      "scripts": [
+        "latin"
+      ],
+      "contextKeywords": [
+        "NPI",
+        "provider",
+        "physician",
+        "doctor",
+        "clinician",
+        "practitioner"
+      ],
+      "contextWindow": 30,
+      "confidenceBoost": 1.2,
+      "examples": [
+        "NPI: 1234567893",
+        "Provider ID: 1234567893"
+      ],
+      "counterExamples": [
+        "NPI: 1234567890",
+        "Phone: 1234567893",
+        "NPI: 1234567893-A",
+        "NPI: 12345678930",
+        "NPI: 1234567893X"
+      ]
+    },
+    {
+      "id": "insurance-member-id",
+      "name": "Insurance Member ID",
+      "pattern": "(?<![\\p{L}\\p{N}_])(?:(?:insurance|member|subscriber|plan)[ \\t]+(?:id|number|no\\.?))[ \\t]*[:#][ \\t]*(?<memberid>[A-Z]{2,5}\\d{8,12})(?![\\p{L}\\p{N}_-])",
+      "flags": "iu",
+      "group": "memberid",
+      "entityType": "ID",
+      "confidence": 0.85,
+      "scripts": [
+        "latin"
+      ],
+      "examples": [
+        "Member ID: BCBS012345678",
+        "Insurance ID: UHC12345678",
+        "Subscriber no: AETNA01234567"
+      ],
+      "counterExamples": [
+        "Account ID: BCBS012345678",
+        "Member ID: BC1234567",
+        "Member ID: BCBS012345678-A"
+      ]
+    },
+    {
+      "id": "lab-accession",
+      "name": "Lab Accession Number",
+      "pattern": "(?<![\\p{L}\\p{N}_])(?:(?:accession|specimen|lab[ \\t]+(?:order|sample))[ \\t]+(?:no\\.?|number|id|#)?)[ \\t]*[:]?[ \\t]*(?<accession>\\d{2}[A-Z]-\\d{6})(?![\\p{L}\\p{N}_-])",
+      "flags": "iu",
+      "group": "accession",
+      "entityType": "ID",
+      "confidence": 0.85,
+      "scripts": [
+        "latin"
+      ],
+      "examples": [
+        "Accession No: 26L-012345",
+        "Specimen number: 26B-098765",
+        "Lab sample ID: 26P-001122"
+      ],
+      "counterExamples": [
+        "Part number: 26L-012345",
+        "Accession No: 26L-12345",
+        "Accession No: 26L-0123456"
+      ]
+    }
+  ],
+  "validators": {
+    "npi-checksum": "(match) => { if (!/^[12]\\d{9}$/.test(match)) return false; const digits = '80840' + match; let sum = 0; let twice = false; for (let i = digits.length - 1; i >= 0; i--, twice = !twice) { let digit = Number(digits[i]); if (twice) { digit *= 2; if (digit > 9) digit -= 9; } sum += digit; } return sum % 10 === 0; }"
+  }
+}

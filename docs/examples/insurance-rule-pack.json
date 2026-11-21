@@ -1,0 +1,126 @@
+{
+  "id": "example-insurance",
+  "name": "Insurance records (English)",
+  "version": "1.0.0",
+  "description": "English-language rules. Policy numbers, claim references, adjuster IDs, coverage amounts, and group certificate numbers. All examples are fictional.",
+  "author": "SafeRedact",
+  "rules": [
+    {
+      "id": "policy-number",
+      "name": "Policy Number",
+      "pattern": "(?<![\\p{L}\\p{N}_])(?:policy[ \\t]+(?:no\\.?|number|id|#))[ \\t]*[:]?[ \\t]*(?<policy>[A-Z]{2,4}-\\d{7,10})(?![\\p{L}\\p{N}_-])",
+      "flags": "iu",
+      "group": "policy",
+      "entityType": "ID",
+      "confidence": 0.9,
+      "scripts": [
+        "latin"
+      ],
+      "examples": [
+        "Policy No: HO-1234567",
+        "Policy number: AUTO-1234567890",
+        "Policy ID: LIF-12345678"
+      ],
+      "counterExamples": [
+        "Invoice No: HO-1234567",
+        "Policy No: HO-123456",
+        "Policy No: HO-12345678901"
+      ]
+    },
+    {
+      "id": "claim-reference",
+      "name": "Claim Reference",
+      "pattern": "(?<![\\p{L}\\p{N}_])(?:claim[ \\t]+(?:no\\.?|number|ref(?:erence)?|id|#))[ \\t]*[:]?[ \\t]*(?<claim>CLM-\\d{4}-\\d{6})(?![\\p{L}\\p{N}_-])",
+      "flags": "iu",
+      "group": "claim",
+      "entityType": "ID",
+      "confidence": 0.9,
+      "scripts": [
+        "latin"
+      ],
+      "examples": [
+        "Claim No: CLM-2026-012345",
+        "Claim reference: CLM-2026-098765",
+        "Claim ID: CLM-2026-054321"
+      ],
+      "counterExamples": [
+        "Order No: CLM-2026-012345",
+        "Claim No: CLM-2026-12345",
+        "Claim No: CLM-2026-012345-A"
+      ]
+    },
+    {
+      "id": "adjuster-id",
+      "name": "Adjuster ID",
+      "pattern": "(?<![\\p{L}\\p{N}_])(?:adjuster|examiner|investigator)[ \\t]+(?:id|number|no\\.?|#)?[ \\t]*[:]?[ \\t]*(?<adjuster>ADJ-\\d{5})(?![\\p{L}\\p{N}_-])",
+      "flags": "iu",
+      "group": "adjuster",
+      "entityType": "ID",
+      "confidence": 0.85,
+      "scripts": [
+        "latin"
+      ],
+      "examples": [
+        "Adjuster ID: ADJ-01234",
+        "Examiner No: ADJ-56789"
+      ],
+      "counterExamples": [
+        "Agent ID: ADJ-01234",
+        "Adjuster ID: ADJ-0123",
+        "Adjuster ID: ADJ-012345"
+      ]
+    },
+    {
+      "id": "coverage-amount",
+      "name": "Coverage Amount",
+      "pattern": "(?<![\\p{L}\\p{N}_])(?:coverage[ \\t]+(?:amount|limit)|(?:sum|amount)[ \\t]+(?:insured|assured)|benefit[ \\t]+amount)[ \\t]*[:][ \\t]*(?<coverage>\\$[ \\t]*(?:\\d{1,3}(?:,\\d{3})+|\\d+)(?:\\.\\d{2})?)(?![\\w,]|\\.\\d)",
+      "flags": "iu",
+      "group": "coverage",
+      "entityType": "CUSTOM",
+      "confidence": 0.9,
+      "scripts": [
+        "latin"
+      ],
+      "examples": [
+        "Coverage amount: $500,000.00",
+        "Sum insured: $1,000,000",
+        "Coverage limit: $250,000"
+      ],
+      "counterExamples": [
+        "Invoice total: $500,000.00",
+        "Coverage amount: 500000",
+        "Coverage amount: $500,00.00"
+      ]
+    },
+    {
+      "id": "group-certificate",
+      "name": "Group Certificate Number",
+      "pattern": "(?<![\\p{L}\\p{N}_])(?:group|certificate)[ \\t]+(?:no\\.?|number|id|#)?[ \\t]*[:]?[ \\t]*(?<cert>GC\\d{3}-\\d{6})(?![\\p{L}\\p{N}_-])",
+      "flags": "iu",
+      "group": "cert",
+      "entityType": "ID",
+      "confidence": 0.85,
+      "scripts": [
+        "latin"
+      ],
+      "contextKeywords": [
+        "group",
+        "certificate",
+        "policy",
+        "coverage",
+        "insurance"
+      ],
+      "contextWindow": 30,
+      "confidenceBoost": 1.2,
+      "examples": [
+        "Group No: GC001-012345",
+        "Certificate number: GC042-098765"
+      ],
+      "counterExamples": [
+        "Serial: GC001-012345",
+        "Group No: GC001-01234",
+        "Group No: GC001-0123456"
+      ]
+    }
+  ]
+}

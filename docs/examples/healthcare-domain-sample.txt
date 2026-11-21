@@ -1,0 +1,20 @@
+FICTIONAL PATIENT RECORD
+
+Patient MRN: MRN-0012345
+Prescription ID: RX-2026-001234
+NPI: 1234567893
+Member ID: BCBS012345678
+Accession No: 26L-012345
+
+Patient record no: PT-987654321
+Rx# RX-2026-005678
+Provider ID: 1234567893
+Subscriber no: AETNA01234567
+Specimen number: 26B-098765
+
+Unrelated references below should stay visible with this pack alone:
+Order ID: MRN-0012345
+Tracking code: RX-2026-001234
+Phone: 1234567893
+Account ID: BCBS012345678
+Part number: 26L-012345

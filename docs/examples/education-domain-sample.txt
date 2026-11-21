@@ -1,0 +1,20 @@
+FICTIONAL STUDENT RECORD
+
+Student ID: 2026012345
+Transcript Ref: TR-2026-00123
+Financial Aid ID: FA-2026-012345
+Student cumulative GPA: 3.85
+Education Record ID: ER2026-00123
+
+Student number: STU2026001
+Transcript number: TR-2026-00456
+Scholarship ref: FA-2026-098765
+Academic transcript GPA: 2.50
+Enrollment number: ER2026-00456
+
+Unrelated references below should stay visible with this pack alone:
+Invoice number: 2026012345
+Order Ref: TR-2026-00123
+Account ID: FA-2026-012345
+Rating: 3.85
+Error code: ER2026-00123

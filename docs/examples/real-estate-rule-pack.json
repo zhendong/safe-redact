@@ -1,0 +1,142 @@
+{
+  "id": "example-real-estate",
+  "name": "Real estate records (English)",
+  "version": "1.0.0",
+  "description": "English-language rules. MLS numbers, escrow account references, deed recording numbers, parcel/APN numbers, and purchase prices. All examples are fictional.",
+  "author": "SafeRedact",
+  "rules": [
+    {
+      "id": "mls-number",
+      "name": "MLS Number",
+      "pattern": "(?<![\\p{L}\\p{N}_])(?:MLS[ \\t]*(?:no\\.?|number|#|id)?|listing[ \\t]+(?:no\\.?|number|id))[ \\t]*[:]?[ \\t]*(?<mls>\\d{6,9})(?![\\p{L}\\p{N}_-])",
+      "flags": "iu",
+      "group": "mls",
+      "entityType": "ID",
+      "confidence": 0.7,
+      "scripts": [
+        "latin"
+      ],
+      "contextKeywords": [
+        "MLS",
+        "listing",
+        "property",
+        "real estate",
+        "house",
+        "condo",
+        "townhome"
+      ],
+      "contextWindow": 30,
+      "confidenceBoost": 1.3,
+      "requireContext": true,
+      "examples": [
+        "MLS# 12345678",
+        "MLS number: 987654321",
+        "Listing No: 12345678"
+      ],
+      "counterExamples": [
+        "Phone: 12345678",
+        "MLS# 12345",
+        "MLS# 1234567890"
+      ]
+    },
+    {
+      "id": "escrow-number",
+      "name": "Escrow Number",
+      "pattern": "(?<![\\p{L}\\p{N}_])(?:escrow[ \\t]+(?:no\\.?|number|id|ref(?:erence)?|acct|account))[ \\t]*[:#][ \\t]*(?<escrow>ESC-\\d{4}-\\d{5})(?![\\p{L}\\p{N}_-])",
+      "flags": "iu",
+      "group": "escrow",
+      "entityType": "ID",
+      "confidence": 0.9,
+      "scripts": [
+        "latin"
+      ],
+      "examples": [
+        "Escrow No: ESC-2026-01234",
+        "Escrow account: ESC-2026-56789",
+        "Escrow ref: ESC-2026-11111"
+      ],
+      "counterExamples": [
+        "Account No: ESC-2026-01234",
+        "Escrow No: ESC-2026-1234",
+        "Escrow No: ESC-2026-012345"
+      ]
+    },
+    {
+      "id": "deed-recording-number",
+      "name": "Deed Recording Number",
+      "pattern": "(?<![\\p{L}\\p{N}_])(?:deed|recording|instrument)[ \\t]+(?:no\\.?|number|id)?[ \\t]*[:#][ \\t]*(?<deed>\\d{4}-\\d{6,8})(?![\\p{L}\\p{N}_-])",
+      "flags": "iu",
+      "group": "deed",
+      "entityType": "ID",
+      "confidence": 0.7,
+      "scripts": [
+        "latin"
+      ],
+      "contextKeywords": [
+        "deed",
+        "recording",
+        "instrument",
+        "county",
+        "recorder",
+        "title"
+      ],
+      "contextWindow": 40,
+      "confidenceBoost": 1.3,
+      "requireContext": true,
+      "examples": [
+        "Deed No: 2026-012345",
+        "Recording number: 2026-01234567",
+        "Instrument No: 2026-012345"
+      ],
+      "counterExamples": [
+        "Phone: 2026-012345",
+        "Deed No: 2026-01234",
+        "Deed No: 2026-0123456789"
+      ]
+    },
+    {
+      "id": "parcel-number",
+      "name": "Parcel / APN Number",
+      "pattern": "(?<![\\p{L}\\p{N}_])(?:parcel[ \\t]+(?:no\\.?|number|id|#)|APN|assessor(?:'s)?[ \\t]+(?:parcel)?[ \\t]*(?:no\\.?|number))[ \\t]*[:#]?[ \\t]*(?<apn>\\d{3}-\\d{3}-\\d{3})(?![\\p{L}\\p{N}_-])",
+      "flags": "iu",
+      "group": "apn",
+      "entityType": "ID",
+      "confidence": 0.85,
+      "scripts": [
+        "latin"
+      ],
+      "examples": [
+        "APN: 123-456-789",
+        "Parcel No: 001-002-003",
+        "Parcel number: 100-200-300"
+      ],
+      "counterExamples": [
+        "Phone: 123-456-789",
+        "APN: 123-456-78",
+        "APN: 123-456-7890"
+      ]
+    },
+    {
+      "id": "purchase-price",
+      "name": "Purchase Price",
+      "pattern": "(?<![\\p{L}\\p{N}_])(?:purchase[ \\t]+price|sale[ \\t]+price|closing[ \\t]+price|list[ \\t]+price|asking[ \\t]+price)[ \\t]*[:][ \\t]*(?<price>\\$[ \\t]*(?:\\d{1,3}(?:,\\d{3})+|\\d+)(?:\\.\\d{2})?)(?![\\w,]|\\.\\d)",
+      "flags": "iu",
+      "group": "price",
+      "entityType": "CUSTOM",
+      "confidence": 0.9,
+      "scripts": [
+        "latin"
+      ],
+      "examples": [
+        "Purchase price: $750,000.00",
+        "Sale price: $1,200,000",
+        "Closing price: $425,000.00"
+      ],
+      "counterExamples": [
+        "Repair cost: $750,000.00",
+        "Purchase price: 750000",
+        "Purchase price: $750,00.00"
+      ]
+    }
+  ]
+}

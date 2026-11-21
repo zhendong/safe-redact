@@ -1,0 +1,20 @@
+FICTIONAL INSURANCE RECORD
+
+Policy No: HO-1234567
+Claim No: CLM-2026-012345
+Adjuster ID: ADJ-01234
+Coverage amount: $500,000.00
+Group No: GC001-012345
+
+Policy number: AUTO-1234567890
+Claim reference: CLM-2026-098765
+Examiner No: ADJ-56789
+Sum insured: $1,000,000
+Certificate number: GC042-098765
+
+Unrelated references below should stay visible with this pack alone:
+Invoice No: HO-1234567
+Order No: CLM-2026-012345
+Agent ID: ADJ-01234
+Invoice total: $500,000.00
+Serial: GC001-012345

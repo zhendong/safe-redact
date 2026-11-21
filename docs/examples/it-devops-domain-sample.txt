@@ -1,0 +1,28 @@
+FICTIONAL INCIDENT REPORT / DevOps Configuration Audit
+
+The following credentials were found in the staging config:
+
+aws_access_key_id = AKIAIOSFODNN7EXAMPLE
+api_key: sk_live_abcdefghij1234567890
+
+Database connection:
+postgresql://user:secret@db.internal:5432/production
+redis://default:mypassword@cache.internal:6379
+
+Found embedded key:
+-----BEGIN RSA PRIVATE KEY-----
+FICTIONAL_KEY_MATERIAL_NOT_A_REAL_KEY
+-----END RSA PRIVATE KEY-----
+
+Service accounts in use:
+my-service@my-project.iam.gserviceaccount.com
+prod-worker@example-prod-123.iam.gserviceaccount.com
+
+GitHub PAT leaked in logs:
+ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghij
+
+Unrelated references below should stay visible with this pack alone:
+api_version: v2.1.0
+https://example.com/api
+-----BEGIN PUBLIC KEY-----
+user@gmail.com
