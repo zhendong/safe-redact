@@ -3,6 +3,8 @@ import type { DetectedEntity, DetectionConfig } from '@/lib/types';
 import { getEntityColor, getEntityDisplayName } from '@/utils/entity-types';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { getConfidenceLevel } from '@/utils/confidence';
+import { DocxTypeSelect } from './DocxTypeSelect';
+import type { EntityType } from '@/lib/types';
 
 const FOCUS = 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink dark:focus-visible:outline-paper';
 
@@ -16,6 +18,7 @@ interface EntityCardProps {
   similarCount?: number;
   compact?: boolean;
   confidenceThresholds?: DetectionConfig['confidenceThresholds'];
+  onReplacementTypeChange?: (type: EntityType) => void;
 }
 
 export function EntityCard({
@@ -28,6 +31,7 @@ export function EntityCard({
   similarCount,
   compact = false,
   confidenceThresholds,
+  onReplacementTypeChange,
 }: EntityCardProps) {
   const { language, t } = useLanguage();
   const [isExpanded, setIsExpanded] = useState(false);
@@ -138,6 +142,11 @@ export function EntityCard({
           </button>
         </div>
 
+        {onReplacementTypeChange && <div className="mt-2">
+          <DocxTypeSelect text={entity.text} value={entity.replacementType ?? entity.entityType}
+            onChange={onReplacementTypeChange} />
+        </div>}
+
         {/* Expanded context and actions */}
         {isExpanded && (entity.contextText || showConfirmAll) && (
           <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700 space-y-2">
@@ -217,6 +226,11 @@ export function EntityCard({
           </span>
         </button>
       </div>
+
+      {onReplacementTypeChange && <div className="mb-2 ml-8">
+        <DocxTypeSelect text={entity.text} value={entity.replacementType ?? entity.entityType}
+          onChange={onReplacementTypeChange} />
+      </div>}
 
       {entity.contextText && (
         <p className="text-xs text-gray-500 dark:text-gray-400 mb-2 line-clamp-2 ml-8">

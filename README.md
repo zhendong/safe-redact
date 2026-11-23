@@ -23,6 +23,7 @@
 
 ## Newly Added Features and Fixes
 
+- **Reversible DOCX replacements**: Replace sensitive text with readable labels, edit the Word document, then restore the original values while keeping your other edits. Restore records stay on your device. See [Reversible DOCX replacements](#reversible-docx-replacements).
 - **Rule packs for your domain**: Create reusable detection rules for your industry or workflow, such as client references, patient record numbers, or employee IDs. Ask an AI agent to turn your requirements and examples into a rule pack, then install the JSON file in Settings. See [Rule packs](#rule-packs-for-your-domain).
 - **macOS app**: SafeRedact now runs as a native Mac app. OCR and the name-detection model are bundled, so it works fully offline, and the app is blocked from making any network connection. Open files from the File menu, the Dock, or Finder's "Open With", and save results with the native Save dialog. See [macOS App](#macos-app).
 - **Image redaction**: Upload PNG, JPEG, or WebP images; Tesseract.js recognizes English and Simplified Chinese text for pattern matching. Review detections or draw a manual selection, then download a flattened PNG with the selected pixels covered.
@@ -53,7 +54,7 @@
 | Input | Review and redaction | Export |
 | :--- | :--- | :--- |
 | **PDF** | Text detection and manual selection in text-based PDFs | Redacted PDF; sanitization rebuilds pages as images with no selectable or searchable text layer. |
-| **DOCX** | Sensitive text, document metadata, and hidden content | Redacted Word document, with optional sanitization. |
+| **DOCX** | Sensitive text, document metadata, and hidden content | Word document with reversible replacement labels and optional sanitization. |
 | **PNG · JPEG · WebP** | English and Simplified Chinese OCR, image metadata review, and manual selection | Flattened PNG with selected pixels covered; original file metadata is not copied. |
 
 > Image OCR is best effort. Inspect the entire image and manually select anything sensitive that was missed before exporting. Images embedded in PDF and DOCX files are available for manual review; they are not automatically scanned with OCR.
@@ -98,6 +99,21 @@ Files are processed locally and never uploaded. Safe Redact includes no analytic
 
 - **Browser:** OCR starts downloading its worker, engine, and language data when the page opens. Optional name detection also downloads a model. Let the required assets finish loading before disconnecting, and keep the tab open to continue working offline.
 - **macOS app:** OCR and the name-detection model are bundled. The app works fully offline, and its Content Security Policy blocks outgoing network connections. External links open in your browser.
+
+## Reversible DOCX replacements
+
+Replace names, companies, contact details, and other sensitive text with readable labels before sharing a Word document for review or editing. When you receive the edited DOCX, you can restore the original values while keeping the other edits.
+
+The same exact text gets the same label throughout the document, making it easier to follow who or what is being discussed. Labels follow the document's language, such as `[Person A]` and `[Company A]` in English or `[人员1]` and `[公司1]` in Chinese.
+
+1. **Review the replacements.** Open a DOCX, check the detected text, and select anything that was missed. Use **Replacement type** to choose a suitable label. For mixed-language documents, open **Records & restore** to set **Label language**.
+2. **Save a copy with labels.** Click **Save & replace** to download the DOCX. Safe Redact saves a local restore record under the original filename. Each export has its own record, identified by its date and time.
+3. **Edit the document.** Share or edit the exported copy in Word. Keep replacement labels unchanged so they can be restored later.
+4. **Restore the original text.** On the DOCX review page, open **Records & restore**. Under **Restore text**, select the record for that export and choose the edited DOCX. Click **Preview restore**, check the matches and any missing labels, then **Download restored**.
+
+Restore records contain the sensitive original text. They stay in the browser or desktop app you used on this device; they are not included in the exported DOCX or synced to other devices. Use the same browser or app to restore your document. Deleting a record or clearing local app data removes your ability to restore it.
+
+Restoration applies to unchanged replacement labels only. Metadata, comments, and other content removed by sanitization cannot be restored.
 
 ## Data Types Detected
 
@@ -254,6 +270,8 @@ npm test
 ```
 
 The rule pack sandbox is checked in a real browser: start `npm run dev`, then run `node test/browser-rule-sandbox.mjs` with Playwright installed (`TEST_BASE_URL` sets the dev server address).
+
+Reversible DOCX round trips and local record storage are checked with `npm run test:reversible-docx` while the dev server is running. Install Playwright or set `PLAYWRIGHT_MODULE` to an existing module path; `CHROME_EXECUTABLE_PATH` can select an installed browser.
 
 ## macOS App
 

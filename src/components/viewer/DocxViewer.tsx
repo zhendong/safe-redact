@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { DetectedEntity } from '@/lib/types';
+import { EntityType } from '@/lib/types';
+import { DocxTypeSelect } from '@/components/review/DocxTypeSelect';
 import { getEntityColor, getEntityDisplayName } from '@/utils/entity-types';
 import { useLanguage } from '@/contexts/LanguageContext';
 import type { Language } from '@/i18n/translations';
@@ -9,9 +11,10 @@ interface DocxViewerProps {
   htmlContent: string;
   fullText: string;
   entities: DetectedEntity[];
+  replacements?: Record<string, string>;
   selectedEntityId?: string;
   onEntityClick?: (entity: DetectedEntity) => void;
-  onTextSelectionRedact?: (text: string) => void;
+  onTextSelectionRedact?: (text: string, type: EntityType) => void;
 }
 
 /**
@@ -22,6 +25,7 @@ export function DocxViewer({
   htmlContent,
   fullText,
   entities,
+  replacements,
   selectedEntityId,
   onEntityClick,
   onTextSelectionRedact,
@@ -29,6 +33,7 @@ export function DocxViewer({
   const { language, t } = useLanguage();
   const containerRef = useRef<HTMLDivElement>(null);
   const [selection, setSelection] = useState<SelectionPopover | null>(null);
+  const [selectionType, setSelectionType] = useState(EntityType.CUSTOM);
   // Touch selections are drawn by the app: native selection on touch screens opens the
   // system Copy/Translate bar, which a page can't suppress
   const [touchRects, setTouchRects] = useState<DOMRect[]>([]);
@@ -38,8 +43,8 @@ export function DocxViewer({
   // React 19 rewrites innerHTML whenever this object changes identity, which wipes the
   // user's text selection, so only build a new one when the highlights change
   const highlightedHtml = useMemo(
-    () => ({ __html: highlightEntities(htmlContent, fullText, entities, language, selectedEntityId) }),
-    [htmlContent, fullText, entities, selectedEntityId, language]
+    () => ({ __html: highlightEntities(htmlContent, fullText, entities, language, selectedEntityId, replacements) }),
+    [htmlContent, fullText, entities, selectedEntityId, language, replacements]
   );
 
   const clearSelection = () => {
@@ -64,7 +69,7 @@ export function DocxViewer({
       return {
         text,
         occurrences: pattern ? Array.from(fullText.matchAll(pattern)).length : 0,
-        top: last.bottom + 8,
+        top: Math.max(8, Math.min(last.bottom + 8, window.innerHeight - 235)),
         left: Math.min(Math.max(last.right, 170), window.innerWidth - 170),
       };
     };
@@ -80,7 +85,8 @@ export function DocxViewer({
       setSelection(range ? describeRange(range) : null);
     };
     const handleSelectionChange = () => {
-      if (!touchSelectionActiveRef.current && !getNativeSelection()) setSelection(null);
+      if (!touchSelectionActiveRef.current && !getNativeSelection() &&
+        !document.activeElement?.closest('[data-selection-popover]')) setSelection(null);
     };
     const handlePointerDown = (e: PointerEvent) => {
       if ((e.target as Element).closest?.('[data-selection-popover]')) return;
@@ -177,7 +183,7 @@ export function DocxViewer({
 
   const handleRedactSelection = () => {
     if (!selection || !onTextSelectionRedact) return;
-    onTextSelectionRedact(selection.text);
+    onTextSelectionRedact(selection.text, selectionType);
     window.getSelection()?.removeAllRanges();
     clearSelection();
   };
@@ -232,9 +238,9 @@ export function DocxViewer({
   }, [entities, onEntityClick]);
 
   return (
-    <div className="h-full flex flex-col bg-white dark:bg-gray-800">
+    <div className="min-h-0 flex flex-col bg-white dark:bg-gray-800">
       {/* Toolbar */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+      <div className="flex shrink-0 items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
         <div className="text-sm text-gray-600 dark:text-gray-300">
           {t('docxViewer.documentPreview')}
         </div>
@@ -282,6 +288,9 @@ export function DocxViewer({
                 ? t('docxViewer.selectionFoundOnce')
                 : t('docxViewer.selectionFound', { count: selection.occurrences })}
           </p>
+          {selection.occurrences > 0 && <div className="mt-2">
+            <DocxTypeSelect value={selectionType} onChange={setSelectionType} />
+          </div>}
           {selection.occurrences > 0 && (
             <button
               // Keep the text selection alive while clicking
@@ -409,7 +418,8 @@ function highlightEntities(
   fullText: string,
   entities: DetectedEntity[],
   language: Language,
-  selectedEntityId?: string
+  selectedEntityId?: string,
+  replacements?: Record<string, string>,
 ): string {
   const body = new DOMParser().parseFromString(html, 'text/html').body;
 
@@ -431,7 +441,10 @@ function highlightEntities(
     const color = getEntityColor(entity.entityType);
     const isSelected = entity.id === selectedEntityId;
     // Unchecked detections get a dashed underline and no fill so they read as "not redacted"
-    const isChecked = entity.status === 'confirmed';
+    const isChecked = entity.status === 'confirmed' && (!replacements || !!replacements[entity.id]);
+    const replacement = isChecked ? replacements?.[entity.id] : undefined;
+    // Work backwards through runs; insert the label in the first run only.
+    const firstNode = textNodes.find(({ node, start: nodeStart }) => nodeStart + node.data.length > start && nodeStart < end)?.node;
 
     for (let i = textNodes.length - 1; i >= 0; i--) {
       const { node, start: nodeStart } = textNodes[i];
@@ -458,15 +471,17 @@ function highlightEntities(
         span.setAttribute('aria-pressed', String(isSelected));
         span.setAttribute('aria-label', `${displayName}: ${entity.text} (${Math.round(entity.confidence * 100)}%)`);
       }
-      // Checked items look as they will after export: a solid bar over the text
-      span.style.backgroundColor = isChecked ? '#1c1b19' : 'transparent';
-      if (isChecked) span.style.color = '#1c1b19';
+      // Checked items show their export labels or a solid redaction bar.
+      span.style.backgroundColor = replacement ? '#eee4d2' : isChecked ? '#1c1b19' : 'transparent';
+      if (replacement) span.style.color = '#1c1b19';
+      else if (isChecked) span.style.color = '#1c1b19';
       else span.style.borderBottom = `2px dashed ${color}`;
       span.style.cursor = 'pointer';
       span.style.padding = '2px 0';
       if (isSelected) span.style.boxShadow = `0 0 0 3px ${color}40`;
       target.replaceWith(span);
-      span.appendChild(target);
+      if (replacement) span.textContent = node === firstNode ? replacement : '';
+      else span.appendChild(target);
     }
   }
 

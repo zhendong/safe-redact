@@ -17,7 +17,11 @@ import { RegexDetector } from '@/lib/detectors/RegexDetector';
 import { LLMDetector } from '@/lib/detectors/LLMDetector';
 import { EntityAggregator } from '@/lib/detectors/EntityAggregator';
 import { RedactionEngine } from '@/lib/redaction/RedactionEngine';
-import { DocxRedactor } from '@/lib/redaction/DocxRedactor';
+import { ReversibleDocxPanel } from '@/components/review/ReversibleDocxPanel';
+import { createReversibleDocx, prepareDocxReplacement } from '@/lib/redaction/reversible/docx';
+import { saveReplacementRecord } from '@/lib/redaction/reversible/store';
+import { detectReplacementLanguage } from '@/lib/redaction/reversible/mappings';
+import { ReversibleError, type ReplacementRecord, type ReversibleSelection } from '@/lib/redaction/reversible/types';
 import { processImage as processUploadedImage } from '@/lib/image/ImageProcessor';
 import { redactImage, downloadRedactedImage } from '@/lib/image/ImageRedactor';
 import { imageEntitiesFromMatches } from '@/lib/image/ImageOcr';
@@ -25,9 +29,9 @@ import { DocxViewer } from '@/components/viewer/DocxViewer';
 import type { ProcessedDocument, ProcessedPage, ProcessingStage, DetectedEntity, BoundingBox, EntityType, DetectionConfig } from '@/lib/types';
 import { EntityType as EntityTypeEnum } from '@/lib/types';
 import { generateId, validateFile } from '@/utils/validation';
-import { isDesktop, onDesktopFileOpened, onDesktopExportRequested, setDesktopExportEnabled, confirmAction } from '@/platform';
+import { isDesktop, onDesktopFileOpened, onDesktopExportRequested, setDesktopExportEnabled, confirmAction, saveFile } from '@/platform';
 import { STORAGE_KEYS, DEFAULT_CONFIDENCE_THRESHOLDS } from '@/utils/constants';
-import { generateRedactedFilename } from '@/utils/file-utils';
+import { generateRedactedFilename, generateRecordName } from '@/utils/file-utils';
 import { buildWhitespaceTolerantPattern } from '@/utils/text-utils';
 import { enableNewEntityTypes } from '@/utils/entity-types';
 import { useMemo } from 'react';
@@ -66,6 +70,22 @@ function App() {
   const [fileType, setFileType] = useState<FileType | null>(null);
   const [processedDocument, setProcessedDocument] = useState<ProcessedDocument | null>(null);
   const [processedDocx, setProcessedDocx] = useState<ParsedDocx | null>(null);
+  const [reversible, setReversible] = useState<ReversibleSelection>({});
+  const [savedRecord, setSavedRecord] = useState<ReplacementRecord | null>(null);
+  const [reversibleBusy, setReversibleBusy] = useState(false);
+  const docxPanelClass = fileType === 'docx' ? 'min-h-0 max-h-[max(24rem,calc(100dvh-16rem))]' : '';
+  const detectedReplacementLanguage = useMemo(() => detectReplacementLanguage(processedDocx?.fullText ?? ''), [processedDocx?.fullText]);
+  const replacementLanguage = reversible.labelLanguage && reversible.labelLanguage !== 'auto'
+    ? reversible.labelLanguage : detectedReplacementLanguage;
+  const replacementPreview = useMemo(() => {
+    if (fileType !== 'docx' || !processedDocx) return { plan: null, error: null };
+    try {
+      return { plan: prepareDocxReplacement(processedDocx.documentXml, processedDocx.allEntities,
+        [], [], replacementLanguage), error: null };
+    } catch (cause) {
+      return { plan: null, error: cause instanceof ReversibleError ? cause.message : 'reversible.invalid' };
+    }
+  }, [fileType, processedDocx, replacementLanguage]);
   const [processingStage, setProcessingStage] = useState<ProcessingStage>({
     stage: 'uploading',
     progress: 0,
@@ -188,6 +208,9 @@ function App() {
 
   const handleFileSelect = (file: File) => {
     setSelectedFile(file);
+    setReversible({});
+    setSavedRecord(null);
+    setReversibleBusy(false);
     // Detect file type
     const type: FileType = file.type.startsWith('image/') || /\.(png|jpe?g|webp)$/i.test(file.name)
       ? 'image'
@@ -204,6 +227,9 @@ function App() {
     setFileType(null);
     setProcessedDocument(null);
     setProcessedDocx(null);
+    setReversible({});
+    setSavedRecord(null);
+    setReversibleBusy(false);
     setUndoStack([]);
     setStage('upload');
     setError(null);
@@ -359,7 +385,16 @@ function App() {
   };
 
   // DOCX: redact every occurrence of text the user selected in the preview
-  const handleDocxTextRedact = (selectedText: string) => {
+  const handleDocxReplacementTypeChange = (entityId: string, replacementType: EntityType) => {
+    if (!processedDocx) return;
+    const target = processedDocx.allEntities.find(entity => entity.id === entityId);
+    if (!target || !processedDocx.allEntities.some(entity => entity.text === target.text && entity.replacementType !== replacementType)) return;
+    recordUndo();
+    setProcessedDocx({ ...processedDocx, allEntities: processedDocx.allEntities.map(entity =>
+      entity.text === target.text ? { ...entity, replacementType } : entity) });
+  };
+
+  const handleDocxTextRedact = (selectedText: string, entityType: EntityType) => {
     if (!processedDocx) return;
     const pattern = buildWhitespaceTolerantPattern(selectedText);
     if (!pattern) return;
@@ -369,7 +404,8 @@ function App() {
       manualEntities.push({
         id: generateId(),
         text: match[0],
-        entityType: EntityTypeEnum.CUSTOM,
+        entityType,
+        replacementType: entityType,
         confidence: 1.0,
         position: {
           pageNumber: 1,
@@ -387,10 +423,11 @@ function App() {
     }
 
     // Merge with existing detections so overlapping ranges become one checked entity
-    const allEntities = new EntityAggregator().deduplicateEntities([...processedDocx.allEntities, ...manualEntities]);
+    const allEntities = new EntityAggregator().deduplicateEntities([...manualEntities, ...processedDocx.allEntities]);
     log.info('Manual DOCX selection added', { occurrences: manualEntities.length });
     recordUndo();
     setProcessedDocx({ ...processedDocx, allEntities });
+    setEnabledTypes(previous => new Set([...previous, entityType]));
   };
 
   /**
@@ -653,7 +690,7 @@ function App() {
 
   // Desktop: files opened from the menu, Dock, or Finder, and File > Save Redacted File…
   const handleDesktopFileOpened = async (file: File) => {
-    if (stage === 'processing' || stage === 'redacting') return;
+    if (stage === 'processing' || stage === 'redacting' || reversibleBusy) return;
     const validation = validateFile(file);
     if (!validation.valid) {
       setError(validation.error || t('errors.invalidFileType'));
@@ -801,61 +838,33 @@ function App() {
 
   const handleApplyRedactionsDocx = async () => {
     if (!processedDocx || !selectedFile) return;
-
-    // Get confirmed entities
-    const confirmedEntities = processedDocx.allEntities.filter(
-      e => e.status === 'confirmed'
-    );
-
-    if (confirmedEntities.length === 0) {
-      setError(t('errors.noEntitiesConfirmed'));
+    if (reversibleBusy) return;
+    const plan = replacementPreview.plan;
+    if (!plan || !plan.redactedCount) {
+      setError(t(replacementPreview.error ?? 'reversible.noReplacements'));
       return;
     }
 
     setStage('redacting');
     setError(null);
 
-    log.info('Redaction started', { type: 'docx', entities: confirmedEntities.length, sanitize: detectionConfig.sanitizeDocument });
+    log.info('Redaction started', { type: 'docx', entities: plan.redactedCount, sanitize: detectionConfig.sanitizeDocument });
     try {
-      const redactor = new DocxRedactor();
-
-      const result = await redactor.applyRedactions(
-        selectedFile,
-        processedDocx,
-        confirmedEntities,
-        (progress, message) => {
-          setProcessingStage({
-            stage: 'detecting', // reusing stage for redacting
-            progress,
-            message,
-          });
-        },
-        detectionConfig.sanitizeDocument
-      );
-
-      if (result.success && result.pdfBlob) {
-        // Download the redacted DOCX (pdfBlob is reused for consistency)
-        if (!(await redactor.downloadRedactedDocx(result.pdfBlob, selectedFile.name))) {
-          log.info('Save cancelled');
-          setStage('review');
-          return;
-        }
-        log.info('Redaction finished', { type: 'docx', redacted: result.redactedCount, bytes: result.pdfBlob.size });
-
-        setStage('complete');
-        setProcessingStage({
-          stage: 'complete',
-          progress: 100,
-          message: t('progress.redactionSuccess', { count: result.redactedCount }),
-        });
-      } else {
-        log.error('Redaction failed', result.error, { type: fileType ?? undefined });
-        setError(result.error || t('errors.redactionFailedGeneric'));
+      setProcessingStage({ stage: 'detecting', progress: 20, message: t('reversible.preparing') });
+      await nextPaint();
+      const blob = await createReversibleDocx(processedDocx, plan, detectionConfig.sanitizeDocument);
+      const record = await saveReplacementRecord(generateRecordName(selectedFile.name), plan.mappings, plan.reservedLabels);
+      setSavedRecord(record);
+      if (!(await saveFile(blob, generateRedactedFilename(selectedFile.name)))) {
         setStage('review');
+        return;
       }
+      log.info('Redaction finished', { type: 'docx', redacted: plan.redactedCount, bytes: blob.size });
+      setStage('complete');
+      setProcessingStage({ stage: 'complete', progress: 100, message: t('progress.redactionSuccess', { count: plan.redactedCount }) });
     } catch (err) {
-      log.error('Redaction failed', err, { type: fileType ?? undefined });
-      setError(err instanceof Error ? err.message : t('errors.redactionError'));
+      log.error('Redaction failed', 'DOCX export failed', { type: 'docx' });
+      setError(t(err instanceof ReversibleError ? err.message : 'reversible.storage'));
       setStage('review');
     }
   };
@@ -1433,6 +1442,9 @@ function App() {
                 </p>
               </div>
               <div className="flex flex-col gap-3">
+                {fileType === 'docx' && savedRecord && (
+                  <p className="text-sm text-gray-700 dark:text-gray-200">{t('reversible.saved', { name: savedRecord.name })}</p>
+                )}
                 <button
                   onClick={handleBackToUpload}
                   className="btn-primary px-6 py-3"
@@ -1462,6 +1474,7 @@ function App() {
                 <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
                   <button
                     onClick={() => setStage('choose')}
+                    disabled={reversibleBusy}
                     className="btn-ghost h-10 px-3 sm:px-4 text-sm flex-shrink-0 whitespace-nowrap"
                   >
                     {t('review.backToChoose')}
@@ -1526,15 +1539,24 @@ function App() {
                   <button
                     className="btn-primary h-10 px-4 sm:px-6 text-xs sm:text-sm whitespace-nowrap"
                     onClick={handleApplyRedactions}
-                    disabled={confirmedCount === 0}
+                    disabled={confirmedCount === 0 || reversibleBusy || (fileType === 'docx' &&
+                      (!replacementPreview.plan?.redactedCount || !!replacementPreview.error))}
                   >
-                    <span className="hidden sm:inline">{t('review.applyRedactions', { count: confirmedCount })}</span>
-                    <span className="sm:hidden">{t('review.apply', { count: confirmedCount })}</span>
+                    {fileType === 'docx' ? t('reversible.apply', { count: replacementPreview.plan?.redactedCount ?? 0 }) : <>
+                      <span className="hidden sm:inline">{t('review.applyRedactions', { count: confirmedCount })}</span>
+                      <span className="sm:hidden">{t('review.apply', { count: confirmedCount })}</span>
+                    </>}
                   </button>
                 </div>
               </div>
 
-              <p className="text-sm text-gray-600 dark:text-gray-300">{t('review.checkHint')}</p>
+              <p className="text-sm text-gray-600 dark:text-gray-300">{t(fileType === 'docx' ? 'reversible.checkHint' : 'review.checkHint')}</p>
+
+              {fileType === 'docx' && selectedFile && (
+                <ReversibleDocxPanel file={selectedFile} savedRecord={savedRecord} selection={reversible} onChange={selection => { setReversible(selection); setError(null); }}
+                  plan={replacementPreview.plan} planError={replacementPreview.error} onBusyChange={setReversibleBusy}
+                  detectedLanguage={detectedReplacementLanguage} />
+              )}
 
               {/* Filters Section - Desktop only (mobile filters are in EntityList) */}
               <div className="hidden lg:block surface rounded-xl p-4">
@@ -1564,15 +1586,17 @@ function App() {
               />
 
               {/* Review Interface */}
-              <div className="flex flex-col lg:flex-row gap-3 lg:gap-6" style={{ height: 'calc(100vh - 200px)', minHeight: '600px' }}>
+              <div className={`flex flex-col lg:flex-row gap-3 lg:gap-6 ${fileType === 'docx' ? 'lg:items-start' : ''}`}
+                style={fileType === 'docx' ? undefined : { height: 'calc(100vh - 200px)', minHeight: '600px' }}>
                 {/* Entity List Panel - Desktop only */}
-                <div className="hidden lg:flex lg:flex-initial lg:h-auto lg:w-96 lg:flex-shrink-0 surface rounded-xl overflow-hidden flex-col">
+                <div className={`hidden lg:flex lg:flex-initial lg:h-auto lg:w-96 lg:flex-shrink-0 surface rounded-xl overflow-hidden flex-col ${docxPanelClass}`}>
                   <EntityList
                     entities={filteredEntities}
                     selectedEntityId={selectedEntityId}
                     onEntitySelect={handleEntitySelect}
                     onEntityConfirm={handleEntityConfirm}
                     onEntityReject={handleEntityReject}
+                    onReplacementTypeChange={fileType === 'docx' ? handleDocxReplacementTypeChange : undefined}
                     detectionConfig={detectionConfig}
                     enabledTypes={enabledTypes}
                     setEnabledTypes={setEnabledTypes}
@@ -1590,13 +1614,14 @@ function App() {
                 </div>
 
                 {/* Mobile Entity List - Only visible when viewMode is 'entities' */}
-                <div className={`lg:hidden flex-1 surface rounded-xl overflow-hidden flex flex-col ${viewMode === 'document' ? 'hidden' : ''}`}>
+                <div className={`lg:hidden flex-1 surface rounded-xl overflow-hidden flex flex-col ${docxPanelClass} ${viewMode === 'document' ? 'hidden' : ''}`}>
                   <EntityList
                     entities={filteredEntities}
                     selectedEntityId={selectedEntityId}
                     onEntitySelect={handleEntitySelect}
                     onEntityConfirm={handleEntityConfirm}
                     onEntityReject={handleEntityReject}
+                    onReplacementTypeChange={fileType === 'docx' ? handleDocxReplacementTypeChange : undefined}
                     detectionConfig={detectionConfig}
                     enabledTypes={enabledTypes}
                     setEnabledTypes={setEnabledTypes}
@@ -1615,7 +1640,7 @@ function App() {
                 </div>
 
               {/* Document Viewer - PDF or DOCX */}
-              <div className={`flex-1 surface rounded-xl overflow-hidden flex flex-col min-h-[400px] ${viewMode === 'entities' ? 'hidden lg:flex' : ''}`}
+              <div className={`flex-1 min-w-0 surface rounded-xl overflow-hidden flex flex-col ${fileType === 'docx' ? docxPanelClass : 'min-h-[400px]'} ${viewMode === 'entities' ? 'hidden lg:flex' : ''}`}
               >
                 {processedDocument && (
                   <>
@@ -1662,6 +1687,7 @@ function App() {
                     htmlContent={processedDocx.htmlContent}
                     fullText={processedDocx.fullText}
                     entities={filteredEntities}
+                    replacements={replacementPreview.plan?.replacements}
                     selectedEntityId={selectedEntityId}
                     onEntityClick={handleEntitySelect}
                     onTextSelectionRedact={handleDocxTextRedact}

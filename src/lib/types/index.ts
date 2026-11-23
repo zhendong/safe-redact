@@ -9,6 +9,7 @@ export interface DetectedEntity {
   id: string;                              // Unique identifier (uuidv4)
   text: string;                            // The actual detected text
   entityType: EntityType;                  // Classification of entity
+  replacementType?: EntityType;            // DOCX label type chosen during review
   confidence: number;                      // 0.0 to 1.0
   position: EntityPosition;                // Location in document
   detectionMethod: DetectionMethod;        // How it was detected

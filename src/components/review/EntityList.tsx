@@ -27,6 +27,7 @@ interface EntityListProps {
   filteredCount?: number;
   confirmedCount?: number;
   compactCards?: boolean;
+  onReplacementTypeChange?: (entityId: string, type: EntityType) => void;
 }
 
 export function EntityList({
@@ -49,6 +50,7 @@ export function EntityList({
   filteredCount,
   confirmedCount,
   compactCards = false,
+  onReplacementTypeChange,
 }: EntityListProps) {
   const { t } = useLanguage();
   const [isFilterExpanded, setIsFilterExpanded] = useState(false);
@@ -100,7 +102,7 @@ export function EntityList({
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex min-h-0 flex-col h-full">
       {/* Header with integrated filters on mobile */}
       <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-2.5 sm:p-3 lg:p-4 flex-shrink-0">
         {/* Mobile: Compact header with stats and filter toggle */}
@@ -294,6 +296,7 @@ export function EntityList({
                   similarCount={similarEntities.length}
                   confidenceThresholds={thresholds}
                   compact={compactCards}
+                  onReplacementTypeChange={onReplacementTypeChange ? type => onReplacementTypeChange(entity.id, type) : undefined}
                 />
               );
             })}

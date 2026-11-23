@@ -29,6 +29,12 @@ export function removeExtension(filename: string): string {
   return lastDot === -1 ? filename : filename.substring(0, lastDot);
 }
 
+/** Automatic record names fit the local store and keep Unicode characters intact. */
+export function generateRecordName(filename: string): string {
+  const name = removeExtension(filename).trim() || filename.trim() || 'DOCX';
+  return name.slice(0, 200).replace(/[\uD800-\uDBFF]$/, '') || 'DOCX';
+}
+
 /**
  * Get file extension (with dot)
  */
